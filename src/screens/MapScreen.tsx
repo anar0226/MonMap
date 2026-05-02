@@ -18,7 +18,9 @@ import { usePlaceDetail } from '../hooks/usePlaceDetail';
 import { PlaceDetailCard } from '../components/PlaceDetailCard';
 import { SearchBar } from '../components/SearchBar';
 import { SearchScreen } from './SearchScreen';
-import type { PlaceMapFeature } from '../types/place';
+import { DirectionsPanel } from '../components/DirectionsPanel';
+import { useDirections } from '../hooks/useDirections';
+import type { Place, PlaceMapFeature } from '../types/place';
 
 const VIEWPORT_BUFFER = 0.15;
 const FALLBACK_FEATURE_CAP = 200;
@@ -43,6 +45,8 @@ export default function MapScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const { geojson, loading: placesLoading, error: placesError } = usePlaces();
   const { place, loading: detailLoading, fetchDetail, clear } = usePlaceDetail();
+  const { route, loading: routeLoading, error: routeError, fetchRoute, clear: clearRoute } = useDirections();
+  const [routeDestName, setRouteDestName] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,6 +134,29 @@ export default function MapScreen() {
     },
     [flyTo, fetchDetail],
   );
+
+  const fitBoundsToRoute = useCallback((sw: [number, number], ne: [number, number]) => {
+    cameraRef.current?.fitBounds(ne, sw, [120, 60, 220, 60], 800);
+  }, []);
+
+  const handleRequestDirections = useCallback(async (target: Place) => {
+    if (!userLocation) {
+      setMapError('Таны байршил тодорхойгүй байна. Байршлын зөвшөөрлийг шалгана уу.');
+      return;
+    }
+    setRouteDestName(target.name);
+    clear();
+    await fetchRoute(userLocation, [target.lng, target.lat]);
+  }, [userLocation, fetchRoute, clear]);
+
+  const handleCloseRoute = useCallback(() => {
+    clearRoute();
+    setRouteDestName(null);
+  }, [clearRoute]);
+
+  useEffect(() => {
+    if (route) fitBoundsToRoute(route.bounds.sw, route.bounds.ne);
+  }, [route, fitBoundsToRoute]);
 
   // Build iconImage expression: ['coalesce', ['concat', 'poi-', primary_category], 'poi-fallback']
   // We can't `concat` a literal with an unknown getter that may not match a registered name,
@@ -238,6 +265,40 @@ export default function MapScreen() {
             androidRenderMode="compass"
           />
         )}
+
+        {route && (
+          <MapboxGL.ShapeSource id="route" shape={route.segments}>
+            {/* White casing under the route for contrast */}
+            <MapboxGL.LineLayer
+              id="route-casing"
+              style={{
+                lineColor: '#ffffff',
+                lineWidth: 9,
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineOpacity: 0.85,
+              }}
+            />
+            {/* Traffic-colored route */}
+            <MapboxGL.LineLayer
+              id="route-line"
+              aboveLayerID="route-casing"
+              style={{
+                lineColor: [
+                  'match', ['get', 'congestion'],
+                  'low',      '#10B981',
+                  'moderate', '#FBB824',
+                  'heavy',    '#F59E0B',
+                  'severe',   '#EF4444',
+                  /* unknown */ '#0053A3',
+                ] as any,
+                lineWidth: 6,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </MapboxGL.ShapeSource>
+        )}
       </MapboxGL.MapView>
 
       {/* Search bar (top) */}
@@ -262,10 +323,19 @@ export default function MapScreen() {
         </View>
       )}
 
+      <DirectionsPanel
+        route={route}
+        loading={routeLoading}
+        error={routeError}
+        destinationName={routeDestName}
+        onClose={handleCloseRoute}
+      />
+
       <PlaceDetailCard
         place={place}
         loading={detailLoading}
         onClose={clear}
+        onRequestDirections={handleRequestDirections}
       />
 
       {/* Full-screen search modal */}

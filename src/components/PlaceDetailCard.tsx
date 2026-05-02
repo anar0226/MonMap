@@ -496,9 +496,10 @@ interface Props {
   place: Place | null;
   loading: boolean;
   onClose: () => void;
+  onRequestDirections?: (place: Place) => void;
 }
 
-export function PlaceDetailCard({ place, loading, onClose }: Props) {
+export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<'info' | 'book' | 'reviews'>('info');
 
@@ -597,7 +598,12 @@ export function PlaceDetailCard({ place, loading, onClose }: Props) {
       {/* Quick actions */}
       {place && (
         <View style={s.quickRow}>
-          <QuickBtn icon="navigate-outline" label="Чиглэл" highlight />
+          <QuickBtn
+            icon="navigate-outline"
+            label="Чиглэл"
+            highlight
+            onPress={() => onRequestDirections?.(place)}
+          />
           <QuickBtn
             icon="call-outline"
             label="Залгах"

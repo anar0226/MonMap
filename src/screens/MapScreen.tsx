@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { StyleSheet, View, TouchableOpacity, Text, Platform, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import type { FeatureCollection, Point } from 'geojson';
@@ -22,9 +22,6 @@ import type { PlaceMapFeature } from '../types/place';
 
 const VIEWPORT_BUFFER = 0.15;
 const FALLBACK_FEATURE_CAP = 200;
-
-// Bottom offset for recenter button when the sheet is visible (collapsed height + margin)
-const SHEET_VISIBLE_BOTTOM = 196;
 
 // All category keys we render icons for. Must be kept in sync with categories.ts.
 const ALL_CATEGORY_KEYS = [
@@ -134,16 +131,6 @@ export default function MapScreen() {
     [flyTo, fetchDetail],
   );
 
-  const recenterOnUser = () => {
-    const target = userLocation ?? UB_CENTER;
-    flyTo(target[0], target[1], UB_DEFAULT_ZOOM);
-  };
-
-  const sheetVisible = place !== null || detailLoading;
-  const recenterBottom = sheetVisible
-    ? SHEET_VISIBLE_BOTTOM + (Platform.OS === 'ios' ? 16 : 0)
-    : Platform.OS === 'ios' ? 48 : 32;
-
   // Build iconImage expression: ['coalesce', ['concat', 'poi-', primary_category], 'poi-fallback']
   // We can't `concat` a literal with an unknown getter that may not match a registered name,
   // so use `match` to map known categories → image name and fall back otherwise.
@@ -164,8 +151,7 @@ export default function MapScreen() {
         logoEnabled={false}
         attributionEnabled={true}
         attributionPosition={{ bottom: 8, right: 8 }}
-        compassEnabled={true}
-        compassPosition={{ top: 100, right: 16 }}
+        compassEnabled={false}
         scaleBarEnabled={false}
         onMapIdle={handleMapIdle}
         onPress={handleMapPress}
@@ -276,14 +262,6 @@ export default function MapScreen() {
         </View>
       )}
 
-      <TouchableOpacity
-        style={[styles.recenterBtn, { bottom: recenterBottom }]}
-        onPress={recenterOnUser}
-        activeOpacity={0.8}
-      >
-        <Text style={styles.recenterIcon}>⊕</Text>
-      </TouchableOpacity>
-
       <PlaceDetailCard
         place={place}
         loading={detailLoading}
@@ -338,24 +316,5 @@ const styles = StyleSheet.create({
   placesLoadingText: {
     fontSize: 12,
     color: '#555',
-  },
-  recenterBtn: {
-    position: 'absolute',
-    right: 16,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  recenterIcon: {
-    fontSize: 24,
-    color: FALLBACK_COLOR,
   },
 });

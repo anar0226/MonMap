@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   Dimensions,
   Linking,
   ActivityIndicator,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Place } from '../types/place';
@@ -19,12 +21,13 @@ import {
   CATEGORY_LABELS,
   BOOKABLE_CATEGORIES,
 } from '../constants/categories';
+import { useReviews, computeRatingBars, type Review } from '../hooks/useReviews';
+import { useBooking, generateTimeSlots, todayDateString } from '../hooks/useBooking';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
 const COLLAPSED_H = 182;
 const EXPANDED_H = Math.min(Math.round(SCREEN_H * 0.80), 640);
-
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -58,10 +61,17 @@ const Stars = ({ value, size = 12 }: { value: number; size?: number }) => (
   </View>
 );
 
-
-const Pill = ({ label }: { label: string }) => (
-  <View style={s.pill}>
-    <Text style={s.pillText}>{label}</Text>
+const StarPicker = ({ value, onChange }: { value: number; onChange: (n: number) => void }) => (
+  <View style={{ flexDirection: 'row', gap: 6 }}>
+    {[1, 2, 3, 4, 5].map(i => (
+      <TouchableOpacity key={i} onPress={() => onChange(i)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+        <Ionicons
+          name={i <= value ? 'star' : 'star-outline'}
+          size={28}
+          color={i <= value ? C.amber : C.textMuted}
+        />
+      </TouchableOpacity>
+    ))}
   </View>
 );
 
@@ -122,7 +132,6 @@ const InfoTab = ({ place }: { place: Place }) => {
 
       <Div />
 
-      {/* Mini map placeholder */}
       <View style={s.miniMap}>
         <View style={s.miniMapPin}>
           <Ionicons name="location" size={14} color="#fff" />
@@ -135,16 +144,38 @@ const InfoTab = ({ place }: { place: Place }) => {
 
 // ── Tab: Захиалах ─────────────────────────────────────────────────────────────
 
-const TIME_SLOTS = [
-  '10:00', '10:30', '11:00', '11:30', '12:00',
-  '12:30', '13:00', '13:30', '14:00',
-];
-const UNAVAILABLE = new Set([2, 5]);
+const TIME_SLOTS = generateTimeSlots(10, 20);
 
-const BookTab = ({ isBookable }: { isBookable: boolean }) => {
-  const [selectedSlot, setSelectedSlot] = useState(0);
+const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) => {
+  const today = todayDateString();
+  const { slots, loadingSlots, submitting, error, confirmed, fetchSlots, submitBooking, resetConfirmed } = useBooking();
+  const [selectedSlotIdx, setSelectedSlotIdx] = useState(0);
   const [partySize, setPartySize] = useState(2);
+  const [guestName, setGuestName] = useState('');
+  const [guestPhone, setGuestPhone] = useState('');
+  const [showForm, setShowForm] = useState(false);
   const partySizes: Array<string | number> = [1, 2, 3, 4, '5+'];
+
+  useEffect(() => {
+    if (isBookable) fetchSlots(place.place_id, today, TIME_SLOTS);
+  }, [place.place_id, isBookable]);
+
+  const handleConfirm = async () => {
+    if (!guestName.trim()) {
+      Alert.alert('Нэрээ оруулна уу');
+      return;
+    }
+    const slot = slots[selectedSlotIdx];
+    if (!slot?.available) return;
+    await submitBooking({
+      placeId: place.place_id,
+      date: today,
+      timeSlot: slot.slot,
+      partySize,
+      guestName: guestName.trim(),
+      guestPhone: guestPhone.trim(),
+    });
+  };
 
   if (!isBookable) {
     return (
@@ -160,42 +191,66 @@ const BookTab = ({ isBookable }: { isBookable: boolean }) => {
     );
   }
 
+  if (confirmed) {
+    return (
+      <View style={s.emptyState}>
+        <View style={[s.emptyIcon, { backgroundColor: 'rgba(16,185,129,0.15)' }]}>
+          <Ionicons name="checkmark-circle-outline" size={28} color={C.green} />
+        </View>
+        <Text style={[s.emptyTitle, { color: C.green }]}>Захиалга баталгаажлаа!</Text>
+        <Text style={s.emptyDesc}>
+          {slots[selectedSlotIdx]?.slot} цагт {partySize} хүний захиалга бүртгэгдлээ.
+        </Text>
+        <TouchableOpacity
+          style={[s.ctaSecondary, { marginTop: 16, alignSelf: 'stretch' }]}
+          onPress={() => { resetConfirmed(); setShowForm(false); fetchSlots(place.place_id, today, TIME_SLOTS); }}
+          activeOpacity={0.8}
+        >
+          <Text style={s.ctaSecondaryText}>Буцах</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const availableSlots = slots.length > 0 ? slots : TIME_SLOTS.map(s => ({ slot: s, booked: 0, available: true }));
+  const selectedSlot = availableSlots[selectedSlotIdx];
+  const nextAvailIdx = availableSlots.findIndex(s => s.available);
+
   return (
     <View style={{ gap: 16 }}>
-      {/* Next slot banner */}
+      {error && (
+        <Text style={{ color: C.red, fontSize: 12, textAlign: 'center' }}>{error}</Text>
+      )}
+
       <View style={s.nextSlotBanner}>
         <View>
           <Text style={s.nextSlotLabel}>Дараагийн боломжит цаг</Text>
-          <Text style={s.nextSlotValue}>Өнөөдөр, {TIME_SLOTS[selectedSlot]}</Text>
+          <Text style={s.nextSlotValue}>
+            {nextAvailIdx >= 0 ? `Өнөөдөр, ${availableSlots[nextAvailIdx].slot}` : 'Өнөөдөр захиалга дүүрсэн'}
+          </Text>
         </View>
-        <Ionicons name="calendar-outline" size={22} color={C.primaryLt} />
+        {loadingSlots
+          ? <ActivityIndicator size="small" color={C.primaryLt} />
+          : <Ionicons name="calendar-outline" size={22} color={C.primaryLt} />
+        }
       </View>
 
-      {/* Time slot grid */}
       <View>
         <Text style={s.sectionLabel}>ӨНӨӨДРИЙН ЦАГИЙН ХУВААРЬ</Text>
         <View style={s.slotGrid}>
-          {TIME_SLOTS.map((slot, i) => {
-            const unavail = UNAVAILABLE.has(i);
-            const sel = i === selectedSlot && !unavail;
+          {availableSlots.map((item, i) => {
+            const unavail = !item.available;
+            const sel = i === selectedSlotIdx && !unavail;
             return (
               <TouchableOpacity
-                key={slot}
+                key={item.slot}
                 disabled={unavail}
-                onPress={() => setSelectedSlot(i)}
+                onPress={() => setSelectedSlotIdx(i)}
                 activeOpacity={0.7}
-                style={[
-                  s.slotBtn,
-                  sel && s.slotBtnSel,
-                  unavail && s.slotBtnUnavail,
-                ]}
+                style={[s.slotBtn, sel && s.slotBtnSel, unavail && s.slotBtnUnavail]}
               >
-                <Text style={[
-                  s.slotText,
-                  sel && s.slotTextSel,
-                  unavail && s.slotTextUnavail,
-                ]}>
-                  {slot}
+                <Text style={[s.slotText, sel && s.slotTextSel, unavail && s.slotTextUnavail]}>
+                  {item.slot}
                 </Text>
               </TouchableOpacity>
             );
@@ -203,7 +258,6 @@ const BookTab = ({ isBookable }: { isBookable: boolean }) => {
         </View>
       </View>
 
-      {/* Party size */}
       <View>
         <Text style={s.sectionLabel}>ХҮНИЙ ТОО</Text>
         <View style={s.partySizeRow}>
@@ -225,27 +279,161 @@ const BookTab = ({ isBookable }: { isBookable: boolean }) => {
 
       <Div />
 
-      <TouchableOpacity style={s.ctaPrimary} activeOpacity={0.85}>
-        <Text style={s.ctaPrimaryText}>Захиалгыг баталгаажуулах</Text>
-      </TouchableOpacity>
-      <TouchableOpacity style={s.ctaSecondary} activeOpacity={0.85}>
-        <Text style={s.ctaSecondaryText}>Хүлээлгийн жагсаалтад нэгдэх</Text>
-      </TouchableOpacity>
+      {showForm ? (
+        <View style={{ gap: 10 }}>
+          <TextInput
+            style={s.textInput}
+            placeholder="Нэр *"
+            placeholderTextColor={C.textMuted}
+            value={guestName}
+            onChangeText={setGuestName}
+          />
+          <TextInput
+            style={s.textInput}
+            placeholder="Утасны дугаар"
+            placeholderTextColor={C.textMuted}
+            keyboardType="phone-pad"
+            value={guestPhone}
+            onChangeText={setGuestPhone}
+          />
+          <TouchableOpacity
+            style={[s.ctaPrimary, (!selectedSlot?.available || submitting) && { opacity: 0.5 }]}
+            activeOpacity={0.85}
+            disabled={!selectedSlot?.available || submitting}
+            onPress={handleConfirm}
+          >
+            {submitting
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={s.ctaPrimaryText}>Захиалгыг баталгаажуулах</Text>
+            }
+          </TouchableOpacity>
+          <TouchableOpacity style={s.ctaSecondary} activeOpacity={0.85} onPress={() => setShowForm(false)}>
+            <Text style={s.ctaSecondaryText}>Буцах</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <>
+          <TouchableOpacity
+            style={[s.ctaPrimary, !selectedSlot?.available && { opacity: 0.4 }]}
+            activeOpacity={0.85}
+            disabled={!selectedSlot?.available}
+            onPress={() => setShowForm(true)}
+          >
+            <Text style={s.ctaPrimaryText}>Захиалгыг баталгаажуулах</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={s.ctaSecondary} activeOpacity={0.85}>
+            <Text style={s.ctaSecondaryText}>Хүлээлгийн жагсаалтад нэгдэх</Text>
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 };
 
 // ── Tab: Сэтгэгдэл ───────────────────────────────────────────────────────────
 
-const RATING_BARS = [78, 14, 5, 2, 1];
+const ReviewCard = ({ review }: { review: Review }) => {
+  const date = new Date(review.created_at).toLocaleDateString('mn-MN', { year: 'numeric', month: 'short', day: 'numeric' });
+  return (
+    <View style={s.reviewCard}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+        <Text style={s.reviewAuthor}>{review.author_name}</Text>
+        <Text style={s.reviewDate}>{date}</Text>
+      </View>
+      <Stars value={review.rating} size={11} />
+      {review.body ? (
+        <Text style={s.reviewBody}>{review.body}</Text>
+      ) : null}
+    </View>
+  );
+};
+
+const WriteReviewForm = ({
+  placeId,
+  onSubmit,
+  onCancel,
+  submitting,
+  error,
+}: {
+  placeId: string;
+  onSubmit: (name: string, rating: number, body: string) => void;
+  onCancel: () => void;
+  submitting: boolean;
+  error: string | null;
+}) => {
+  const [name, setName] = useState('');
+  const [rating, setRating] = useState(5);
+  const [body, setBody] = useState('');
+
+  return (
+    <View style={s.reviewForm}>
+      <Text style={[s.sectionLabel, { marginBottom: 12 }]}>СЭТГЭГДЭЛ БИЧИХ</Text>
+      {error && <Text style={{ color: C.red, fontSize: 12, marginBottom: 8 }}>{error}</Text>}
+      <StarPicker value={rating} onChange={setRating} />
+      <TextInput
+        style={[s.textInput, { marginTop: 12 }]}
+        placeholder="Нэр *"
+        placeholderTextColor={C.textMuted}
+        value={name}
+        onChangeText={setName}
+      />
+      <TextInput
+        style={[s.textInput, { marginTop: 8, height: 80, textAlignVertical: 'top' }]}
+        placeholder="Сэтгэгдэл (заавал биш)"
+        placeholderTextColor={C.textMuted}
+        multiline
+        value={body}
+        onChangeText={setBody}
+      />
+      <TouchableOpacity
+        style={[s.ctaPrimary, { marginTop: 12 }, (submitting || !name.trim()) && { opacity: 0.5 }]}
+        activeOpacity={0.85}
+        disabled={submitting || !name.trim()}
+        onPress={() => onSubmit(name.trim(), rating, body.trim())}
+      >
+        {submitting
+          ? <ActivityIndicator size="small" color="#fff" />
+          : <Text style={s.ctaPrimaryText}>Илгээх</Text>
+        }
+      </TouchableOpacity>
+      <TouchableOpacity style={[s.ctaSecondary, { marginTop: 8 }]} activeOpacity={0.85} onPress={onCancel}>
+        <Text style={s.ctaSecondaryText}>Буцах</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const ReviewsTab = ({ place }: { place: Place }) => {
+  const { reviews, loading, submitting, error, fetchReviews, submitReview } = useReviews(place.place_id);
+  const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    fetchReviews(place.place_id);
+  }, [place.place_id]);
+
+  const handleSubmit = useCallback(async (name: string, rating: number, body: string) => {
+    const ok = await submitReview(place.place_id, name, rating, body);
+    if (ok) setShowForm(false);
+  }, [place.place_id, submitReview]);
+
   const rating = place.rating ?? 0;
   const count = place.user_rating_count ?? 0;
+  const ratingBars = computeRatingBars(reviews);
+
+  if (showForm) {
+    return (
+      <WriteReviewForm
+        placeId={place.place_id}
+        onSubmit={handleSubmit}
+        onCancel={() => setShowForm(false)}
+        submitting={submitting}
+        error={error}
+      />
+    );
+  }
 
   return (
     <View style={{ gap: 0 }}>
-      {/* Summary */}
       <View style={s.ratingSummary}>
         <View style={{ alignItems: 'center', gap: 4 }}>
           <Text style={s.ratingBig}>{rating.toFixed(1)}</Text>
@@ -257,21 +445,27 @@ const ReviewsTab = ({ place }: { place: Place }) => {
             <View key={n} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <Text style={s.barNum}>{n}</Text>
               <View style={s.barTrack}>
-                <View style={[s.barFill, { width: `${RATING_BARS[i]}%` as any }]} />
+                <View style={[s.barFill, { width: `${ratingBars[i]}%` as any }]} />
               </View>
-              <Text style={s.barPct}>{RATING_BARS[i]}%</Text>
+              <Text style={s.barPct}>{ratingBars[i]}%</Text>
             </View>
           ))}
         </View>
       </View>
 
-      <View style={{ marginTop: 8 }}>
+      {loading ? (
+        <ActivityIndicator color={C.primaryLt} style={{ paddingVertical: 24 }} />
+      ) : reviews.length === 0 ? (
         <Text style={[s.emptyDesc, { textAlign: 'center', paddingVertical: 24 }]}>
           Одоогоор сэтгэгдэл байхгүй байна.
         </Text>
-      </View>
+      ) : (
+        <View style={{ gap: 10, marginBottom: 8 }}>
+          {reviews.map(r => <ReviewCard key={r.id} review={r} />)}
+        </View>
+      )}
 
-      <TouchableOpacity style={s.writeReviewBtn} activeOpacity={0.7}>
+      <TouchableOpacity style={s.writeReviewBtn} activeOpacity={0.7} onPress={() => setShowForm(true)}>
         <Ionicons name="add-outline" size={14} color={C.textSec} />
         <Text style={s.writeReviewText}>Сэтгэгдэл бичих</Text>
       </TouchableOpacity>
@@ -293,10 +487,6 @@ export function PlaceDetailCard({ place, loading, onClose }: Props) {
 
   const visible = place !== null || loading;
 
-  // translateY strategy: sheet height is fixed at EXPANDED_H.
-  // 0            = fully visible (expanded state)
-  // EXPANDED_H-COLLAPSED_H = collapsed (only COLLAPSED_H peeking up)
-  // EXPANDED_H   = fully off-screen (hidden)
   const sheetY = useRef(new Animated.Value(EXPANDED_H)).current;
 
   useEffect(() => {
@@ -349,7 +539,6 @@ export function PlaceDetailCard({ place, loading, onClose }: Props) {
           <ActivityIndicator color={C.primaryLt} size="small" style={{ marginVertical: 12 }} />
         ) : place ? (
           <>
-            {/* Category + status row */}
             <View style={s.metaRow}>
               <CategoryIcon category={place.primary_category} size={22} />
               <Text style={s.catLabel}>{catLabel}</Text>
@@ -381,10 +570,8 @@ export function PlaceDetailCard({ place, loading, onClose }: Props) {
               </TouchableOpacity>
             </View>
 
-            {/* Place name */}
             <Text style={s.placeName} numberOfLines={1}>{place.name}</Text>
 
-            {/* Rating row */}
             {place.rating !== null && (
               <View style={s.ratingRow}>
                 <Stars value={place.rating} size={12} />
@@ -412,18 +599,15 @@ export function PlaceDetailCard({ place, loading, onClose }: Props) {
         </View>
       )}
 
-      {/* Expanded content — only rendered when expanded to avoid layout cost */}
       {expanded && place && (
         <View style={s.expandedContent}>
           <Div />
 
-          {/* Cover photo placeholder */}
           <View style={[s.cover, { backgroundColor: catColor + '22' }]}>
             <CategoryIcon category={place.primary_category} size={44} />
             <Text style={s.coverLabel}>ЗУРГИЙН БАЙРШИЛ</Text>
           </View>
 
-          {/* Tab bar */}
           <View style={s.tabBar}>
             {TABS.map(t => (
               <TouchableOpacity
@@ -439,14 +623,13 @@ export function PlaceDetailCard({ place, loading, onClose }: Props) {
             ))}
           </View>
 
-          {/* Tab body */}
           <ScrollView
             style={s.tabBody}
             contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
             showsVerticalScrollIndicator={false}
           >
             {tab === 'info'    && <InfoTab place={place} />}
-            {tab === 'book'    && <BookTab isBookable={isBookable} />}
+            {tab === 'book'    && <BookTab place={place} isBookable={isBookable} />}
             {tab === 'reviews' && <ReviewsTab place={place} />}
           </ScrollView>
         </View>
@@ -473,7 +656,6 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
 
-  // ── Handle ──
   handleArea: {
     alignItems: 'center',
     paddingTop: 10,
@@ -486,7 +668,6 @@ const s = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.15)',
   },
 
-  // ── Header ──
   header: {
     paddingHorizontal: 16,
     paddingTop: 8,
@@ -553,7 +734,6 @@ const s = StyleSheet.create({
     color: C.textMuted,
   },
 
-  // ── Quick actions ──
   quickRow: {
     flexDirection: 'row',
     gap: 8,
@@ -582,7 +762,6 @@ const s = StyleSheet.create({
     fontWeight: '500',
   },
 
-  // ── Expanded ──
   expandedContent: {
     flex: 1,
     overflow: 'hidden',
@@ -604,7 +783,6 @@ const s = StyleSheet.create({
     letterSpacing: 1.2,
   },
 
-  // ── Tabs ──
   tabBar: {
     flexDirection: 'row',
     borderBottomWidth: 1,
@@ -635,7 +813,6 @@ const s = StyleSheet.create({
     flex: 1,
   },
 
-  // ── InfoRow ──
   infoRow: {
     flexDirection: 'row',
     gap: 12,
@@ -648,7 +825,6 @@ const s = StyleSheet.create({
     lineHeight: 20,
   },
 
-  // ── Mini map ──
   miniMap: {
     height: 88,
     borderRadius: 12,
@@ -673,23 +849,6 @@ const s = StyleSheet.create({
     letterSpacing: 1,
   },
 
-  // ── Pill ──
-  pill: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    borderWidth: 1,
-    borderColor: C.border,
-  },
-  pillText: {
-    fontSize: 11,
-    color: C.textSec,
-    fontWeight: '500',
-    letterSpacing: 0.3,
-  },
-
-  // ── Book tab ──
   nextSlotBanner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -830,7 +989,17 @@ const s = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // ── Reviews tab ──
+  textInput: {
+    backgroundColor: C.surface,
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 14,
+    color: C.text,
+  },
+
   ratingSummary: {
     flexDirection: 'row',
     gap: 20,
@@ -877,6 +1046,31 @@ const s = StyleSheet.create({
     fontSize: 10,
     color: C.textMuted,
     width: 24,
+  },
+  reviewCard: {
+    backgroundColor: C.surface,
+    borderRadius: 10,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  reviewAuthor: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.text,
+  },
+  reviewDate: {
+    fontSize: 11,
+    color: C.textMuted,
+  },
+  reviewBody: {
+    fontSize: 13,
+    color: C.textSec,
+    lineHeight: 20,
+    marginTop: 6,
+  },
+  reviewForm: {
+    gap: 0,
   },
   writeReviewBtn: {
     flexDirection: 'row',

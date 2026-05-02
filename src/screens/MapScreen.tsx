@@ -11,51 +11,30 @@ import {
   UB_MAX_ZOOM,
   MAPBOX_STYLE,
 } from '../constants/config';
+import { CATEGORY_COLORS, FALLBACK_COLOR } from '../constants/categories';
+import { CategoryIcon } from '../components/CategoryIcon';
 import { usePlaces } from '../hooks/usePlaces';
 import { usePlaceDetail } from '../hooks/usePlaceDetail';
 import { PlaceDetailCard } from '../components/PlaceDetailCard';
+import { SearchBar } from '../components/SearchBar';
+import { SearchScreen } from './SearchScreen';
 import type { PlaceMapFeature } from '../types/place';
-
-// ─── Category colour palette ──────────────────────────────────────────────────
-const CATEGORY_COLORS: Record<string, string> = {
-  restaurant: '#E53935',
-  cafe: '#6D4C41',
-  bar: '#7B1FA2',
-  bakery: '#FB8C00',
-  grocery_or_supermarket: '#43A047',
-  convenience_store: '#00897B',
-  shopping_mall: '#3949AB',
-  clothing_store: '#E91E63',
-  beauty_salon: '#AD1457',
-  hair_care: '#880E4F',
-  spa: '#00838F',
-  gym: '#2E7D32',
-  pharmacy: '#C62828',
-  hospital: '#B71C1C',
-  doctor: '#EF5350',
-  dentist: '#1565C0',
-  bank: '#0D47A1',
-  car_repair: '#37474F',
-  gas_station: '#E65100',
-};
-const FALLBACK_COLOR = '#1A73E8';
-
-function matchExpr(getter: any[], pairs: Record<string, string>, fallback: string): any[] {
-  const expr: any[] = ['match', getter];
-  for (const [key, value] of Object.entries(pairs)) {
-    expr.push(key, value);
-  }
-  expr.push(fallback);
-  return expr;
-}
-
-const CIRCLE_COLOR = matchExpr(['get', 'primary_category'], CATEGORY_COLORS, FALLBACK_COLOR);
 
 const VIEWPORT_BUFFER = 0.15;
 const FALLBACK_FEATURE_CAP = 200;
 
 // Bottom offset for recenter button when the sheet is visible (collapsed height + margin)
 const SHEET_VISIBLE_BOTTOM = 196;
+
+// All category keys we render icons for. Must be kept in sync with categories.ts.
+const ALL_CATEGORY_KEYS = [
+  ...Object.keys(CATEGORY_COLORS),
+  'fallback',
+] as const;
+
+// Mapbox image name used in iconImage expression. We rely on `coalesce` to fall
+// back to `poi-fallback` when primary_category is null or unknown.
+const iconNameFor = (key: string) => `poi-${key}`;
 
 type Bounds = { sw: [number, number]; ne: [number, number] };
 
@@ -64,6 +43,7 @@ export default function MapScreen() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [bounds, setBounds] = useState<Bounds | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
   const { geojson, loading: placesLoading, error: placesError } = usePlaces();
   const { place, loading: detailLoading, fetchDetail, clear } = usePlaceDetail();
 
@@ -136,20 +116,45 @@ export default function MapScreen() {
     clear();
   }, [clear]);
 
+  const flyTo = useCallback((lng: number, lat: number, zoom = 17) => {
+    cameraRef.current?.setCamera({
+      centerCoordinate: [lng, lat],
+      zoomLevel: zoom,
+      pitch: UB_DEFAULT_PITCH,
+      animationDuration: 700,
+    });
+  }, []);
+
+  const handleSearchSelect = useCallback(
+    (placeId: string, lng: number, lat: number) => {
+      setSearchOpen(false);
+      flyTo(lng, lat, 17);
+      fetchDetail(placeId);
+    },
+    [flyTo, fetchDetail],
+  );
+
   const recenterOnUser = () => {
     const target = userLocation ?? UB_CENTER;
-    cameraRef.current?.setCamera({
-      centerCoordinate: target,
-      zoomLevel: UB_DEFAULT_ZOOM,
-      pitch: UB_DEFAULT_PITCH,
-      animationDuration: 600,
-    });
+    flyTo(target[0], target[1], UB_DEFAULT_ZOOM);
   };
 
   const sheetVisible = place !== null || detailLoading;
   const recenterBottom = sheetVisible
     ? SHEET_VISIBLE_BOTTOM + (Platform.OS === 'ios' ? 16 : 0)
     : Platform.OS === 'ios' ? 48 : 32;
+
+  // Build iconImage expression: ['coalesce', ['concat', 'poi-', primary_category], 'poi-fallback']
+  // We can't `concat` a literal with an unknown getter that may not match a registered name,
+  // so use `match` to map known categories → image name and fall back otherwise.
+  const ICON_IMAGE: any = useMemo(() => {
+    const expr: any[] = ['match', ['get', 'primary_category']];
+    for (const key of Object.keys(CATEGORY_COLORS)) {
+      expr.push(key, iconNameFor(key));
+    }
+    expr.push(iconNameFor('fallback'));
+    return expr;
+  }, []);
 
   return (
     <View style={styles.container}>
@@ -189,33 +194,52 @@ export default function MapScreen() {
           }}
         />
 
+        {/* Register one icon image per category. Each renders the React component
+            once to a bitmap that the SymbolLayer references by name. */}
+        <MapboxGL.Images>
+          {ALL_CATEGORY_KEYS.map((key) => (
+            <MapboxGL.Image key={key} name={iconNameFor(key)}>
+              <View style={{ width: 48, height: 48 }}>
+                <CategoryIcon category={key === 'fallback' ? null : key} size={48} />
+              </View>
+            </MapboxGL.Image>
+          ))}
+        </MapboxGL.Images>
+
         {visibleGeojson.features.length > 0 && (
           <MapboxGL.ShapeSource
             id="places"
             shape={visibleGeojson}
             onPress={handlePoiPress}
           >
-            <MapboxGL.CircleLayer
-              id="place-circles"
-              style={{
-                circleRadius: ['interpolate', ['linear'], ['zoom'], 12, 4, 16, 8, 20, 14] as any,
-                circleColor: CIRCLE_COLOR as any,
-                circleStrokeColor: '#ffffff',
-                circleStrokeWidth: 1.5,
-              }}
-            />
+            {/* Single SymbolLayer with both icon + label. iconAllowOverlap:false +
+                textAllowOverlap:false lets Mapbox auto-deconflict. symbolSortKey
+                makes higher-rated POIs win collisions (Google-style). */}
             <MapboxGL.SymbolLayer
-              id="place-labels"
+              id="place-symbols"
               style={{
+                iconImage: ICON_IMAGE,
+                iconSize: ['interpolate', ['linear'], ['zoom'], 12, 0.32, 16, 0.55, 20, 0.85] as any,
+                iconAllowOverlap: false,
+                iconIgnorePlacement: false,
+                iconAnchor: 'center',
+                iconPadding: 2,
+
                 textField: ['get', 'name'] as any,
-                textSize: 12,
-                textOffset: [0, 1.2] as any,
+                textSize: ['interpolate', ['linear'], ['zoom'], 13, 11, 18, 13] as any,
+                textOffset: [0, 1.6] as any,
                 textAnchor: 'top',
-                textColor: '#222222',
+                textColor: '#1a1a1a',
                 textHaloColor: '#ffffff',
                 textHaloWidth: 1.4,
                 textOptional: true,
                 textMaxWidth: 8,
+                textAllowOverlap: false,
+                textIgnorePlacement: false,
+
+                // Lower sortKey = drawn first = wins collisions.
+                // Map rating 5→0, 0→5, missing→5 (so unrated lose to rated).
+                symbolSortKey: ['-', 5, ['coalesce', ['get', 'rating'], 0]] as any,
               }}
             />
           </MapboxGL.ShapeSource>
@@ -229,6 +253,9 @@ export default function MapScreen() {
           />
         )}
       </MapboxGL.MapView>
+
+      {/* Search bar (top) */}
+      <SearchBar onPress={() => setSearchOpen(true)} />
 
       {mapError && (
         <View style={styles.errorBanner}>
@@ -244,7 +271,7 @@ export default function MapScreen() {
 
       {placesLoading && (
         <View style={styles.placesLoading}>
-          <ActivityIndicator size="small" color="#1A73E8" />
+          <ActivityIndicator size="small" color={FALLBACK_COLOR} />
           <Text style={styles.placesLoadingText}>Газрууд ачаалж байна…</Text>
         </View>
       )}
@@ -262,6 +289,14 @@ export default function MapScreen() {
         loading={detailLoading}
         onClose={clear}
       />
+
+      {/* Full-screen search modal */}
+      <SearchScreen
+        visible={searchOpen}
+        geojson={geojson}
+        onClose={() => setSearchOpen(false)}
+        onSelect={handleSearchSelect}
+      />
     </View>
   );
 }
@@ -271,7 +306,7 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   errorBanner: {
     position: 'absolute',
-    top: 60,
+    top: 70,
     left: 16,
     right: 16,
     backgroundColor: '#c0392b',
@@ -285,7 +320,7 @@ const styles = StyleSheet.create({
   },
   placesLoading: {
     position: 'absolute',
-    top: 16,
+    top: 70,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
@@ -321,6 +356,6 @@ const styles = StyleSheet.create({
   },
   recenterIcon: {
     fontSize: 24,
-    color: '#1A73E8',
+    color: FALLBACK_COLOR,
   },
 });

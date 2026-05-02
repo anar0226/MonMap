@@ -12,39 +12,19 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import type { Place } from '../types/place';
+import { CategoryIcon } from './CategoryIcon';
+import {
+  CATEGORY_COLORS,
+  FALLBACK_COLOR,
+  CATEGORY_LABELS,
+  BOOKABLE_CATEGORIES,
+} from '../constants/categories';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
 const COLLAPSED_H = 182;
 const EXPANDED_H = Math.min(Math.round(SCREEN_H * 0.80), 640);
 
-// ── Category colours (matches MapScreen) ──────────────────────────────────────
-const CATEGORY_COLORS: Record<string, string> = {
-  restaurant: '#E53935', cafe: '#6D4C41', bar: '#7B1FA2',
-  bakery: '#FB8C00', grocery_or_supermarket: '#43A047',
-  convenience_store: '#00897B', shopping_mall: '#3949AB',
-  clothing_store: '#E91E63', beauty_salon: '#AD1457',
-  hair_care: '#880E4F', spa: '#00838F', gym: '#2E7D32',
-  pharmacy: '#C62828', hospital: '#B71C1C', doctor: '#EF5350',
-  dentist: '#1565C0', bank: '#0D47A1', car_repair: '#37474F',
-  gas_station: '#E65100',
-};
-const FALLBACK_COLOR = '#1A73E8';
-
-const CATEGORY_LABELS: Record<string, string> = {
-  restaurant: 'Ресторан', cafe: 'Кафе', bar: 'Бар',
-  bakery: 'Нарийн боов', grocery_or_supermarket: 'Дэлгүүр',
-  convenience_store: 'Дэлгүүр', shopping_mall: 'Худалдааны төв',
-  clothing_store: 'Хувцасны дэлгүүр', beauty_salon: 'Гоо сайхан',
-  hair_care: 'Үсний салон', spa: 'Спа', gym: 'Фитнесс',
-  pharmacy: 'Эмийн сан', hospital: 'Эмнэлэг', doctor: 'Эмч',
-  dentist: 'Шүдний эмч', bank: 'Банк', car_repair: 'Авто засвар',
-  gas_station: 'Шатахуун',
-};
-
-const BOOKABLE_CATEGORIES = new Set([
-  'restaurant', 'spa', 'hair_care', 'beauty_salon', 'gym', 'dentist', 'doctor',
-]);
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -78,13 +58,6 @@ const Stars = ({ value, size = 12 }: { value: number; size?: number }) => (
   </View>
 );
 
-const CatDot = ({ category, size = 10 }: { category: string | null; size?: number }) => (
-  <View style={{
-    width: size, height: size, borderRadius: size / 2,
-    backgroundColor: CATEGORY_COLORS[category ?? ''] ?? FALLBACK_COLOR,
-    borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.4)',
-  }} />
-);
 
 const Pill = ({ label }: { label: string }) => (
   <View style={s.pill}>
@@ -378,7 +351,7 @@ export function PlaceDetailCard({ place, loading, onClose }: Props) {
           <>
             {/* Category + status row */}
             <View style={s.metaRow}>
-              <CatDot category={place.primary_category} />
+              <CategoryIcon category={place.primary_category} size={22} />
               <Text style={s.catLabel}>{catLabel}</Text>
               {catLabel && isOpen !== undefined && (
                 <Text style={s.metaDot}>·</Text>
@@ -446,12 +419,7 @@ export function PlaceDetailCard({ place, loading, onClose }: Props) {
 
           {/* Cover photo placeholder */}
           <View style={[s.cover, { backgroundColor: catColor + '22' }]}>
-            <View style={[s.coverIcon, {
-              backgroundColor: catColor + '33',
-              borderColor: catColor + '66',
-            }]}>
-              <CatDot category={place.primary_category} size={18} />
-            </View>
+            <CategoryIcon category={place.primary_category} size={44} />
             <Text style={s.coverLabel}>ЗУРГИЙН БАЙРШИЛ</Text>
           </View>
 
@@ -629,14 +597,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-  },
-  coverIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   coverLabel: {
     fontSize: 10,

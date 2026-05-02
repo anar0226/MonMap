@@ -21,7 +21,7 @@ import {
   CATEGORY_LABELS,
   BOOKABLE_CATEGORIES,
 } from '../constants/categories';
-import { useReviews, computeRatingBars, type Review } from '../hooks/useReviews';
+import { useReviews, computeRatingBars, computeAverageRating, type Review } from '../hooks/useReviews';
 import { useBooking, generateTimeSlots, todayDateString } from '../hooks/useBooking';
 
 const { height: SCREEN_H } = Dimensions.get('window');
@@ -108,6 +108,21 @@ const QuickBtn = ({
     </Text>
   </TouchableOpacity>
 );
+
+// Small peek-header rating pulled live from our reviews table
+const PlaceRatingRow = ({ placeId }: { placeId: string }) => {
+  const { reviews, fetchReviews } = useReviews(placeId);
+  useEffect(() => { fetchReviews(placeId); }, [placeId]);
+  if (reviews.length === 0) return null;
+  const avg = computeAverageRating(reviews);
+  return (
+    <View style={s.ratingRow}>
+      <Stars value={avg} size={12} />
+      <Text style={s.ratingNum}>{avg.toFixed(1)}</Text>
+      <Text style={s.ratingCount}>({reviews.length} үнэлгээ)</Text>
+    </View>
+  );
+};
 
 // ── Tab: Мэдээлэл ─────────────────────────────────────────────────────────────
 
@@ -416,8 +431,8 @@ const ReviewsTab = ({ place }: { place: Place }) => {
     if (ok) setShowForm(false);
   }, [place.place_id, submitReview]);
 
-  const rating = place.rating ?? 0;
-  const count = place.user_rating_count ?? 0;
+  const rating = computeAverageRating(reviews);
+  const count = reviews.length;
   const ratingBars = computeRatingBars(reviews);
 
   if (showForm) {
@@ -572,15 +587,7 @@ export function PlaceDetailCard({ place, loading, onClose }: Props) {
 
             <Text style={s.placeName} numberOfLines={1}>{place.name}</Text>
 
-            {place.rating !== null && (
-              <View style={s.ratingRow}>
-                <Stars value={place.rating} size={12} />
-                <Text style={s.ratingNum}>{place.rating.toFixed(1)}</Text>
-                {place.user_rating_count !== null && (
-                  <Text style={s.ratingCount}>({place.user_rating_count} үнэлгээ)</Text>
-                )}
-              </View>
-            )}
+            <PlaceRatingRow placeId={place.place_id} />
           </>
         ) : null}
       </View>

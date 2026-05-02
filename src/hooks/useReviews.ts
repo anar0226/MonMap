@@ -66,3 +66,8 @@ export function computeRatingBars(reviews: Review[]): number[] {
   for (const r of reviews) counts[5 - r.rating]++;
   return counts.map(c => Math.round((c / reviews.length) * 100));
 }
+
+export function computeAverageRating(reviews: Review[]): number {
+  if (reviews.length === 0) return 0;
+  return reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
+}

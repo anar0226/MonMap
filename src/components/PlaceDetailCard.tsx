@@ -449,24 +449,26 @@ const ReviewsTab = ({ place }: { place: Place }) => {
 
   return (
     <View style={{ gap: 0 }}>
-      <View style={s.ratingSummary}>
-        <View style={{ alignItems: 'center', gap: 4 }}>
-          <Text style={s.ratingBig}>{rating.toFixed(1)}</Text>
-          <Stars value={rating} size={11} />
-          <Text style={s.ratingCountSm}>{count} ҮНЭЛГЭЭ</Text>
-        </View>
-        <View style={{ flex: 1, gap: 5 }}>
-          {[5, 4, 3, 2, 1].map((n, i) => (
-            <View key={n} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Text style={s.barNum}>{n}</Text>
-              <View style={s.barTrack}>
-                <View style={[s.barFill, { width: `${ratingBars[i]}%` as any }]} />
+      {count > 0 && (
+        <View style={s.ratingSummary}>
+          <View style={{ alignItems: 'center', gap: 4 }}>
+            <Text style={s.ratingBig}>{rating.toFixed(1)}</Text>
+            <Stars value={rating} size={11} />
+            <Text style={s.ratingCountSm}>{count} ҮНЭЛГЭЭ</Text>
+          </View>
+          <View style={{ flex: 1, gap: 5 }}>
+            {[5, 4, 3, 2, 1].map((n, i) => (
+              <View key={n} style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Text style={s.barNum}>{n}</Text>
+                <View style={s.barTrack}>
+                  <View style={[s.barFill, { width: `${ratingBars[i]}%` as any }]} />
+                </View>
+                <Text style={s.barPct}>{ratingBars[i]}%</Text>
               </View>
-              <Text style={s.barPct}>{ratingBars[i]}%</Text>
-            </View>
-          ))}
+            ))}
+          </View>
         </View>
-      </View>
+      )}
 
       {loading ? (
         <ActivityIndicator color={C.primaryLt} style={{ paddingVertical: 24 }} />

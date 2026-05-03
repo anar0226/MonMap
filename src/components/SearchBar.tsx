@@ -1,12 +1,13 @@
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Props {
   onPress: () => void;
+  onProfilePress?: () => void;
 }
 
-export function SearchBar({ onPress }: Props) {
+export function SearchBar({ onPress, onProfilePress }: Props) {
   return (
     <TouchableOpacity
       style={styles.bar}
@@ -15,6 +16,13 @@ export function SearchBar({ onPress }: Props) {
     >
       <Ionicons name="search" size={16} color="rgba(255,255,255,0.45)" />
       <Text style={styles.placeholder}>Улаанбаатарт хайх…</Text>
+      {onProfilePress && (
+        <TouchableOpacity onPress={onProfilePress} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={styles.profileBtn}>
+          <View style={styles.profileCircle}>
+            <Ionicons name="person" size={13} color="rgba(255,255,255,0.7)" />
+          </View>
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }
@@ -42,8 +50,22 @@ const styles = StyleSheet.create({
     zIndex: 50,
   },
   placeholder: {
+    flex: 1,
     fontSize: 13,
     color: 'rgba(255,255,255,0.30)',
     letterSpacing: 0.1,
+  },
+  profileBtn: {
+    marginLeft: 4,
+  },
+  profileCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,83,163,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,83,163,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

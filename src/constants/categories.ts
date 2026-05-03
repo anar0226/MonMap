@@ -18,6 +18,17 @@ export const CATEGORY_COLORS: Record<string, string> = {
   bank:                    '#0D47A1',
   car_repair:              '#37474F',
   gas_station:             '#E65100',
+  // OSM-sourced civic & residential categories
+  apartments:              '#5C6BC0',
+  school:                  '#039BE5',
+  university:              '#0277BD',
+  kindergarten:            '#F06292',
+  library:                 '#6A1B9A',
+  police:                  '#1A237E',
+  post_office:             '#FFA000',
+  fire_station:            '#D32F2F',
+  government:              '#455A64',
+  park:                    '#388E3C',
 };
 
 export const FALLBACK_COLOR = '#1A73E8';
@@ -42,6 +53,16 @@ export const CATEGORY_LABELS: Record<string, string> = {
   bank:                    'Банк',
   car_repair:              'Авто засвар',
   gas_station:             'Шатахуун',
+  apartments:              'Орон сууц',
+  school:                  'Сургууль',
+  university:              'Их сургууль',
+  kindergarten:            'Цэцэрлэг',
+  library:                 'Номын сан',
+  police:                  'Цагдаа',
+  post_office:             'Шуудан',
+  fire_station:            'Гал хамгаалах',
+  government:              'Засаг захиргаа',
+  park:                    'Цэцэрлэгт хүрээлэн',
 };
 
 export const BOOKABLE_CATEGORIES = new Set([

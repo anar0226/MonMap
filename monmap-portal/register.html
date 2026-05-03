@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Бизнес бүртгүүлэх — МонМэп</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .reg-page {
+      min-height: 100vh;
+      background: var(--gray-50);
+      padding: 40px 24px 60px;
+    }
+    .reg-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+    .reg-card {
+      background: var(--white);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      padding: 40px;
+    }
+    .upload-zone {
+      border: 2px dashed var(--gray-300);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+      background: var(--gray-50);
+    }
+    .upload-zone:hover { border-color: var(--primary); background: var(--primary-light); }
+    .upload-zone.has-file { border-color: var(--success); background: var(--success-light); }
+    .working-hours-grid {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .working-hours-grid:last-child { border-bottom: none; }
+    .day-label { font-size: 0.875rem; font-weight: 600; color: var(--gray-700); }
+    .service-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 5px 12px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border-radius: 999px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+    }
+    .service-tag button {
+      background: none; border: none;
+      color: var(--primary); cursor: pointer;
+      font-size: 0.9rem; line-height: 1;
+      padding: 0;
+    }
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="reg-page">
+  <div class="reg-wrap">
+
+    <!-- Header -->
+    <div class="text-center mb-32">
+      <a href="index.html" class="nav-logo" style="justify-content:center;margin-bottom:16px;display:flex;">
+        <div class="logo-icon">📍</div>
+        Мон<span class="accent">Мэп</span>
+      </a>
+      <h2 style="margin-bottom:6px;">Бизнесээ бүртгүүлэх</h2>
+      <p>Ердөө 4 алхамд МонМэп платформд нэгдэн орно уу</p>
+    </div>
+
+    <!-- Steps bar -->
+    <div class="steps-bar" id="stepsBar">
+      <div class="step-wrapper">
+        <div class="step-item active" id="step-ind-1">
+          <div class="step-circle">1</div>
+        </div>
+        <div class="step-label">Бүртгэл</div>
+      </div>
+      <div class="step-connector" id="conn-1"></div>
+      <div class="step-wrapper">
+        <div class="step-item" id="step-ind-2">
+          <div class="step-circle">2</div>
+        </div>
+        <div class="step-label">Бизнес</div>
+      </div>
+      <div class="step-connector" id="conn-2"></div>
+      <div class="step-wrapper">
+        <div class="step-item" id="step-ind-3">
+          <div class="step-circle">3</div>
+        </div>
+        <div class="step-label">Үйлчилгээ</div>
+      </div>
+      <div class="step-connector" id="conn-3"></div>
+      <div class="step-wrapper">
+        <div class="step-item" id="step-ind-4">
+          <div class="step-circle">4</div>
+        </div>
+        <div class="step-label">Батлах</div>
+      </div>
+    </div>
+
+    <div class="reg-card">
+
+      <!-- Step 1: Account -->
+      <div class="step-panel active" id="panel-1">
+        <h3 style="margin-bottom:6px;">Бүртгэлийн мэдээлэл</h3>
+        <p class="mb-24">Нэвтрэхэд ашиглах и-мэйл болон нууц үгээ оруулна уу</p>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Овог <span class="required">*</span></label>
+            <input type="text" class="form-control" id="lastName" placeholder="Бат" />
+            <span class="form-error">Овог оруулна уу</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Нэр <span class="required">*</span></label>
+            <input type="text" class="form-control" id="firstName" placeholder="Болд" />
+            <span class="form-error">Нэр оруулна уу</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Утасны дугаар <span class="required">*</span></label>
+          <div style="display:flex;gap:8px;">
+            <select class="form-control" style="width:90px;flex-shrink:0;">
+              <option>+976</option>
+            </select>
+            <input type="tel" class="form-control" id="phone" placeholder="9900-0000" maxlength="8" />
+          </div>
+          <span class="form-error">Утасны дугаар оруулна уу</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">И-мэйл хаяг <span class="required">*</span></label>
+          <input type="email" class="form-control" id="regEmail" placeholder="example@business.mn" />
+          <span class="form-error">Зөв и-мэйл хаяг оруулна уу</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Нууц үг <span class="required">*</span></label>
+            <input type="password" class="form-control" id="regPwd" placeholder="8+ тэмдэгт" />
+            <span class="form-error">8+ тэмдэгт нууц үг оруулна уу</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Нууц үг давтах <span class="required">*</span></label>
+            <input type="password" class="form-control" id="regPwd2" placeholder="Дахин оруулна уу" />
+            <span class="form-error">Нууц үг таарахгүй байна</span>
+          </div>
+        </div>
+
+        <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:28px;">
+          <input type="checkbox" id="terms" style="width:16px;height:16px;margin-top:2px;accent-color:var(--primary);" />
+          <label for="terms" style="font-size:0.875rem;color:var(--gray-600);cursor:pointer;line-height:1.5;">
+            <a href="#" style="font-weight:600;">Үйлчилгээний нөхцөл</a> болон <a href="#" style="font-weight:600;">Нууцлалын бодлого</a>-той танилцан зөвшөөрч байна
+          </label>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;">
+          <button class="btn btn-primary btn-lg" onclick="goStep(2)">Үргэлжлүүлэх →</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Business Info -->
+      <div class="step-panel" id="panel-2">
+        <h3 style="margin-bottom:6px;">Бизнесийн мэдээлэл</h3>
+        <p class="mb-24">МонМэп дэлгэцэнд харагдах бизнесийн мэдээллийг оруулна уу</p>
+
+        <div class="form-group">
+          <label class="form-label">Бизнесийн нэр (Монголоор) <span class="required">*</span></label>
+          <input type="text" class="form-control" id="bizName" placeholder="жш: Эрдэнэт Салон" />
+          <span class="form-error">Бизнесийн нэр оруулна уу</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Бизнесийн төрөл <span class="required">*</span></label>
+          <select class="form-control" id="bizType">
+            <option value="">— Сонгох —</option>
+            <option>Үсчин / Салон</option>
+            <option>Ресторан / Кафе</option>
+            <option>Эмнэлэг / Эмч</option>
+            <option>Спорт заал / Фитнесс</option>
+            <option>Спа / Массаж</option>
+            <option>Сургалт / Дасгалжуулалт</option>
+            <option>Авто засвар</option>
+            <option>Фото студио</option>
+            <option>Бусад</option>
+          </select>
+          <span class="form-error">Бизнесийн төрлийг сонгоно уу</span>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Дүүрэг <span class="required">*</span></label>
+            <select class="form-control" id="district">
+              <option value="">— Сонгох —</option>
+              <option>Баянзүрх</option>
+              <option>Баянгол</option>
+              <option>Сүхбаатар</option>
+              <option>Чингэлтэй</option>
+              <option>Хан-Уул</option>
+              <option>Налайх</option>
+              <option>Багануур</option>
+              <option>Багахангай</option>
+              <option>Сонгинохайрхан</option>
+            </select>
+            <span class="form-error">Дүүрэг сонгоно уу</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Хороо</label>
+            <select class="form-control" id="khoroo">
+              <option value="">— Сонгох —</option>
+              <option>1-р хороо</option>
+              <option>2-р хороо</option>
+              <option>3-р хороо</option>
+              <option>4-р хороо</option>
+              <option>5-р хороо</option>
+              <option>6-р хороо</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Дэлгэрэнгүй хаяг <span class="required">*</span></label>
+          <input type="text" class="form-control" id="address" placeholder="жш: Сансарын гудамж, 5А тоот" />
+          <span class="form-error">Хаяг оруулна уу</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Бизнесийн утас <span class="required">*</span></label>
+          <input type="tel" class="form-control" id="bizPhone" placeholder="9900-0000" />
+          <span class="form-error">Утасны дугаар оруулна уу</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Бизнесийн тайлбар</label>
+          <textarea class="form-control" id="bizDesc" placeholder="Бизнесийнхээ тухай товч тайлбар..."></textarea>
+          <span class="form-hint">250 тэмдэгтэнд багтаана</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Лого / Зураг оруулах</label>
+          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+            <div style="font-size:2.5rem;margin-bottom:10px;">📁</div>
+            <div style="font-size:0.9rem;font-weight:600;color:var(--gray-700);">Файл сонгох эсвэл чирж оруулах</div>
+            <div style="font-size:0.8125rem;color:var(--gray-500);margin-top:6px;">PNG, JPG — 5МБ-аас бага</div>
+          </div>
+          <input type="file" id="fileInput" accept="image/*" hidden />
+        </div>
+
+        <div style="display:flex;justify-content:space-between;gap:12px;">
+          <button class="btn btn-ghost btn-lg" onclick="goStep(1)">← Буцах</button>
+          <button class="btn btn-primary btn-lg" onclick="goStep(3)">Үргэлжлүүлэх →</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Services & Hours -->
+      <div class="step-panel" id="panel-3">
+        <h3 style="margin-bottom:6px;">Үйлчилгээ & Ажлын цаг</h3>
+        <p class="mb-24">Санал болгох үйлчилгээ болон ажлын цагаа тохируулна уу</p>
+
+        <!-- Services -->
+        <div class="form-group">
+          <label class="form-label">Үйлчилгээний нэрс</label>
+          <div id="serviceTagsWrap" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;min-height:36px;"></div>
+          <div style="display:flex;gap:8px;">
+            <input type="text" class="form-control" id="serviceInput" placeholder="жш: Хулд засах, Өнгө будах..." />
+            <button type="button" class="btn btn-outline" onclick="addService()">+ Нэмэх</button>
+          </div>
+          <span class="form-hint">Enter дарах эсвэл + товч дарна уу</span>
+        </div>
+
+        <!-- Working hours -->
+        <div class="form-group">
+          <label class="form-label">Ажлын цаг</label>
+          <div style="background:var(--gray-50);border-radius:var(--radius);padding:16px;border:1px solid var(--gray-200);">
+            <div id="hoursGrid"></div>
+          </div>
+        </div>
+
+        <!-- Booking settings -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Захиалгын хугацаа</label>
+            <select class="form-control" id="slotDuration">
+              <option value="30">30 минут</option>
+              <option value="45">45 минут</option>
+              <option value="60" selected>1 цаг</option>
+              <option value="90">1.5 цаг</option>
+              <option value="120">2 цаг</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Зэрэгцэх захиалга</label>
+            <select class="form-control" id="concurrent">
+              <option value="1">1 (ганцаараа)</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="5">5</option>
+              <option value="10">10+</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;gap:12px;">
+          <button class="btn btn-ghost btn-lg" onclick="goStep(2)">← Буцах</button>
+          <button class="btn btn-primary btn-lg" onclick="goStep(4)">Үргэлжлүүлэх →</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Review & Submit -->
+      <div class="step-panel" id="panel-4">
+        <h3 style="margin-bottom:6px;">Мэдээлэл шалгах</h3>
+        <p class="mb-24">Доорх мэдээллийг шалгаад, бүртгэлийг илгээнэ үү</p>
+
+        <div id="reviewBlock" style="background:var(--gray-50);border-radius:var(--radius-lg);padding:24px;border:1px solid var(--gray-200);margin-bottom:24px;">
+          <!-- Filled by JS -->
+        </div>
+
+        <div class="alert alert-info">
+          <span class="alert-icon">ℹ️</span>
+          <div>
+            <strong>Баталгаажуулалтын үйл явц:</strong> МонМэпийн баг таны мэдээллийг шалгаж <strong>24 цагийн дотор</strong> и-мэйлээр мэдэгдэнэ. Баталгаажсаны дараа захиалга хүлээн авч эхэлнэ.
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-top:24px;">
+          <button class="btn btn-ghost btn-lg" onclick="goStep(3)">← Буцах</button>
+          <button class="btn btn-primary btn-lg" id="submitBtn" onclick="submitRegistration()">
+            ✓ Бүртгэл илгээх
+          </button>
+        </div>
+      </div>
+
+    </div><!-- end reg-card -->
+
+    <p class="text-center mt-16 text-sm text-muted">
+      Бүртгэлтэй юу? <a href="login.html">Нэвтрэх →</a>
+    </p>
+
+  </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal-overlay" id="successModal">
+  <div class="modal">
+    <div class="modal-body" style="text-align:center;padding:48px 32px;">
+      <div style="font-size:4rem;margin-bottom:20px;">🎉</div>
+      <h3 style="margin-bottom:10px;">Бүртгэл амжилттай илгээгдлээ!</h3>
+      <p style="color:var(--gray-600);line-height:1.7;margin-bottom:28px;">
+        Таны бизнесийн бүртгэлийг хүлээн авлаа. МонМэпийн баг 24 цагийн дотор и-мэйлээр баталгаажуулах болно.
+      </p>
+      <div style="background:var(--warning-light);border-radius:var(--radius);padding:16px;margin-bottom:28px;font-size:0.875rem;color:var(--warning);">
+        📧 Хяналтын мэдэгдэл таны и-мэйлд ирнэ
+      </div>
+      <a href="dashboard.html" class="btn btn-primary btn-lg w-full">Самбар руу орох →</a>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/utils.js"></script>
+<script>
+  let currentStep = 1;
+  const services = [];
+
+  const days = [
+    { key: 'mon', label: 'Даваа' },
+    { key: 'tue', label: 'Мягмар' },
+    { key: 'wed', label: 'Лхагва' },
+    { key: 'thu', label: 'Пүрэв' },
+    { key: 'fri', label: 'Баасан' },
+    { key: 'sat', label: 'Бямба' },
+    { key: 'sun', label: 'Ням' },
+  ];
+
+  function buildHoursGrid() {
+    const grid = document.getElementById('hoursGrid');
+    grid.innerHTML = days.map(d => `
+      <div class="working-hours-grid">
+        <div class="day-label">${d.label}</div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.8125rem;cursor:pointer;">
+          <input type="checkbox" id="day-${d.key}" ${['mon','tue','wed','thu','fri'].includes(d.key) ? 'checked' : ''}
+            onchange="toggleDay('${d.key}')" style="accent-color:var(--primary);"> Нээлттэй
+        </label>
+        <input type="time" id="open-${d.key}" class="form-control" style="width:110px;" value="09:00"
+          ${['sat','sun'].includes(d.key) ? 'disabled' : ''} />
+        <input type="time" id="close-${d.key}" class="form-control" style="width:110px;" value="18:00"
+          ${['sat','sun'].includes(d.key) ? 'disabled' : ''} />
+      </div>
+    `).join('');
+  }
+  buildHoursGrid();
+
+  function toggleDay(key) {
+    const checked = document.getElementById('day-' + key).checked;
+    document.getElementById('open-' + key).disabled = !checked;
+    document.getElementById('close-' + key).disabled = !checked;
+  }
+
+  function addService() {
+    const input = document.getElementById('serviceInput');
+    const val = input.value.trim();
+    if (!val) return;
+    services.push(val);
+    renderServices();
+    input.value = '';
+    input.focus();
+  }
+  document.getElementById('serviceInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addService(); }
+  });
+
+  function removeService(i) {
+    services.splice(i, 1);
+    renderServices();
+  }
+  function renderServices() {
+    const wrap = document.getElementById('serviceTagsWrap');
+    wrap.innerHTML = services.map((s, i) => `
+      <span class="service-tag">${s} <button onclick="removeService(${i})" title="Устгах">✕</button></span>
+    `).join('');
+  }
+
+  function goStep(n) {
+    if (n > currentStep && !validateStep(currentStep)) return;
+    document.getElementById('panel-' + currentStep).classList.remove('active');
+    for (let i = 1; i <= 4; i++) {
+      const ind = document.getElementById('step-ind-' + i);
+      ind.classList.remove('active', 'done');
+      if (i < n) { ind.classList.add('done'); ind.querySelector('.step-circle').textContent = '✓'; }
+      else if (i === n) { ind.classList.add('active'); ind.querySelector('.step-circle').textContent = i; }
+      else { ind.querySelector('.step-circle').textContent = i; }
+    }
+    for (let i = 1; i <= 3; i++) {
+      const conn = document.getElementById('conn-' + i);
+      conn.classList.toggle('done', i < n);
+    }
+    currentStep = n;
+    document.getElementById('panel-' + n).classList.add('active');
+    if (n === 4) buildReview();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function validateStep(step) {
+    if (step === 1) {
+      const last = document.getElementById('lastName').value.trim();
+      const first = document.getElementById('firstName').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const email = document.getElementById('regEmail').value.trim();
+      const pwd = document.getElementById('regPwd').value;
+      const pwd2 = document.getElementById('regPwd2').value;
+      const terms = document.getElementById('terms').checked;
+      let ok = true;
+      clearErrors('panel-1');
+      if (!last) { setError('lastName', true); ok = false; }
+      if (!first) { setError('firstName', true); ok = false; }
+      if (!phone || phone.length < 7) { setError('phone', true); ok = false; }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('regEmail', true); ok = false; }
+      if (!pwd || pwd.length < 8) { setError('regPwd', true); ok = false; }
+      if (pwd !== pwd2) { setError('regPwd2', true); ok = false; }
+      if (!terms) { showToast('error', 'Нөхцөл зөвшөөрнө үү', 'Үргэлжлүүлэхийн тулд нөхцөлтэй зөвшөөрнө үү.'); ok = false; }
+      return ok;
+    }
+    if (step === 2) {
+      let ok = true;
+      clearErrors('panel-2');
+      if (!document.getElementById('bizName').value.trim()) { setError('bizName', true); ok = false; }
+      if (!document.getElementById('bizType').value) { setError('bizType', true); ok = false; }
+      if (!document.getElementById('district').value) { setError('district', true); ok = false; }
+      if (!document.getElementById('address').value.trim()) { setError('address', true); ok = false; }
+      if (!document.getElementById('bizPhone').value.trim()) { setError('bizPhone', true); ok = false; }
+      return ok;
+    }
+    return true;
+  }
+
+  function setError(id, show) {
+    const el = document.getElementById(id);
+    const group = el.closest('.form-group');
+    if (group) group.classList.toggle('has-error', show);
+  }
+  function clearErrors(panelId) {
+    document.getElementById(panelId).querySelectorAll('.form-group').forEach(g => g.classList.remove('has-error'));
+  }
+
+  function buildReview() {
+    const data = {
+      name: document.getElementById('lastName').value + ' ' + document.getElementById('firstName').value,
+      email: document.getElementById('regEmail').value,
+      bizName: document.getElementById('bizName').value,
+      bizType: document.getElementById('bizType').value,
+      district: document.getElementById('district').value,
+      address: document.getElementById('address').value,
+      phone: document.getElementById('bizPhone').value,
+    };
+    document.getElementById('reviewBlock').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">Нэр</div><div class="font-semibold">${data.name}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">И-мэйл</div><div class="font-semibold">${data.email}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">Бизнесийн нэр</div><div class="font-semibold">${data.bizName}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">Төрөл</div><div class="font-semibold">${data.bizType}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">Дүүрэг</div><div class="font-semibold">${data.district}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">Хаяг</div><div class="font-semibold">${data.address}</div></div>
+        ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s=>`<span class="badge badge-primary">${s}</span>`).join('')}</div></div>` : ''}
+      </div>
+    `;
+  }
+
+  // Map UI business-type label → places.primary_category slug
+  const CATEGORY_MAP = {
+    'Үсчин / Салон':           'salon',
+    'Ресторан / Кафе':         'restaurant',
+    'Эмнэлэг / Эмч':           'clinic',
+    'Спорт заал / Фитнесс':    'gym',
+    'Спа / Массаж':            'spa',
+    'Сургалт / Дасгалжуулалт': 'training',
+    'Авто засвар':             'auto_repair',
+    'Фото студио':             'photo_studio',
+    'Бусад':                   'other',
+  };
+
+  // Default location (Ulaanbaatar centre) — owner can refine later in profile.html
+  const UB_LAT = 47.9184, UB_LNG = 106.9177;
+
+  // Build a YYYY-MM-DDThh:mm:ss-style ISO string for timestamp columns
+  function nowIso() { return new Date().toISOString(); }
+
+  async function submitRegistration() {
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.textContent = '⏳ Илгээж байна...';
+    const reset = () => { btn.disabled = false; btn.textContent = '✓ Бүртгэл илгээх'; };
+
+    const email     = document.getElementById('regEmail').value.trim();
+    const password  = document.getElementById('regPwd').value;
+    const lastName  = document.getElementById('lastName').value.trim();
+    const firstName = document.getElementById('firstName').value.trim();
+    const userPhone = document.getElementById('phone').value.trim();
+    const bizName   = document.getElementById('bizName').value.trim();
+    const bizType   = document.getElementById('bizType').value;
+    const district  = document.getElementById('district').value;
+    const khoroo    = document.getElementById('khoroo').value;
+    const address   = document.getElementById('address').value.trim();
+    const bizPhone  = document.getElementById('bizPhone').value.trim();
+    const bizDesc   = document.getElementById('bizDesc').value.trim();
+
+    // 1. Create auth user
+    const { data: authData, error: authErr } = await _sb.auth.signUp({
+      email, password,
+      options: { data: { full_name: `${lastName} ${firstName}`, phone: userPhone } },
+    });
+    if (authErr)              { showToast('error', 'Бүртгэлийн алдаа', authErr.message); reset(); return; }
+    const userId = authData.user?.id;
+    if (!userId)              { showToast('error', 'Алдаа', 'Хэрэглэгч үүсгэхэд алдаа гарлаа.'); reset(); return; }
+
+    // Wait for the session to be established (signUp may need email confirmation in some configs)
+    if (!authData.session) {
+      const { data: { session } } = await _sb.auth.getSession();
+      if (!session) {
+        showToast('warning', 'И-мэйл баталгаажуулалт', 'И-мэйл рүү баталгаажуулалтын холбоос илгээлээ. Баталгаажсаны дараа нэвтэрнэ үү.');
+        reset();
+        setTimeout(() => { window.location.href = 'login.html'; }, 2500);
+        return;
+      }
+    }
+
+    // 2. Create the place (owner-namespaced place_id)
+    const placeId  = 'owner_' + userId;
+    const category = CATEGORY_MAP[bizType] || 'other';
+    const fullAddress = [address, khoroo, district, 'Улаанбаатар']
+      .filter(Boolean).join(', ');
+
+    const { error: placeErr } = await _sb.from('places').insert({
+      place_id:          placeId,
+      name:              bizName,
+      primary_category:  category,
+      types:             [category],
+      location:          `SRID=4326;POINT(${UB_LNG} ${UB_LAT})`,
+      lat:               UB_LAT,
+      lng:               UB_LNG,
+      formatted_address: fullAddress,
+      short_address:     address || null,
+      phone_national:    bizPhone || null,
+      business_status:   'OPERATIONAL',
+      raw:               { source: 'portal', description: bizDesc || null, district, khoroo: khoroo || null },
+      fetched_at:        nowIso(),
+      updated_at:        nowIso(),
+    });
+    if (placeErr) { showToast('error', 'Бизнес бүртгэх алдаа', placeErr.message); reset(); return; }
+
+    // 3. Link this user to the place
+    const { error: linkErr } = await _sb.from('business_owners').insert({
+      user_id: userId, place_id: placeId,
+    });
+    if (linkErr) { showToast('error', 'Холбох алдаа', linkErr.message); reset(); return; }
+
+    // 4. Cache for dashboard
+    localStorage.setItem('mm_biz', JSON.stringify({
+      id: placeId, name: bizName, type: bizType || 'Бизнес', verified: false,
+    }));
+
+    document.getElementById('successModal').classList.add('open');
+  }
+
+  document.getElementById('fileInput').addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+      const zone = document.getElementById('uploadZone');
+      zone.classList.add('has-file');
+      zone.innerHTML = `<div style="font-size:2rem;margin-bottom:8px;">✅</div><div style="font-size:0.875rem;font-weight:600;color:var(--success);">${this.files[0].name}</div>`;
+    }
+  });
+</script>
+</body>
+</html>

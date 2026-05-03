@@ -171,6 +171,92 @@ const icons: Record<string, React.FC<IconProps>> = {
     </>
   ),
 
+  apartments: ({ sw = 1.7 }) => (
+    <>
+      <Rect x="4" y="3" width="16" height="18" rx="1" strokeWidth={sw} />
+      <Rect x="7"  y="6"  width="3" height="3" strokeWidth={1.3} />
+      <Rect x="14" y="6"  width="3" height="3" strokeWidth={1.3} />
+      <Rect x="7"  y="11" width="3" height="3" strokeWidth={1.3} />
+      <Rect x="14" y="11" width="3" height="3" strokeWidth={1.3} />
+      <Rect x="10" y="16" width="4" height="5" strokeWidth={1.3} />
+    </>
+  ),
+
+  school: ({ sw = 1.7 }) => (
+    <>
+      <Path d="M2 9 L12 4 L22 9 L12 14 Z" strokeWidth={sw} />
+      <Path d="M6 11 L6 17 C6 17 8.5 19 12 19 C15.5 19 18 17 18 17 L18 11" strokeWidth={sw} />
+      <Line x1="22" y1="9" x2="22" y2="14" strokeWidth={1.5} />
+    </>
+  ),
+
+  university: ({ sw = 1.7 }) => (
+    <>
+      <Path d="M2 9 L12 4 L22 9 L12 14 Z" strokeWidth={sw} />
+      <Path d="M6 11 L6 17 C6 17 8.5 19 12 19 C15.5 19 18 17 18 17 L18 11" strokeWidth={sw} />
+      <Path d="M22 9 L22 15 L20 19" strokeWidth={1.5} />
+    </>
+  ),
+
+  kindergarten: ({ sw = 1.7 }) => (
+    <>
+      <Rect x="3"  y="14" width="6" height="6" strokeWidth={sw} />
+      <Rect x="9"  y="14" width="6" height="6" strokeWidth={sw} />
+      <Rect x="15" y="14" width="6" height="6" strokeWidth={sw} />
+      <Rect x="6"  y="8" width="6" height="6" strokeWidth={sw} />
+      <Rect x="12" y="8" width="6" height="6" strokeWidth={sw} />
+      <Rect x="9" y="2" width="6" height="6" strokeWidth={sw} />
+    </>
+  ),
+
+  library: ({ sw = 1.7 }) => (
+    <>
+      <Rect x="4" y="4" width="3" height="16" strokeWidth={sw} />
+      <Rect x="8" y="4" width="3" height="16" strokeWidth={sw} />
+      <Path d="M13 5 L16 4 L19 5 L18 20 L14 20 Z" strokeWidth={sw} />
+      <Line x1="4" y1="9" x2="11" y2="9" strokeWidth={1.3} />
+    </>
+  ),
+
+  police: ({ sw = 1.7 }) => (
+    <>
+      <Path d="M12 3 L20 6 L20 12 C20 17 16 20 12 21 C8 20 4 17 4 12 L4 6 Z" strokeWidth={sw} />
+      <Path d="M9 12 L11 14 L15 10" strokeWidth={1.8} />
+    </>
+  ),
+
+  post_office: ({ sw = 1.7 }) => (
+    <>
+      <Rect x="3" y="6" width="18" height="13" rx="1" strokeWidth={sw} />
+      <Path d="M3 7 L12 14 L21 7" strokeWidth={sw} />
+    </>
+  ),
+
+  fire_station: ({ sw = 1.7 }) => (
+    <Path d="M12 2 C12 2 8 7 8 11 C8 12 8.5 13 9 14 C9 12.5 10 11.5 11 11 C11 13 13 13 13 16 C13 18 11.5 19 10 19.5 C10.5 19.8 11 20 12 20 C16 20 18 16.5 18 13 C18 9 14 7 14 5 C14 7 12 8 12 5 C12 4 12 3 12 2 Z" strokeWidth={sw} />
+  ),
+
+  government: ({ sw = 1.7 }) => (
+    <>
+      <Path d="M3 9 L12 3 L21 9" strokeWidth={sw} />
+      <Line x1="3"  y1="9"  x2="21" y2="9"  strokeWidth={sw} />
+      <Line x1="6"  y1="9"  x2="6"  y2="18" strokeWidth={sw} />
+      <Line x1="10" y1="9"  x2="10" y2="18" strokeWidth={sw} />
+      <Line x1="14" y1="9"  x2="14" y2="18" strokeWidth={sw} />
+      <Line x1="18" y1="9"  x2="18" y2="18" strokeWidth={sw} />
+      <Line x1="3"  y1="18" x2="21" y2="18" strokeWidth={sw} />
+      <Line x1="2"  y1="21" x2="22" y2="21" strokeWidth={2} />
+    </>
+  ),
+
+  park: ({ sw = 1.7 }) => (
+    <>
+      <Path d="M12 2 C9 2 7 4.5 7 7 C5.5 7.5 4.5 9 4.5 10.5 C4.5 12.5 6 14 8 14 L16 14 C18 14 19.5 12.5 19.5 10.5 C19.5 9 18.5 7.5 17 7 C17 4.5 15 2 12 2 Z" strokeWidth={sw} />
+      <Line x1="12" y1="14" x2="12" y2="21" strokeWidth={sw} />
+      <Line x1="9" y1="21" x2="15" y2="21" strokeWidth={sw} />
+    </>
+  ),
+
   fallback: ({ sw = 1.7 }) => (
     <>
       <Circle cx="12" cy="12" r="9" strokeWidth={sw} />

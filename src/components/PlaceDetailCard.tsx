@@ -23,6 +23,7 @@ import {
 } from '../constants/categories';
 import { useReviews, computeRatingBars, computeAverageRating, type Review } from '../hooks/useReviews';
 import { useBooking, generateTimeSlots, todayDateString } from '../hooks/useBooking';
+import { useSupabase } from '../context/SupabaseContext';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
@@ -164,9 +165,11 @@ const TIME_SLOTS = generateTimeSlots(10, 20);
 const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) => {
   const today = todayDateString();
   const { slots, loadingSlots, submitting, error, confirmed, fetchSlots, submitBooking, resetConfirmed } = useBooking();
+  const { session } = useSupabase();
+  const defaultName = session?.user?.user_metadata?.full_name ?? session?.user?.email?.split('@')[0] ?? '';
   const [selectedSlotIdx, setSelectedSlotIdx] = useState(0);
   const [partySize, setPartySize] = useState(2);
-  const [guestName, setGuestName] = useState('');
+  const [guestName, setGuestName] = useState(defaultName);
   const [guestPhone, setGuestPhone] = useState('');
   const [showForm, setShowForm] = useState(false);
   const partySizes: Array<string | number> = [1, 2, 3, 4, '5+'];
@@ -376,7 +379,9 @@ const WriteReviewForm = ({
   submitting: boolean;
   error: string | null;
 }) => {
-  const [name, setName] = useState('');
+  const { session } = useSupabase();
+  const defaultName = session?.user?.user_metadata?.full_name ?? session?.user?.email?.split('@')[0] ?? '';
+  const [name, setName] = useState(defaultName);
   const [rating, setRating] = useState(5);
   const [body, setBody] = useState('');
 

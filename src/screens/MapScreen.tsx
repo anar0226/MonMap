@@ -1,4 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { AppStackParamList } from '../navigation';
 import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import * as Location from 'expo-location';
@@ -38,6 +41,7 @@ const iconNameFor = (key: string) => `poi-${key}`;
 type Bounds = { sw: [number, number]; ne: [number, number] };
 
 export default function MapScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'Map'>>();
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
@@ -302,7 +306,7 @@ export default function MapScreen() {
       </MapboxGL.MapView>
 
       {/* Search bar (top) */}
-      <SearchBar onPress={() => setSearchOpen(true)} />
+      <SearchBar onPress={() => setSearchOpen(true)} onProfilePress={() => navigation.navigate('Profile')} />
 
       {mapError && (
         <View style={styles.errorBanner}>

@@ -31,7 +31,12 @@ yarn-error.*
 *.pem
 
 # local env files
+.env
 .env*.local
+
+# scraper output (can be large and contains business data)
+data/raw_places.json
+data/progress.json
 
 # typescript
 *.tsbuildinfo

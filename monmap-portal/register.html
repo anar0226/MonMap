@@ -112,7 +112,7 @@
       <!-- Step 1: Account -->
       <div class="step-panel active" id="panel-1">
         <h3 style="margin-bottom:6px;">Бүртгэлийн мэдээлэл</h3>
-        <p class="mb-24">Нэвтрэхэд ашиглах и-мэйл болон нууц үгээ оруулна уу</p>
+        <p class="mb-24">Бизнесийн и-мэйл хаягаа оруулна уу — нэвтрэх холбоос и-мэйлээр ирнэ</p>
 
         <div class="form-row">
           <div class="form-group">
@@ -144,19 +144,6 @@
           <span class="form-error">Зөв и-мэйл хаяг оруулна уу</span>
         </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label class="form-label">Нууц үг <span class="required">*</span></label>
-            <input type="password" class="form-control" id="regPwd" placeholder="8+ тэмдэгт" />
-            <span class="form-error">8+ тэмдэгт нууц үг оруулна уу</span>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Нууц үг давтах <span class="required">*</span></label>
-            <input type="password" class="form-control" id="regPwd2" placeholder="Дахин оруулна уу" />
-            <span class="form-error">Нууц үг таарахгүй байна</span>
-          </div>
-        </div>
-
         <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:28px;">
           <input type="checkbox" id="terms" style="width:16px;height:16px;margin-top:2px;accent-color:var(--primary);" />
           <label for="terms" style="font-size:0.875rem;color:var(--gray-600);cursor:pointer;line-height:1.5;">
@@ -175,8 +162,8 @@
         <p class="mb-24">МонМэп дэлгэцэнд харагдах бизнесийн мэдээллийг оруулна уу</p>
 
         <div class="form-group">
-          <label class="form-label">Бизнесийн нэр (Монголоор) <span class="required">*</span></label>
-          <input type="text" class="form-control" id="bizName" placeholder="жш: Эрдэнэт Салон" />
+          <label class="form-label">Бизнесийн нэр <span class="required">*</span></label>
+          <input type="text" class="form-control" id="bizName" placeholder="жш: Эрдэнэт Салон, Blue Sky Cafe" />
           <span class="form-error">Бизнесийн нэр оруулна уу</span>
         </div>
 
@@ -300,13 +287,7 @@
           </div>
           <div class="form-group">
             <label class="form-label">Зэрэгцэх захиалга</label>
-            <select class="form-control" id="concurrent">
-              <option value="1">1 (ганцаараа)</option>
-              <option value="2">2</option>
-              <option value="3">3</option>
-              <option value="5">5</option>
-              <option value="10">10+</option>
-            </select>
+            <input type="number" class="form-control" id="concurrent" min="1" max="999" value="1" />
           </div>
         </div>
 
@@ -349,19 +330,19 @@
   </div>
 </div>
 
-<!-- Success Modal -->
+<!-- Success Modal: shown immediately after OTP is sent -->
 <div class="modal-overlay" id="successModal">
   <div class="modal">
     <div class="modal-body" style="text-align:center;padding:48px 32px;">
-      <div style="font-size:4rem;margin-bottom:20px;">🎉</div>
-      <h3 style="margin-bottom:10px;">Бүртгэл амжилттай илгээгдлээ!</h3>
+      <div style="font-size:4rem;margin-bottom:20px;">📧</div>
+      <h3 style="margin-bottom:10px;">И-мэйлийг шалгана уу</h3>
       <p style="color:var(--gray-600);line-height:1.7;margin-bottom:28px;">
-        Таны бизнесийн бүртгэлийг хүлээн авлаа. МонМэпийн баг 24 цагийн дотор и-мэйлээр баталгаажуулах болно.
+        <strong id="sentToEmail"></strong> хаяг руу нэвтрэх холбоос илгээлээ.<br/>
+        Холбоос дээр дарж бүртгэлийг дуусгана уу.
       </p>
-      <div style="background:var(--warning-light);border-radius:var(--radius);padding:16px;margin-bottom:28px;font-size:0.875rem;color:var(--warning);">
-        📧 Хяналтын мэдэгдэл таны и-мэйлд ирнэ
+      <div style="background:var(--gray-50);border-radius:var(--radius);padding:16px;font-size:0.875rem;color:var(--gray-500);">
+        Хэрэв и-мэйл ирэхгүй бол спам хавтсаа шалгана уу.
       </div>
-      <a href="dashboard.html" class="btn btn-primary btn-lg w-full">Самбар руу орох →</a>
     </div>
   </div>
 </div>
@@ -455,21 +436,17 @@
 
   function validateStep(step) {
     if (step === 1) {
-      const last = document.getElementById('lastName').value.trim();
+      const last  = document.getElementById('lastName').value.trim();
       const first = document.getElementById('firstName').value.trim();
       const phone = document.getElementById('phone').value.trim();
       const email = document.getElementById('regEmail').value.trim();
-      const pwd = document.getElementById('regPwd').value;
-      const pwd2 = document.getElementById('regPwd2').value;
       const terms = document.getElementById('terms').checked;
       let ok = true;
       clearErrors('panel-1');
-      if (!last) { setError('lastName', true); ok = false; }
+      if (!last)  { setError('lastName', true); ok = false; }
       if (!first) { setError('firstName', true); ok = false; }
       if (!phone || phone.length < 7) { setError('phone', true); ok = false; }
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('regEmail', true); ok = false; }
-      if (!pwd || pwd.length < 8) { setError('regPwd', true); ok = false; }
-      if (pwd !== pwd2) { setError('regPwd2', true); ok = false; }
       if (!terms) { showToast('error', 'Нөхцөл зөвшөөрнө үү', 'Үргэлжлүүлэхийн тулд нөхцөлтэй зөвшөөрнө үү.'); ok = false; }
       return ok;
     }
@@ -544,7 +521,6 @@
     const reset = () => { btn.disabled = false; btn.textContent = '✓ Бүртгэл илгээх'; };
 
     const email     = document.getElementById('regEmail').value.trim();
-    const password  = document.getElementById('regPwd').value;
     const lastName  = document.getElementById('lastName').value.trim();
     const firstName = document.getElementById('firstName').value.trim();
     const userPhone = document.getElementById('phone').value.trim();
@@ -555,64 +531,81 @@
     const address   = document.getElementById('address').value.trim();
     const bizPhone  = document.getElementById('bizPhone').value.trim();
     const bizDesc   = document.getElementById('bizDesc').value.trim();
+    const concurrent = Math.max(1, parseInt(document.getElementById('concurrent').value) || 1);
 
-    // 1. Create auth user
-    const { data: authData, error: authErr } = await _sb.auth.signUp({
-      email, password,
-      options: { data: { full_name: `${lastName} ${firstName}`, phone: userPhone } },
+    // Persist form data so completeRegistration can finish after the magic-link redirect
+    localStorage.setItem('mm_pending_reg', JSON.stringify({
+      email, lastName, firstName, userPhone,
+      bizName, bizType, district, khoroo, address, bizPhone, bizDesc, concurrent,
+    }));
+
+    const { error } = await _sb.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+        data: { full_name: `${lastName} ${firstName}`, phone: userPhone },
+        emailRedirectTo: window.location.href,
+      },
     });
-    if (authErr)              { showToast('error', 'Бүртгэлийн алдаа', authErr.message); reset(); return; }
-    const userId = authData.user?.id;
-    if (!userId)              { showToast('error', 'Алдаа', 'Хэрэглэгч үүсгэхэд алдаа гарлаа.'); reset(); return; }
 
-    // Wait for the session to be established (signUp may need email confirmation in some configs)
-    if (!authData.session) {
-      const { data: { session } } = await _sb.auth.getSession();
-      if (!session) {
-        showToast('warning', 'И-мэйл баталгаажуулалт', 'И-мэйл рүү баталгаажуулалтын холбоос илгээлээ. Баталгаажсаны дараа нэвтэрнэ үү.');
-        reset();
-        setTimeout(() => { window.location.href = 'login.html'; }, 2500);
-        return;
-      }
+    if (error) {
+      localStorage.removeItem('mm_pending_reg');
+      showToast('error', 'Алдаа', error.message);
+      reset();
+      return;
     }
 
-    // 2. Create the place (owner-namespaced place_id)
-    const placeId  = 'owner_' + userId;
-    const category = CATEGORY_MAP[bizType] || 'other';
-    const fullAddress = [address, khoroo, district, 'Улаанбаатар']
-      .filter(Boolean).join(', ');
+    document.getElementById('sentToEmail').textContent = email;
+    document.getElementById('successModal').classList.add('open');
+    // btn stays disabled — user must click the email link to continue
+  }
 
-    const { error: placeErr } = await _sb.from('places').insert({
+  async function completeRegistration(userId, d) {
+    const placeId   = 'owner_' + userId;
+    const category  = CATEGORY_MAP[d.bizType] || 'other';
+    const fullAddress = [d.address, d.khoroo, d.district, 'Улаанбаатар'].filter(Boolean).join(', ');
+
+    const { error: placeErr } = await _sb.from('places').upsert({
       place_id:          placeId,
-      name:              bizName,
+      name:              d.bizName,
       primary_category:  category,
       types:             [category],
       location:          `SRID=4326;POINT(${UB_LNG} ${UB_LAT})`,
       lat:               UB_LAT,
       lng:               UB_LNG,
       formatted_address: fullAddress,
-      short_address:     address || null,
-      phone_national:    bizPhone || null,
+      short_address:     d.address || null,
+      phone_national:    d.bizPhone || null,
+      slot_capacity:     d.concurrent,
       business_status:   'OPERATIONAL',
-      raw:               { source: 'portal', description: bizDesc || null, district, khoroo: khoroo || null },
+      raw:               { source: 'portal', description: d.bizDesc || null, district: d.district, khoroo: d.khoroo || null },
       fetched_at:        nowIso(),
       updated_at:        nowIso(),
-    });
-    if (placeErr) { showToast('error', 'Бизнес бүртгэх алдаа', placeErr.message); reset(); return; }
+    }, { onConflict: 'place_id' });
+    if (placeErr) { showToast('error', 'Бизнес бүртгэх алдаа', placeErr.message); return; }
 
-    // 3. Link this user to the place
-    const { error: linkErr } = await _sb.from('business_owners').insert({
-      user_id: userId, place_id: placeId,
-    });
-    if (linkErr) { showToast('error', 'Холбох алдаа', linkErr.message); reset(); return; }
+    const { error: linkErr } = await _sb.from('business_owners').upsert(
+      { user_id: userId, place_id: placeId },
+      { onConflict: 'user_id,place_id' }
+    );
+    if (linkErr) { showToast('error', 'Холбох алдаа', linkErr.message); return; }
 
-    // 4. Cache for dashboard
+    localStorage.removeItem('mm_pending_reg');
     localStorage.setItem('mm_biz', JSON.stringify({
-      id: placeId, name: bizName, type: bizType || 'Бизнес', verified: false,
+      id: placeId, name: d.bizName, type: d.bizType || 'Бизнес', verified: false,
     }));
 
-    document.getElementById('successModal').classList.add('open');
+    window.location.href = 'dashboard.html';
   }
+
+  // After the user clicks the magic link they land back here with a fresh session.
+  // Complete any pending registration before redirecting to the dashboard.
+  _sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      const pending = JSON.parse(localStorage.getItem('mm_pending_reg') || 'null');
+      if (pending) await completeRegistration(session.user.id, pending);
+    }
+  });
 
   document.getElementById('fileInput').addEventListener('change', function() {
     if (this.files && this.files[0]) {

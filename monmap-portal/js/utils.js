@@ -106,6 +106,15 @@ async function updateBookingStatus(id, status) {
   return error;
 }
 
+// Confirms a booking and fires the notify-guest edge function to push-notify + SMS the guest.
+async function confirmAndNotify(id) {
+  const err = await updateBookingStatus(id, 'confirmed');
+  if (err) return err;
+  const { error: fnErr } = await _sb.functions.invoke('notify-guest', { body: { bookingId: id } });
+  if (fnErr) console.warn('notify-guest:', fnErr);
+  return null;
+}
+
 // _ownerId is unused (kept for call-site compatibility with dashboard/bookings)
 async function addPortalBooking(placeId, _ownerId, { client, phone, date, time, partySize, note }) {
   const { error } = await _sb.from('bookings').insert({

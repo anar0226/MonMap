@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../navigation';
+import { useNavigation as useTurnByTurnNav } from '../hooks/useNavigation';
+import { NavigationOverlay } from '../components/NavigationOverlay';
 import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import * as Location from 'expo-location';
@@ -52,6 +54,7 @@ export default function MapScreen() {
   const { place, loading: detailLoading, fetchDetail, clear } = usePlaceDetail();
   const { multi, route, loading: routeLoading, error: routeError, fetchRoute, selectMode, clear: clearRoute } = useDirections();
   const [routeDestName, setRouteDestName] = useState<string | null>(null);
+  const nav = useTurnByTurnNav();
 
   useEffect(() => {
     let cancelled = false;
@@ -167,12 +170,35 @@ export default function MapScreen() {
   }, [clearRoute]);
 
   const handleStartNavigation = useCallback(() => {
-    // TODO: launch turn-by-turn navigation
-  }, []);
+    if (!route || !multi) return;
+    nav.start(route.steps, multi.destination);
+  }, [route, multi, nav.start]);
+
+  const handleEndNavigation = useCallback(() => {
+    nav.stop();
+  }, [nav.stop]);
 
   useEffect(() => {
     if (route) fitBoundsToRoute(route.bounds.sw, route.bounds.ne);
   }, [route, fitBoundsToRoute]);
+
+  // Lock camera to user heading while navigating.
+  useEffect(() => {
+    if (nav.mode !== 'active' || !nav.userLocation) return;
+    cameraRef.current?.setCamera({
+      centerCoordinate: nav.userLocation,
+      zoomLevel: 17,
+      heading: nav.heading ?? 0,
+      pitch: 45,
+      animationDuration: 600,
+    });
+  }, [nav.mode, nav.userLocation, nav.heading]);
+
+  const durationRemainingSec = useMemo(() => {
+    if (!route || route.distanceMeters === 0) return route?.durationSeconds ?? 0;
+    if (nav.distanceToDestination <= 0) return route.durationSeconds;
+    return Math.round((nav.distanceToDestination / route.distanceMeters) * route.durationSeconds);
+  }, [nav.distanceToDestination, route]);
 
   // Build iconImage expression: ['coalesce', ['concat', 'poi-', primary_category], 'poi-fallback']
   // We can't `concat` a literal with an unknown getter that may not match a registered name,
@@ -369,10 +395,12 @@ export default function MapScreen() {
         )}
       </MapboxGL.MapView>
 
-      {/* Search bar (top) — box-none lets map touches pass through the wrapper but not the bar itself */}
-      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-        <SearchBar onPress={() => setSearchOpen(true)} onProfilePress={() => navigation.navigate('Profile')} />
-      </View>
+      {/* Search bar — hidden while navigating */}
+      {nav.mode === 'idle' && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          <SearchBar onPress={() => setSearchOpen(true)} onProfilePress={() => navigation.navigate('Profile')} />
+        </View>
+      )}
 
       {mapError && (
         <View style={styles.errorBanner}>
@@ -393,15 +421,18 @@ export default function MapScreen() {
         </View>
       )}
 
-      <DirectionsPanel
-        multi={multi}
-        loading={routeLoading}
-        error={routeError}
-        destinationName={routeDestName}
-        onClose={handleCloseRoute}
-        onStart={handleStartNavigation}
-        onSelectMode={selectMode}
-      />
+      {/* Directions panel — hidden once navigation has started */}
+      {nav.mode === 'idle' && (
+        <DirectionsPanel
+          multi={multi}
+          loading={routeLoading}
+          error={routeError}
+          destinationName={routeDestName}
+          onClose={handleCloseRoute}
+          onStart={handleStartNavigation}
+          onSelectMode={selectMode}
+        />
+      )}
 
       <PlaceDetailCard
         place={place}
@@ -409,6 +440,19 @@ export default function MapScreen() {
         onClose={clear}
         onRequestDirections={handleRequestDirections}
       />
+
+      {/* Turn-by-turn navigation overlay */}
+      {(nav.mode === 'active' || nav.mode === 'arrived') && (
+        <NavigationOverlay
+          mode={nav.mode}
+          upcomingStep={nav.upcomingStep}
+          distanceToNextManeuver={nav.distanceToNextManeuver}
+          distanceToDestination={nav.distanceToDestination}
+          durationRemainingSec={durationRemainingSec}
+          destinationName={routeDestName ?? ''}
+          onEnd={handleEndNavigation}
+        />
+      )}
 
       {/* Full-screen search modal */}
       <SearchScreen

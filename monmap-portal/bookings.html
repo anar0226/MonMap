@@ -364,11 +364,11 @@
   async function confirmBooking(id) {
     const b = _bookings.find(x => x.id === id);
     if (!b) return;
-    const err = await updateBookingStatus(id, 'confirmed');
+    const err = await confirmAndNotify(id);
     if (err) { showToast('error', 'Алдаа', err.message); return; }
     _bookings = await getBookings(_biz.id);
     renderCalendar(); renderList();
-    showToast('success', 'Баталгаажуулагдлаа', `${b.client}-ийн захиалга баталгаажлаа.`);
+    showToast('success', 'Баталгаажуулагдлаа', `${b.client}-д мэдэгдэл явуулагдлаа.`);
   }
 
   function openCancel(id) {

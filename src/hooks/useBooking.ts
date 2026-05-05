@@ -12,7 +12,7 @@ export function useBooking() {
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [confirmed, setConfirmed] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const fetchSlots = useCallback(async (
     placeId: string,
@@ -25,21 +25,23 @@ export function useBooking() {
     try {
       const { data, error: err } = await supabase
         .from('bookings')
-        .select('time_slot')
+        .select('time_slot, party_size')
         .eq('place_id', placeId)
         .eq('booked_date', date)
         .neq('status', 'cancelled');
       if (err) throw err;
 
-      const bookedCounts: Record<string, number> = {};
+      // Sum covers (party_size) per slot, not booking count.
+      // slot_capacity is a covers limit, so 8 means 8 seated guests, not 8 bookings.
+      const coversBySlot: Record<string, number> = {};
       for (const row of (data ?? [])) {
-        bookedCounts[row.time_slot] = (bookedCounts[row.time_slot] ?? 0) + 1;
+        coversBySlot[row.time_slot] = (coversBySlot[row.time_slot] ?? 0) + (row.party_size ?? 1);
       }
 
       setSlots(timeSlots.map(slot => ({
         slot,
-        booked: bookedCounts[slot] ?? 0,
-        available: (bookedCounts[slot] ?? 0) < slotCapacity,
+        booked: coversBySlot[slot] ?? 0,
+        available: (coversBySlot[slot] ?? 0) < slotCapacity,
       })));
     } catch (e: any) {
       setError(e?.message ?? 'Could not load availability');
@@ -58,7 +60,7 @@ export function useBooking() {
   }): Promise<boolean> => {
     setSubmitting(true);
     setError(null);
-    setConfirmed(false);
+    setSubmitted(false);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const userId = session?.user?.id ?? null;
@@ -72,22 +74,22 @@ export function useBooking() {
           party_size: params.partySize,
           guest_name: params.guestName,
           guest_phone: params.guestPhone || null,
-          status: 'confirmed',
+          status: 'pending',
           ...(userId ? { user_id: userId } : {}),
         })
         .select('id')
         .single();
       if (err) throw err;
 
-      // Fire-and-forget: notify business owner and guest via Twilio SMS.
-      // Don't await — a Twilio failure must never block the booking confirmation UX.
+      // Fire-and-forget: notify the business owner of a new booking request.
+      // Don't await — a Twilio failure must never block the UX.
       if (data?.id) {
         supabase.functions
           .invoke('notify-booking', { body: { bookingId: data.id } })
           .catch((e) => console.warn('notify-booking:', e));
       }
 
-      setConfirmed(true);
+      setSubmitted(true);
       return true;
     } catch (e: any) {
       setError(e?.message ?? 'Could not submit booking');
@@ -97,9 +99,9 @@ export function useBooking() {
     }
   }, []);
 
-  const resetConfirmed = useCallback(() => setConfirmed(false), []);
+  const resetSubmitted = useCallback(() => setSubmitted(false), []);
 
-  return { slots, loadingSlots, submitting, error, confirmed, fetchSlots, submitBooking, resetConfirmed };
+  return { slots, loadingSlots, submitting, error, submitted, fetchSlots, submitBooking, resetSubmitted };
 }
 
 // Parses today's open/close hours from Google Places weekday_descriptions.
@@ -140,11 +142,12 @@ export function parseTodayHours(
   return null;
 }
 
-export function generateTimeSlots(openHour = 10, closeHour = 20): string[] {
+export function generateTimeSlots(openHour = 10, closeHour = 20, lastSeatingMinutesBefore = 60): string[] {
   const slots: string[] = [];
+  const cutoffMins = closeHour * 60 - lastSeatingMinutesBefore;
   for (let h = openHour; h < closeHour; h++) {
-    slots.push(`${String(h).padStart(2, '0')}:00`);
-    slots.push(`${String(h).padStart(2, '0')}:30`);
+    if (h * 60 <= cutoffMins) slots.push(`${String(h).padStart(2, '0')}:00`);
+    if (h * 60 + 30 <= cutoffMins) slots.push(`${String(h).padStart(2, '0')}:30`);
   }
   return slots;
 }

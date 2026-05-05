@@ -124,13 +124,16 @@ export default function BookingsScreen({ navigation }: Props) {
 function StatusBadge({ status }: { status: string }) {
   const isConfirmed = status === 'confirmed';
   const isCancelled = status === 'cancelled';
+  const isPending = status === 'pending';
   const bg = isConfirmed
     ? 'rgba(16,185,129,0.12)'
     : isCancelled
     ? 'rgba(239,68,68,0.12)'
+    : isPending
+    ? 'rgba(251,184,36,0.12)'
     : 'rgba(255,255,255,0.08)';
-  const fg = isConfirmed ? '#10B981' : isCancelled ? colors.danger : colors.textSec;
-  const label = isConfirmed ? 'Баталгаажсан' : isCancelled ? 'Цуцлагдсан' : status;
+  const fg = isConfirmed ? '#10B981' : isCancelled ? colors.danger : isPending ? '#FBB824' : colors.textSec;
+  const label = isConfirmed ? 'Баталгаажсан' : isCancelled ? 'Цуцлагдсан' : isPending ? 'Хүлээгдэж байна' : status;
 
   return (
     <View style={[s.statusBadge, { backgroundColor: bg }]}>

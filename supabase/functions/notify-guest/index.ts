@@ -22,6 +22,26 @@ async function sendSMS(to: string, body: string): Promise<void> {
   }
 }
 
+async function sendExpoPush(
+  token: string,
+  title: string,
+  body: string,
+  data: Record<string, string>,
+): Promise<void> {
+  const res = await fetch('https://exp.host/--/api/v2/push/send', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    body: JSON.stringify({ to: token, title, body, data, sound: 'default' }),
+  })
+  if (!res.ok) {
+    const txt = await res.text()
+    console.error('Expo push error:', txt)
+  }
+}
+
 Deno.serve(async (req) => {
   try {
     const { bookingId } = await req.json()
@@ -42,26 +62,41 @@ Deno.serve(async (req) => {
 
     const { data: place } = await db
       .from('places')
-      .select('name, phone_intl, phone_national')
+      .select('name')
       .eq('place_id', booking.place_id)
       .single()
 
-    const businessPhone = place?.phone_intl ?? place?.phone_national
     const placeName = place?.name ?? 'Газар'
-
     const jobs: Promise<void>[] = []
 
-    // Notify the business owner only — the guest is not notified until the owner confirms.
-    if (businessPhone) {
-      const lines = [
-        '🔔 MonMap: Шинэ захиалгын хүсэлт!',
-        `Нэр: ${booking.guest_name}`,
-        `Огноо: ${booking.booked_date} ${booking.time_slot}`,
-        `Хүн: ${booking.party_size}`,
-      ]
-      if (booking.guest_phone) lines.push(`Утас: ${booking.guest_phone}`)
-      lines.push('Портал дээр баталгаажуулна уу: monmap-portal')
-      jobs.push(sendSMS(businessPhone, lines.join('\n')))
+    // Push notification to the guest's device (if they were logged in when booking).
+    if (booking.user_id) {
+      const { data: tokenRow } = await db
+        .from('user_push_tokens')
+        .select('token')
+        .eq('user_id', booking.user_id)
+        .maybeSingle()
+
+      if (tokenRow?.token) {
+        jobs.push(
+          sendExpoPush(
+            tokenRow.token,
+            'Захиалга баталгаажлаа! ✅',
+            `${placeName} · ${booking.booked_date} ${booking.time_slot} цагт ${booking.party_size} хүн`,
+            { bookingId: String(bookingId) },
+          ),
+        )
+      }
+    }
+
+    // SMS to guest phone number.
+    if (booking.guest_phone) {
+      const msg = [
+        `✅ MonMap: ${placeName}-д таны захиалга баталгаажлаа!`,
+        `${booking.booked_date} ${booking.time_slot} цагт ${booking.party_size} хүн`,
+        'Сайхан хооллоорой! 🍽️',
+      ].join('\n')
+      jobs.push(sendSMS(booking.guest_phone, msg))
     }
 
     await Promise.allSettled(jobs)
@@ -70,7 +105,7 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    console.error('notify-booking error:', err)
+    console.error('notify-guest error:', err)
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

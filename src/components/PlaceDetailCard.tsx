@@ -289,13 +289,15 @@ function reminderDate(dateStr: string, timeSlot: string): Date | null {
 
 const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) => {
   const today = todayDateString();
+  // slot_capacity is total covers (sum of party_size) allowed per 30-min slot.
+  // DB column is NOT NULL default 8; ?? fallback is a safety net only.
   const slotCapacity = place.slot_capacity ?? 8;
   const hours =
     (place.booking_open_hour != null && place.booking_close_hour != null)
       ? { openHour: place.booking_open_hour, closeHour: place.booking_close_hour }
       : parseTodayHours(place.regular_opening_hours?.weekday_descriptions);
-  const timeSlots = generateTimeSlots(hours?.openHour ?? 10, hours?.closeHour ?? 20);
-  const { slots, loadingSlots, submitting, error, confirmed, fetchSlots, submitBooking, resetConfirmed } = useBooking();
+  const timeSlots = generateTimeSlots(hours?.openHour ?? 10, hours?.closeHour ?? 20, 60);
+  const { slots, loadingSlots, submitting, error, submitted, fetchSlots, submitBooking, resetSubmitted } = useBooking();
   const { session } = useSupabase();
   const defaultName = session?.user?.user_metadata?.full_name ?? session?.user?.email?.split('@')[0] ?? '';
   const [selectedSlotIdx, setSelectedSlotIdx] = useState(0);
@@ -360,19 +362,20 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     );
   }
 
-  if (confirmed) {
+  if (submitted) {
     return (
       <View style={s.emptyState}>
-        <View style={[s.emptyIcon, { backgroundColor: 'rgba(16,185,129,0.15)' }]}>
-          <Ionicons name="checkmark-circle-outline" size={28} color={C.green} />
+        <View style={[s.emptyIcon, { backgroundColor: 'rgba(251,184,36,0.15)' }]}>
+          <Ionicons name="time-outline" size={28} color={C.amber} />
         </View>
-        <Text style={[s.emptyTitle, { color: C.green }]}>Захиалга баталгаажлаа!</Text>
+        <Text style={[s.emptyTitle, { color: C.amber }]}>Хүсэлт илгээгдлээ</Text>
         <Text style={s.emptyDesc}>
-          {slots[selectedSlotIdx]?.slot} цагт {partySize} хүний захиалга бүртгэгдлээ.
+          {slots[selectedSlotIdx]?.slot} цагт {partySize} хүний захиалгын хүсэлт бүртгэгдлээ.
+          {'\n\n'}Газар баталгаажуулмагц мэдэгдэл хүлээн авна.
         </Text>
         <TouchableOpacity
           style={[s.ctaSecondary, { marginTop: 16, alignSelf: 'stretch' }]}
-          onPress={() => { resetConfirmed(); setShowForm(false); fetchSlots(place.place_id, today, timeSlots, slotCapacity); }}
+          onPress={() => { resetSubmitted(); setShowForm(false); fetchSlots(place.place_id, today, timeSlots, slotCapacity); }}
           activeOpacity={0.8}
         >
           <Text style={s.ctaSecondaryText}>Буцах</Text>

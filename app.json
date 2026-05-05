@@ -10,14 +10,15 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#0d1117"
     },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.monmap.app",
       "infoPlist": {
         "NSLocationWhenInUseUsageDescription": "MonMap uses your location to show you on the map and provide accurate ETAs.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "MonMap uses your location to show you on the map and provide accurate ETAs."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "MonMap uses your location to show you on the map and provide accurate ETAs.",
+        "LSApplicationQueriesSchemes": ["ubcab", "abataxi", "aba"]
       }
     },
     "android": {
@@ -40,6 +41,13 @@
       [
         "@rnmapbox/maps",
         {}
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#0053A3"
+        }
       ]
     ]
   }

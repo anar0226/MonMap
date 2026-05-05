@@ -11,10 +11,15 @@ import {
   ActivityIndicator,
   TextInput,
   Alert,
+  Share,
 } from 'react-native';
+import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
+import MapboxGL from '@rnmapbox/maps';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Place } from '../types/place';
 import { CategoryIcon } from './CategoryIcon';
+import { MAPBOX_STYLE } from '../constants/config';
 import {
   CATEGORY_COLORS,
   FALLBACK_COLOR,
@@ -22,7 +27,10 @@ import {
   BOOKABLE_CATEGORIES,
 } from '../constants/categories';
 import { useReviews, computeRatingBars, computeAverageRating, type Review } from '../hooks/useReviews';
-import { useBooking, generateTimeSlots, todayDateString } from '../hooks/useBooking';
+import { useBooking, generateTimeSlots, parseTodayHours, todayDateString } from '../hooks/useBooking';
+import { useClosureReport } from '../hooks/useClosureReport';
+import { useConfirmOpen } from '../hooks/useConfirmOpen';
+import { getOpenStatus, isStaleStatus, type OpenStatus } from '../utils/openStatus';
 import { useSupabase } from '../context/SupabaseContext';
 
 const { height: SCREEN_H } = Dimensions.get('window');
@@ -127,10 +135,28 @@ const PlaceRatingRow = ({ placeId }: { placeId: string }) => {
 
 // ── Tab: Мэдээлэл ─────────────────────────────────────────────────────────────
 
-const InfoTab = ({ place }: { place: Place }) => {
+const InfoTab = ({ place, openStatus }: { place: Place; openStatus: OpenStatus | null }) => {
   const hoursLines = place.regular_opening_hours?.weekday_descriptions ?? [];
   const address = place.formatted_address ?? place.short_address;
   const phone = place.phone_national ?? place.phone_intl;
+  const { reported, submitting: reportSubmitting, reportClosure } = useClosureReport(place.place_id);
+  const { confirmed, submitting: confirmSubmitting, confirmOpen } = useConfirmOpen(place.place_id);
+
+  const showHoursCaveat = openStatus && (
+    isStaleStatus(openStatus.kind) || openStatus.kind === 'holiday'
+  );
+
+  const handleReport = () => {
+    if (reported) return;
+    Alert.alert(
+      'Хаалттай мэдэгдэх',
+      'Энэ газар хаагдсан эсвэл байхгүй болсон гэж мэдэгдэх үү?',
+      [
+        { text: 'Болих', style: 'cancel' },
+        { text: 'Мэдэгдэх', onPress: () => reportClosure() },
+      ],
+    );
+  };
 
   return (
     <View style={{ gap: 14 }}>
@@ -142,28 +168,133 @@ const InfoTab = ({ place }: { place: Place }) => {
               {hoursLines.join('\n')}
             </InfoRow>
           )}
+          {showHoursCaveat && (
+            <View style={s.hoursCaveat}>
+              <Ionicons
+                name={openStatus.kind === 'holiday' ? 'calendar-outline' : 'alert-circle-outline'}
+                size={12}
+                color={openStatus.kind === 'holiday' ? '#FBB824' : C.textMuted}
+              />
+              <Text style={[
+                s.hoursCaveatText,
+                openStatus.kind === 'holiday' && { color: '#FBB824' },
+              ]}>
+                {openStatus.kind === 'holiday'
+                  ? `${openStatus.holidayName} — цаг хуваарь өөрчлөгдсөн байж болно`
+                  : 'Цаг хуваарь сүүлд баталгаажаагүй байна'}
+              </Text>
+            </View>
+          )}
           {phone && <InfoRow icon="call-outline">{phone}</InfoRow>}
         </View>
       )}
 
       <Div />
 
-      <View style={s.miniMap}>
-        <View style={s.miniMapPin}>
-          <Ionicons name="location" size={14} color="#fff" />
-        </View>
-        <Text style={s.miniMapLabel}>ГАЗРЫН ЗУРАГ</Text>
-      </View>
+      <PlaceMiniMap place={place} />
+
+      {hoursLines.length > 0 && (
+        <TouchableOpacity
+          style={s.reportBtn}
+          activeOpacity={0.6}
+          disabled={confirmed || confirmSubmitting}
+          onPress={() => confirmOpen()}
+        >
+          {confirmSubmitting
+            ? <ActivityIndicator size="small" color={C.textMuted} />
+            : <Ionicons
+                name={confirmed ? 'checkmark-circle-outline' : 'thumbs-up-outline'}
+                size={13}
+                color={confirmed ? C.green : C.textMuted}
+              />
+          }
+          <Text style={[s.reportBtnText, confirmed && { color: C.green }]}>
+            {confirmed ? 'Баталгаажуулсан — баярлалаа' : 'Цагаар нээлттэй байна'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      <TouchableOpacity
+        style={s.reportBtn}
+        activeOpacity={0.6}
+        disabled={reported || reportSubmitting}
+        onPress={handleReport}
+      >
+        {reportSubmitting
+          ? <ActivityIndicator size="small" color={C.textMuted} />
+          : <Ionicons
+              name={reported ? 'checkmark-circle-outline' : 'flag-outline'}
+              size={13}
+              color={reported ? C.green : C.textMuted}
+            />
+        }
+        <Text style={[s.reportBtnText, reported && { color: C.green }]}>
+          {reported ? 'Мэдэгдсэн — баярлалаа' : 'Энэ газар хаалттай байна уу?'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+const PlaceMiniMap = ({ place }: { place: Place }) => {
+  const coord: [number, number] = [place.lng, place.lat];
+  return (
+    <View style={s.miniMap}>
+      <MapboxGL.MapView
+        style={StyleSheet.absoluteFill}
+        styleURL={MAPBOX_STYLE}
+        logoEnabled={false}
+        attributionEnabled={false}
+        compassEnabled={false}
+        scaleBarEnabled={false}
+        scrollEnabled={false}
+        zoomEnabled={false}
+        pitchEnabled={false}
+        rotateEnabled={false}
+      >
+        <MapboxGL.Camera
+          centerCoordinate={coord}
+          zoomLevel={15}
+          animationDuration={0}
+        />
+        <MapboxGL.StyleImport
+          id="basemap"
+          existing
+          config={{
+            showPointOfInterestLabels: 'false' as any,
+            showTransitLabels: 'false' as any,
+            showPlaceLabels: 'false' as any,
+          }}
+        />
+        <MapboxGL.PointAnnotation id={`mini-${place.place_id}`} coordinate={coord}>
+          <View style={s.miniMapPin}>
+            <Ionicons name="location" size={14} color="#fff" />
+          </View>
+        </MapboxGL.PointAnnotation>
+      </MapboxGL.MapView>
     </View>
   );
 };
 
 // ── Tab: Захиалах ─────────────────────────────────────────────────────────────
 
-const TIME_SLOTS = generateTimeSlots(10, 20);
+// Build a Date for 1 hour before a booking (device assumed to be in MNT = UTC+8).
+function reminderDate(dateStr: string, timeSlot: string): Date | null {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [h, min] = timeSlot.split(':').map(Number);
+  const appointmentMs = new Date(y, m - 1, d, h, min).getTime();
+  const reminderMs = appointmentMs - 60 * 60 * 1000;
+  return reminderMs > Date.now() ? new Date(reminderMs) : null;
+}
 
 const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) => {
   const today = todayDateString();
+  const slotCapacity = place.slot_capacity ?? 8;
+  const hours =
+    (place.booking_open_hour != null && place.booking_close_hour != null)
+      ? { openHour: place.booking_open_hour, closeHour: place.booking_close_hour }
+      : parseTodayHours(place.regular_opening_hours?.weekday_descriptions);
+  const timeSlots = generateTimeSlots(hours?.openHour ?? 10, hours?.closeHour ?? 20);
   const { slots, loadingSlots, submitting, error, confirmed, fetchSlots, submitBooking, resetConfirmed } = useBooking();
   const { session } = useSupabase();
   const defaultName = session?.user?.user_metadata?.full_name ?? session?.user?.email?.split('@')[0] ?? '';
@@ -175,8 +306,14 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
   const partySizes: Array<string | number> = [1, 2, 3, 4, '5+'];
 
   useEffect(() => {
-    if (isBookable) fetchSlots(place.place_id, today, TIME_SLOTS);
+    if (isBookable) fetchSlots(place.place_id, today, timeSlots, slotCapacity);
   }, [place.place_id, isBookable]);
+
+  // Request notification permissions when user opens the booking tab.
+  useEffect(() => {
+    if (!isBookable) return;
+    Notifications.requestPermissionsAsync().catch(() => {});
+  }, [isBookable]);
 
   const handleConfirm = async () => {
     if (!guestName.trim()) {
@@ -185,7 +322,7 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     }
     const slot = slots[selectedSlotIdx];
     if (!slot?.available) return;
-    await submitBooking({
+    const ok = await submitBooking({
       placeId: place.place_id,
       date: today,
       timeSlot: slot.slot,
@@ -193,6 +330,20 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
       guestName: guestName.trim(),
       guestPhone: guestPhone.trim(),
     });
+
+    if (ok) {
+      // Schedule a local push notification 1 hour before the appointment.
+      const trigger = reminderDate(today, slot.slot);
+      if (trigger) {
+        Notifications.scheduleNotificationAsync({
+          content: {
+            title: 'Захиалга ойртож байна! 🍽️',
+            body: `${place.name} · ${slot.slot} цагт ${partySize} хүн`,
+          },
+          trigger: { date: trigger } as any,
+        }).catch(() => {});
+      }
+    }
   };
 
   if (!isBookable) {
@@ -221,7 +372,7 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
         </Text>
         <TouchableOpacity
           style={[s.ctaSecondary, { marginTop: 16, alignSelf: 'stretch' }]}
-          onPress={() => { resetConfirmed(); setShowForm(false); fetchSlots(place.place_id, today, TIME_SLOTS); }}
+          onPress={() => { resetConfirmed(); setShowForm(false); fetchSlots(place.place_id, today, timeSlots, slotCapacity); }}
           activeOpacity={0.8}
         >
           <Text style={s.ctaSecondaryText}>Буцах</Text>
@@ -230,7 +381,7 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     );
   }
 
-  const availableSlots = slots.length > 0 ? slots : TIME_SLOTS.map(s => ({ slot: s, booked: 0, available: true }));
+  const availableSlots = slots.length > 0 ? slots : timeSlots.map(s => ({ slot: s, booked: 0, available: true }));
   const selectedSlot = availableSlots[selectedSlotIdx];
   const nextAvailIdx = availableSlots.findIndex(s => s.available);
 
@@ -497,16 +648,57 @@ const ReviewsTab = ({ place }: { place: Place }) => {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-interface Props {
+interface PlaceDetailCardProps {
   place: Place | null;
   loading: boolean;
   onClose: () => void;
   onRequestDirections?: (place: Place) => void;
 }
 
-export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }: Props) {
+const SAVED_PLACES_KEY = 'monmap.saved_places';
+
+export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }: PlaceDetailCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<'info' | 'book' | 'reviews'>('info');
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    if (!place) return;
+    let cancelled = false;
+    AsyncStorage.getItem(SAVED_PLACES_KEY).then(raw => {
+      if (cancelled) return;
+      const ids: string[] = raw ? JSON.parse(raw) : [];
+      setSaved(ids.includes(place.place_id));
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [place?.place_id]);
+
+  const handleToggleSave = useCallback(async () => {
+    if (!place) return;
+    try {
+      const raw = await AsyncStorage.getItem(SAVED_PLACES_KEY);
+      const ids: string[] = raw ? JSON.parse(raw) : [];
+      const next = ids.includes(place.place_id)
+        ? ids.filter(id => id !== place.place_id)
+        : [...ids, place.place_id];
+      await AsyncStorage.setItem(SAVED_PLACES_KEY, JSON.stringify(next));
+      setSaved(next.includes(place.place_id));
+    } catch (e) {
+      Alert.alert('Хадгалж чадсангүй');
+    }
+  }, [place?.place_id]);
+
+  const handleShare = useCallback(async () => {
+    if (!place) return;
+    const address = place.formatted_address ?? place.short_address ?? '';
+    const geoUrl = `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
+    const message = `${place.name}${address ? `\n${address}` : ''}\n${geoUrl}`;
+    try {
+      await Share.share({ message, title: place.name, url: geoUrl });
+    } catch (e) {
+      Alert.alert('Хуваалцаж чадсангүй');
+    }
+  }, [place?.place_id]);
 
   const visible = place !== null || loading;
 
@@ -532,7 +724,7 @@ export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }
 
   const catColor = CATEGORY_COLORS[place?.primary_category ?? ''] ?? FALLBACK_COLOR;
   const catLabel = (CATEGORY_LABELS[place?.primary_category ?? ''] ?? place?.primary_category ?? '').toUpperCase();
-  const isOpen = place?.current_opening_hours?.open_now;
+  const openStatus: OpenStatus | null = place ? getOpenStatus(place) : null;
   const isBookable = BOOKABLE_CATEGORIES.has(place?.primary_category ?? '');
   const phone = place?.phone_national ?? place?.phone_intl;
 
@@ -565,16 +757,13 @@ export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }
             <View style={s.metaRow}>
               <CategoryIcon category={place.primary_category} size={22} />
               <Text style={s.catLabel}>{catLabel}</Text>
-              {catLabel && isOpen !== undefined && (
+              {catLabel && openStatus && openStatus.kind !== 'unknown' && (
                 <Text style={s.metaDot}>·</Text>
               )}
-              {isOpen !== undefined && (
-                <View style={[
-                  s.statusBadge,
-                  { backgroundColor: isOpen ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' },
-                ]}>
-                  <Text style={[s.statusText, { color: isOpen ? C.green : C.red }]}>
-                    {isOpen ? 'НЭЭЛТТЭЙ' : 'ХААЛТТАЙ'}
+              {openStatus && openStatus.kind !== 'unknown' && (
+                <View style={[s.statusBadge, { backgroundColor: openStatus.badgeBg }]}>
+                  <Text style={[s.statusText, { color: openStatus.textColor }]}>
+                    {openStatus.label}
                   </Text>
                 </View>
               )}
@@ -614,8 +803,13 @@ export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }
             label="Залгах"
             onPress={() => phone && Linking.openURL('tel:' + phone.replace(/\s/g, ''))}
           />
-          <QuickBtn icon="bookmark-outline" label="Хадгалах" />
-          <QuickBtn icon="share-outline" label="Хуваалцах" />
+          <QuickBtn
+            icon={saved ? 'bookmark' : 'bookmark-outline'}
+            label="Хадгалах"
+            highlight={saved}
+            onPress={handleToggleSave}
+          />
+          <QuickBtn icon="share-outline" label="Хуваалцах" onPress={handleShare} />
         </View>
       )}
 
@@ -625,7 +819,7 @@ export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }
 
           <View style={[s.cover, { backgroundColor: catColor + '22' }]}>
             <CategoryIcon category={place.primary_category} size={44} />
-            <Text style={s.coverLabel}>ЗУРГИЙН БАЙРШИЛ</Text>
+            <Text style={s.coverLabel}>Одоогоор зураг байршуулаагүй байна</Text>
           </View>
 
           <View style={s.tabBar}>
@@ -648,7 +842,7 @@ export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }
             contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
             showsVerticalScrollIndicator={false}
           >
-            {tab === 'info'    && <InfoTab place={place} />}
+            {tab === 'info'    && <InfoTab place={place} openStatus={openStatus} />}
             {tab === 'book'    && <BookTab place={place} isBookable={isBookable} />}
             {tab === 'reviews' && <ReviewsTab place={place} />}
           </ScrollView>
@@ -798,9 +992,9 @@ const s = StyleSheet.create({
     gap: 8,
   },
   coverLabel: {
-    fontSize: 10,
+    fontSize: 12,
     color: C.textMuted,
-    letterSpacing: 1.2,
+    letterSpacing: 0.2,
   },
 
   tabBar: {
@@ -846,14 +1040,12 @@ const s = StyleSheet.create({
   },
 
   miniMap: {
-    height: 88,
+    height: 160,
     borderRadius: 12,
     backgroundColor: C.surface,
     borderWidth: 1,
     borderColor: C.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    overflow: 'hidden',
   },
   miniMapPin: {
     width: 28,
@@ -1107,5 +1299,30 @@ const s = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: C.textSec,
+  },
+
+  hoursCaveat: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 5,
+    paddingLeft: 26,
+  },
+  hoursCaveatText: {
+    fontSize: 11,
+    color: C.textMuted,
+    flex: 1,
+    lineHeight: 16,
+  },
+  reportBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    opacity: 0.65,
+  },
+  reportBtnText: {
+    fontSize: 12,
+    color: C.textMuted,
   },
 });

@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { useSupabase } from '../../context/SupabaseContext';
+import { useSavedPlaces } from '../../hooks/useSavedPlaces';
 import { colors, gradientCard, gradientPrimary } from '../../theme';
 import type { AppStackParamList } from '../../navigation';
 
@@ -18,14 +19,30 @@ export default function ProfileScreen({ navigation }: Props) {
   const avatarUrl = user?.user_metadata?.avatar_url ?? null;
 
   const [bookingCount, setBookingCount] = useState<number | null>(null);
+  const [reviewCount, setReviewCount] = useState<number | null>(null);
+  const { count: savedCount, reload: reloadSaved } = useSavedPlaces();
+
+  // Reload saved count each time the screen gains focus
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => { reloadSaved(); });
+    return unsubscribe;
+  }, [navigation, reloadSaved]);
 
   useEffect(() => {
     if (!user) return;
+    // Booking count
     supabase
       .from('bookings')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', user.id)
       .then(({ count }) => setBookingCount(count ?? 0));
+
+    // Review count
+    supabase
+      .from('reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .then(({ count }) => setReviewCount(count ?? 0));
   }, [user]);
 
   async function handleSignOut() {
@@ -80,24 +97,24 @@ export default function ProfileScreen({ navigation }: Props) {
         <View style={s.statsCard}>
           <StatItem value={bookingCount !== null ? String(bookingCount) : '—'} label="Захиалга" />
           <View style={s.statDivider} />
-          <StatItem value="0" label="Хадгалсан" />
+          <StatItem value={String(savedCount)} label="Хадгалсан" />
           <View style={s.statDivider} />
-          <StatItem value="0" label="Сэтгэгдэл" />
+          <StatItem value={reviewCount !== null ? String(reviewCount) : '—'} label="Сэтгэгдэл" />
         </View>
 
         {/* Menu sections */}
         <View style={s.sections}>
           <SectionLabel label="Миний данс" />
           <MenuCard items={[
-            { icon: '📋', iconColor: colors.primary, label: 'Захиалгууд', subtitle: 'Идэвхтэй болон дууссан', onTap: () => {} },
-            { icon: '🔖', iconColor: colors.purple, label: 'Хадгалсан газрууд', subtitle: 'Таалагдсан газрууд', onTap: () => {} },
+            { icon: '📋', iconColor: colors.primary, label: 'Захиалгууд', subtitle: 'Идэвхтэй болон дууссан', onTap: () => navigation.navigate('Bookings') },
+            { icon: '🔖', iconColor: colors.purple, label: 'Хадгалсан газрууд', subtitle: `${savedCount} газар хадгалсан`, onTap: () => navigation.navigate('SavedPlaces') },
             { icon: '⚙', iconColor: colors.sky, label: 'Тохиргоо', subtitle: 'Апп тохиргоо', onTap: () => navigation.navigate('Settings'), isLast: true },
           ]} />
 
           <SectionLabel label="Тусламж" />
           <MenuCard items={[
-            { icon: '🎧', iconColor: colors.indigo, label: 'Холбоо барих', subtitle: 'Бидэнтэй холбогдоорой', onTap: () => {} },
-            { icon: 'ℹ', iconColor: colors.textMuted, label: 'Тухай', subtitle: 'MonMap v1.0.0', onTap: () => {}, isLast: true },
+            { icon: '🎧', iconColor: colors.indigo, label: 'Холбоо барих', subtitle: 'Бидэнтэй холбогдоорой', onTap: () => navigation.navigate('Contact') },
+            { icon: 'ℹ', iconColor: colors.textMuted, label: 'Тухай', subtitle: 'MonMap v1.0.0', onTap: () => navigation.navigate('About'), isLast: true },
           ]} />
         </View>
 

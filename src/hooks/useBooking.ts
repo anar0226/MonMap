@@ -1,8 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 
-const SLOT_CAPACITY = 8;
-
 export interface SlotAvailability {
   slot: string;
   booked: number;
@@ -20,6 +18,7 @@ export function useBooking() {
     placeId: string,
     date: string,
     timeSlots: string[],
+    slotCapacity: number,
   ) => {
     setLoadingSlots(true);
     setError(null);
@@ -40,7 +39,7 @@ export function useBooking() {
       setSlots(timeSlots.map(slot => ({
         slot,
         booked: bookedCounts[slot] ?? 0,
-        available: (bookedCounts[slot] ?? 0) < SLOT_CAPACITY,
+        available: (bookedCounts[slot] ?? 0) < slotCapacity,
       })));
     } catch (e: any) {
       setError(e?.message ?? 'Could not load availability');
@@ -61,7 +60,10 @@ export function useBooking() {
     setError(null);
     setConfirmed(false);
     try {
-      const { error: err } = await supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id ?? null;
+
+      const { data, error: err } = await supabase
         .from('bookings')
         .insert({
           place_id: params.placeId,
@@ -71,8 +73,20 @@ export function useBooking() {
           guest_name: params.guestName,
           guest_phone: params.guestPhone || null,
           status: 'confirmed',
-        });
+          ...(userId ? { user_id: userId } : {}),
+        })
+        .select('id')
+        .single();
       if (err) throw err;
+
+      // Fire-and-forget: notify business owner and guest via Twilio SMS.
+      // Don't await — a Twilio failure must never block the booking confirmation UX.
+      if (data?.id) {
+        supabase.functions
+          .invoke('notify-booking', { body: { bookingId: data.id } })
+          .catch((e) => console.warn('notify-booking:', e));
+      }
+
       setConfirmed(true);
       return true;
     } catch (e: any) {
@@ -86,6 +100,44 @@ export function useBooking() {
   const resetConfirmed = useCallback(() => setConfirmed(false), []);
 
   return { slots, loadingSlots, submitting, error, confirmed, fetchSlots, submitBooking, resetConfirmed };
+}
+
+// Parses today's open/close hours from Google Places weekday_descriptions.
+// weekday_descriptions index 0 = Monday … 6 = Sunday.
+// Returns null on "Closed", unparseable strings, or missing data → caller falls back to defaults.
+export function parseTodayHours(
+  weekdayDescriptions: string[] | null | undefined,
+): { openHour: number; closeHour: number } | null {
+  if (!weekdayDescriptions?.length) return null;
+  const todayIdx = (new Date().getDay() + 6) % 7;
+  const line = weekdayDescriptions[todayIdx];
+  if (!line) return null;
+  if (/closed/i.test(line)) return null;
+  if (/open 24 hours/i.test(line)) return { openHour: 0, closeHour: 24 };
+
+  // AM/PM format: "9:00 AM – 5:00 PM" (possibly multiple ranges for split shifts)
+  const ampmMatches = [...line.matchAll(/(\d{1,2}):(\d{2})\s*(AM|PM)/gi)];
+  if (ampmMatches.length >= 2) {
+    const toH = (h: string, ap: string) => {
+      const n = parseInt(h, 10);
+      if (ap.toUpperCase() === 'AM') return n === 12 ? 0 : n;
+      return n === 12 ? 12 : n + 12;
+    };
+    const openHour = toH(ampmMatches[0][1], ampmMatches[0][3]);
+    const closeHour = toH(ampmMatches[ampmMatches.length - 1][1], ampmMatches[ampmMatches.length - 1][3]);
+    // "6:00 PM – 12:00 AM" → closeHour=0, treat midnight closing as 24
+    return { openHour, closeHour: closeHour <= openHour ? 24 : closeHour };
+  }
+
+  // 24h format: "09:00 – 18:00"
+  const h24Matches = [...line.matchAll(/\b(\d{1,2}):(\d{2})\b/g)];
+  if (h24Matches.length >= 2) {
+    const openHour = parseInt(h24Matches[0][1], 10);
+    const closeHour = parseInt(h24Matches[h24Matches.length - 1][1], 10);
+    return { openHour, closeHour: closeHour <= openHour ? 24 : closeHour };
+  }
+
+  return null;
 }
 
 export function generateTimeSlots(openHour = 10, closeHour = 20): string[] {

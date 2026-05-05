@@ -332,44 +332,21 @@
           <div class="section-card-body">
             <div class="form-row">
               <div class="form-group">
-                <label class="form-label">Захиалгын үргэлжлэх хугацаа</label>
-                <select class="form-control">
-                  <option>30 минут</option>
-                  <option>45 минут</option>
-                  <option selected>1 цаг</option>
-                  <option>1.5 цаг</option>
-                  <option>2 цаг</option>
-                </select>
-                <span class="form-hint">Үйлчилгээ бүрийн хугацааг ялгаатай тохируулж болно</span>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Нэг цагт хэд захиалж болох</label>
-                <select class="form-control">
-                  <option>1 (ганцаараа)</option>
-                  <option selected>2</option>
-                  <option>3</option>
-                  <option>5</option>
-                </select>
+                <label class="form-label">30 минут тутамд хэдэн захиалга хүлээж авах <span class="required">*</span></label>
+                <input type="number" class="form-control" id="bkCapacity" min="1" max="200" value="8" />
+                <span class="form-hint">Жишээ: 4 суудалтай газар → 4, том ресторан → 20+</span>
               </div>
             </div>
-            <div class="form-row">
+            <div class="form-row" style="margin-top:8px;">
               <div class="form-group">
-                <label class="form-label">Урьдчилж захиалах хамгийн бага хугацаа</label>
-                <select class="form-control">
-                  <option>Яаралтай (30 мин)</option>
-                  <option selected>2 цаг</option>
-                  <option>1 өдөр</option>
-                  <option>2 өдөр</option>
-                </select>
+                <label class="form-label">Захиалга нээх цаг</label>
+                <input type="time" class="form-control" id="bkOpenHour" />
+                <span class="form-hint">Хоосон орхивол Google-ийн ажлын цаг ашиглана</span>
               </div>
               <div class="form-group">
-                <label class="form-label">Хамгийн урт урьдчилгаа</label>
-                <select class="form-control">
-                  <option>1 долоо хоног</option>
-                  <option selected>2 долоо хоног</option>
-                  <option>1 сар</option>
-                  <option>3 сар</option>
-                </select>
+                <label class="form-label">Захиалга хаах цаг</label>
+                <input type="time" class="form-control" id="bkCloseHour" />
+                <span class="form-hint">Хоосон орхивол Google-ийн ажлын цаг ашиглана</span>
               </div>
             </div>
           </div>
@@ -493,14 +470,22 @@
     let hoursMap = {};
     if (_bizId) {
       const { data } = await _sb.from('places')
-        .select('regular_opening_hours')
+        .select('regular_opening_hours, slot_capacity, booking_open_hour, booking_close_hour')
         .eq('place_id', _bizId).maybeSingle();
-      const portal = data && data.regular_opening_hours && data.regular_opening_hours.portal;
-      if (portal) {
-        DAY_DEFS.forEach(d => {
-          const v = portal[d.key];
-          hoursMap[d.key] = (v && v.from && v.to) ? `${v.from}-${v.to}` : null;
-        });
+      if (data) {
+        const portal = data.regular_opening_hours && data.regular_opening_hours.portal;
+        if (portal) {
+          DAY_DEFS.forEach(d => {
+            const v = portal[d.key];
+            hoursMap[d.key] = (v && v.from && v.to) ? `${v.from}-${v.to}` : null;
+          });
+        }
+        if (data.slot_capacity != null) {
+          document.getElementById('bkCapacity').value = data.slot_capacity;
+        }
+        const pad = n => String(n).padStart(2, '0');
+        if (data.booking_open_hour  != null) document.getElementById('bkOpenHour').value  = `${pad(data.booking_open_hour)}:00`;
+        if (data.booking_close_hour != null) document.getElementById('bkCloseHour').value = `${pad(data.booking_close_hour)}:00`;
       }
     }
     buildHoursEditor(hoursMap);
@@ -590,9 +575,11 @@
     showToast('success', 'Хадгалагдлаа', 'Бүртгэлийн мэдээлэл шинэчлэгдлээ.');
   }
 
-  // ── Save: hours (stored as a portal-specific blob inside places.regular_opening_hours.portal) ──
+  // ── Save: hours + booking settings ──
   async function saveHours() {
     if (!_bizId) return;
+
+    // Weekly schedule → stored inside regular_opening_hours.portal
     const portal = {};
     DAY_DEFS.forEach(d => {
       const open = document.getElementById('hday-' + d.key).checked;
@@ -601,17 +588,27 @@
         to:   document.getElementById('hto-'   + d.key).value,
       } : null;
     });
-
-    // Preserve any existing Google-format fields by merging
     const { data: cur } = await _sb.from('places')
       .select('regular_opening_hours').eq('place_id', _bizId).maybeSingle();
     const merged = Object.assign({}, (cur && cur.regular_opening_hours) || {}, { portal });
 
-    const { error } = await _sb.from('places')
-      .update({ regular_opening_hours: merged, updated_at: new Date().toISOString() })
-      .eq('place_id', _bizId);
+    // Booking settings
+    const capacity  = parseInt(document.getElementById('bkCapacity').value, 10) || 8;
+    const openVal   = document.getElementById('bkOpenHour').value;   // "09:00" or ""
+    const closeVal  = document.getElementById('bkCloseHour').value;  // "18:00" or ""
+    const openHour  = openVal  ? parseInt(openVal.split(':')[0],  10) : null;
+    const closeHour = closeVal ? parseInt(closeVal.split(':')[0], 10) : null;
+
+    const { error } = await _sb.from('places').update({
+      regular_opening_hours: merged,
+      slot_capacity:         capacity,
+      booking_open_hour:     openHour,
+      booking_close_hour:    closeHour,
+      updated_at:            new Date().toISOString(),
+    }).eq('place_id', _bizId);
+
     if (error) { showToast('error', 'Алдаа', error.message); return; }
-    showToast('success', 'Хадгалагдлаа', 'Ажлын цаг шинэчлэгдлээ.');
+    showToast('success', 'Хадгалагдлаа', 'Ажлын цаг болон захиалгын тохиргоо шинэчлэгдлээ.');
   }
 
   function saveNotifs() { showToast('success', 'Хадгалагдлаа', 'Мэдэгдлийн тохиргоо шинэчлэгдлээ.'); }

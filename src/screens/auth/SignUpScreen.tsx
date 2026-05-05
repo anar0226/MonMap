@@ -66,7 +66,15 @@ export default function SignUpScreen({ navigation }: Props) {
       options: { data: { full_name: name.trim() } },
     });
     setLoading(false);
-    if (authError) setError(authError.message);
+    if (authError) {
+      setError(authError.message);
+    } else {
+      navigation.navigate('VerifyOtp', {
+        method: 'email',
+        identifier: email.trim(),
+        fullName: name.trim(),
+      });
+    }
   }
 
   return (
@@ -173,14 +181,29 @@ export default function SignUpScreen({ navigation }: Props) {
             {pwMismatch && <Text style={s.errorSmall}>Нууц үг таарахгүй байна</Text>}
 
             {/* Terms */}
-            <Pressable onPress={() => setAgreeToTerms(v => !v)} style={s.termsRow}>
-              <View style={[s.checkbox, agreeToTerms && s.checkboxChecked]}>
-                {agreeToTerms && <Ionicons name="checkmark" size={11} color="#fff" />}
-              </View>
+            <View style={s.termsRow}>
+              <Pressable onPress={() => setAgreeToTerms(v => !v)} hitSlop={8}>
+                <View style={[s.checkbox, agreeToTerms && s.checkboxChecked]}>
+                  {agreeToTerms && <Ionicons name="checkmark" size={11} color="#fff" />}
+                </View>
+              </Pressable>
               <Text style={s.termsText}>
-                <Text style={s.termsLink}>Үйлчилгээний нөхцөл</Text>-ийг зөвшөөрсөн болно.
+                <Text
+                  style={s.termsLink}
+                  onPress={() => navigation.navigate('Legal', { kind: 'terms' })}
+                >
+                  Үйлчилгээний нөхцөл
+                </Text>
+                {' '}болон{' '}
+                <Text
+                  style={s.termsLink}
+                  onPress={() => navigation.navigate('Legal', { kind: 'privacy' })}
+                >
+                  Нууцлалын бодлого
+                </Text>
+                -ыг зөвшөөрсөн болно.
               </Text>
-            </Pressable>
+            </View>
 
             {error ? <Text style={s.errorText}>{error}</Text> : null}
 

@@ -39,9 +39,32 @@ const C = {
 
 const MAX_RESULTS = 50;
 
+// ── Cyrillic → Latin transliteration for bilingual search ─────────────────
+// Digraphs must come before single chars to avoid double-substitution.
+const CYR_TO_LAT: [RegExp, string][] = [
+  [/щ/g, 'shch'], [/ш/g, 'sh'], [/ч/g, 'ch'], [/ц/g, 'ts'],
+  [/ю/g, 'yu'],   [/я/g, 'ya'], [/ё/g, 'yo'],
+  [/а/g, 'a'], [/б/g, 'b'], [/в/g, 'v'], [/г/g, 'g'], [/д/g, 'd'],
+  [/е/g, 'e'], [/ж/g, 'j'], [/з/g, 'z'], [/и/g, 'i'], [/й/g, 'y'],
+  [/к/g, 'k'], [/л/g, 'l'], [/м/g, 'm'], [/н/g, 'n'], [/о/g, 'o'],
+  [/ө/g, 'o'], [/п/g, 'p'], [/р/g, 'r'], [/с/g, 's'], [/т/g, 't'],
+  [/у/g, 'u'], [/ү/g, 'u'], [/ф/g, 'f'], [/х/g, 'h'], [/ъ/g, ''],
+  [/ы/g, 'i'], [/ь/g, ''],  [/э/g, 'e'],
+];
+
+function normalizeForSearch(s: string): string {
+  let r = s.toLowerCase();
+  for (const [from, to] of CYR_TO_LAT) r = r.replace(from, to);
+  // fold "kh" → "h" so "Khan" and "Хаан" both become "haan"-derived
+  r = r.replace(/kh/g, 'h');
+  // collapse everything non-alphanumeric to a single space
+  return r.replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 type SearchResult = {
   place_id: string;
   name: string;
+  short_address: string | null;
   primary_category: string | null;
   rating: number | null;
   lng: number;
@@ -70,18 +93,19 @@ function buildResults(
   query: string,
 ): SearchResult[] {
   if (!geojson) return [];
-  const q = query.trim().toLowerCase();
+  const q = normalizeForSearch(query);
   if (!q) return [];
   const out: SearchResult[] = [];
   for (const f of geojson.features) {
-    const name = f.properties.name?.toLowerCase() ?? '';
-    const cat = f.properties.primary_category ?? '';
-    const catLabel = categoryLabel(cat).toLowerCase();
-    if (name.includes(q) || catLabel.includes(q)) {
+    const normName = normalizeForSearch(f.properties.name ?? '');
+    const normAddr = normalizeForSearch(f.properties.short_address ?? '');
+    const normCat  = normalizeForSearch(categoryLabel(f.properties.primary_category ?? ''));
+    if (normName.includes(q) || normAddr.includes(q) || normCat.includes(q)) {
       const [lng, lat] = f.geometry.coordinates as [number, number];
       out.push({
         place_id: f.properties.place_id,
         name: f.properties.name,
+        short_address: f.properties.short_address ?? null,
         primary_category: f.properties.primary_category,
         rating: f.properties.rating,
         lng,
@@ -255,6 +279,9 @@ export function SearchScreen({
             </>
           )}
         </View>
+        {item.short_address ? (
+          <Text style={s.rowAddr} numberOfLines={1}>{item.short_address}</Text>
+        ) : null}
       </View>
       <Ionicons name="chevron-forward" size={16} color={C.textMuted} />
     </TouchableOpacity>
@@ -668,6 +695,11 @@ const s = StyleSheet.create({
     fontSize: 12,
     color: C.amber,
     fontWeight: '600',
+  },
+  rowAddr: {
+    fontSize: 11,
+    color: C.textMuted,
+    marginTop: 1,
   },
   separator: {
     height: 1,

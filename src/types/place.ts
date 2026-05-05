@@ -3,6 +3,8 @@ export interface PlaceMapFeature {
   name: string;
   primary_category: string | null;
   rating: number | null;
+  closure_report_count: number;
+  short_address: string | null;
 }
 
 export interface OpeningHours {
@@ -26,4 +28,8 @@ export interface Place {
   user_rating_count: number | null;
   website_uri: string | null;
   business_status: string | null;
+  slot_capacity: number | null;
+  booking_open_hour: number | null;
+  booking_close_hour: number | null;
+  hours_verified_at: string | null;
 }

@@ -18,6 +18,14 @@ export const CATEGORY_COLORS: Record<string, string> = {
   bank:                    '#0D47A1',
   car_repair:              '#37474F',
   gas_station:             '#E65100',
+  // Going-out & lodging (OSM + Google)
+  karaoke:                 '#C2185B',
+  billiards:               '#558B2F',
+  sauna:                   '#EF6C00',
+  event_hall:              '#6A1B9A',
+  hotel:                   '#283593',
+  pc_cafe:                 '#00ACC1',
+  nightclub:               '#4A148C',
   // OSM-sourced civic & residential categories
   apartments:              '#5C6BC0',
   school:                  '#039BE5',
@@ -53,6 +61,13 @@ export const CATEGORY_LABELS: Record<string, string> = {
   bank:                    'Банк',
   car_repair:              'Авто засвар',
   gas_station:             'Шатахуун',
+  karaoke:                 'Караоке',
+  billiards:               'Билъярд',
+  sauna:                   'Сауна',
+  event_hall:              'Эвент танхим',
+  hotel:                   'Зочид буудал',
+  pc_cafe:                 'PC кафе',
+  nightclub:               'Шөнийн клуб',
   apartments:              'Орон сууц',
   school:                  'Сургууль',
   university:              'Их сургууль',
@@ -67,6 +82,7 @@ export const CATEGORY_LABELS: Record<string, string> = {
 
 export const BOOKABLE_CATEGORIES = new Set([
   'restaurant', 'spa', 'hair_care', 'beauty_salon', 'gym', 'dentist', 'doctor',
+  'karaoke', 'billiards', 'sauna',
 ]);
 
 export function categoryColor(category: string | null | undefined): string {

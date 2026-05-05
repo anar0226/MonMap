@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonMap — Logo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #080c14; font-family: 'Inter', sans-serif; min-height: 100%; }
+  #root { min-height: 100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "variant": "dark",
+  "showWordmark": true,
+  "size": 72
+}/*EDITMODE-END*/;
+
+/* ─── the mark ───────────────────────────────────────────── */
+/*
+  Concept: A map pin whose teardrop body is formed by a
+  stylised contour line — one clean arc that doubles as
+  a topographic ring. Simple, memorable, scalable.
+  The dot inside = you are here.
+  Blue #0053A3 only — no gradients, no decoration.
+*/
+
+const Mark = ({ size = 72, color = '#0053A3', bg = 'transparent' }) => {
+  const s = size;
+  // proportions derived from a 72-unit base
+  const scale = s / 72;
+  const cx = 36 * scale, cy = 30 * scale;
+  const outerR = 22 * scale;
+  const innerR = 7 * scale;
+  // pin tail: two tangent lines from bottom of outer circle meeting at a point
+  const tailY = 66 * scale;
+  const tailHalfW = 6 * scale;
+  // contour ring: slightly inset concentric arc (left 230° arc only, open at bottom right)
+  const contourR = 14 * scale;
+
+  return (
+    <svg width={s} height={s} viewBox={`0 0 ${s} ${s}`} fill="none" xmlns="http://www.w3.org/2000/svg">
+      {bg !== 'transparent' && <rect width={s} height={s} rx={s * 0.22} fill={bg}/>}
+
+      {/* outer circle of pin */}
+      <circle cx={cx} cy={cy} r={outerR} fill={color}/>
+
+      {/* pin tail — smooth teardrop via path */}
+      <path
+        d={`M ${cx - tailHalfW} ${cy + outerR * 0.6}
+            Q ${cx - outerR * 0.8} ${cy + outerR * 1.4} ${cx} ${tailY}
+            Q ${cx + outerR * 0.8} ${cy + outerR * 1.4} ${cx + tailHalfW} ${cy + outerR * 0.6}
+            A ${outerR} ${outerR} 0 0 0 ${cx - tailHalfW} ${cy + outerR * 0.6} Z`}
+        fill={color}
+      />
+
+      {/* contour arc — partial circle inside, creates topographic feel */}
+      <circle
+        cx={cx} cy={cy} r={contourR}
+        stroke="white" strokeWidth={1.6 * scale}
+        strokeOpacity="0.35"
+        strokeDasharray={`${contourR * Math.PI * 1.4} ${contourR * Math.PI * 0.6}`}
+        strokeDashoffset={`${-contourR * Math.PI * 0.15}`}
+        strokeLinecap="round"
+        fill="none"
+      />
+
+      {/* center dot — you are here */}
+      <circle cx={cx} cy={cy} r={innerR} fill="white"/>
+    </svg>
+  );
+};
+
+/* ─── wordmark ───────────────────────────────────────────── */
+const Wordmark = ({ size = 72, color, tight }) => {
+  const fontSize = size * 0.44;
+  return (
+    <span style={{
+      fontSize,
+      fontWeight: 700,
+      letterSpacing: tight ? '-0.04em' : '-0.03em',
+      color,
+      lineHeight: 1,
+      fontFamily: 'Inter, sans-serif',
+      userSelect: 'none',
+    }}>
+      Mon<span style={{ fontWeight: 300 }}>Map</span>
+    </span>
+  );
+};
+
+/* ─── logo lockup ────────────────────────────────────────── */
+const Logo = ({ size, variant, showWordmark }) => {
+  const schemes = {
+    dark:      { bg: '#080c14',  markColor: '#0053A3', markBg: 'transparent', wordColor: 'rgba(255,255,255,0.92)', surfaceBg: 'transparent' },
+    light:     { bg: '#f4f4f0',  markColor: '#0053A3', markBg: 'transparent', wordColor: '#0d1117',               surfaceBg: 'transparent' },
+    blue:      { bg: '#0053A3',  markColor: 'white',   markBg: 'transparent', wordColor: 'white',                 surfaceBg: 'transparent' },
+    icon_dark: { bg: '#0d1117',  markColor: '#0053A3', markBg: '#0d1117',     wordColor: null,                    surfaceBg: '#111827' },
+    icon_light:{ bg: '#f4f4f0',  markColor: '#0053A3', markBg: '#f4f4f0',     wordColor: null,                    surfaceBg: '#e8e8e4' },
+  };
+  const s = schemes[variant] || schemes.dark;
+
+  return (
+    <div style={{
+      display: 'inline-flex', alignItems: 'center',
+      gap: size * 0.18,
+    }}>
+      <Mark size={size} color={s.markColor} bg={s.markBg}/>
+      {showWordmark && <Wordmark size={size} color={s.wordColor}/>}
+    </div>
+  );
+};
+
+/* ─── showcase row ───────────────────────────────────────── */
+const Row = ({ label, bg, children }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 20, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)' }}>
+    <div style={{
+      background: bg, padding: '40px 48px',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 64,
+      flexWrap: 'wrap', minHeight: 160,
+    }}>
+      {children}
+    </div>
+    <div style={{
+      background: '#0d1117', padding: '10px 20px',
+      borderTop: '1px solid rgba(255,255,255,0.06)',
+    }}>
+      <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>{label}</span>
+    </div>
+  </div>
+);
+
+/* ─── divider label ──────────────────────────────────────── */
+const SectionLabel = ({ children }) => (
+  <div style={{
+    fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.22)',
+    letterSpacing: '0.14em', textTransform: 'uppercase',
+    paddingBottom: 12, borderBottom: '1px solid rgba(255,255,255,0.06)',
+    marginBottom: 20,
+  }}>{children}</div>
+);
+
+/* ─── app icon grid ──────────────────────────────────────── */
+const AppIcon = ({ size, label, bg, markColor }) => (
+  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10 }}>
+    <div style={{
+      width: size, height: size, borderRadius: size * 0.22,
+      background: bg,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+    }}>
+      <Mark size={size * 0.58} color={markColor} bg="transparent"/>
+    </div>
+    <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', letterSpacing: '0.05em' }}>{label}</span>
+  </div>
+);
+
+/* ─── main app ───────────────────────────────────────────── */
+const App = () => {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  if (!tweaks) return null;
+  const { variant, showWordmark, size } = tweaks;
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#080c14', padding: '56px 48px 80px' }}>
+
+      {/* page header */}
+      <div style={{ textAlign: 'center', marginBottom: 56 }}>
+        <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 10 }}>MonMap · Лого дизайн</p>
+        <h1 style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.45)', letterSpacing: '0.01em' }}>
+          Minimalist wordmark — Inter 700/300 · #0053A3
+        </h1>
+      </div>
+
+      <div style={{ maxWidth: 960, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 40 }}>
+
+        {/* live preview via tweaks */}
+        <div>
+          <SectionLabel>Шууд харах · Live Preview</SectionLabel>
+          <div style={{
+            borderRadius: 20, padding: '56px 48px',
+            background: variant === 'light' || variant === 'icon_light' ? '#f4f4f0' : variant === 'blue' ? '#0053A3' : '#111827',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '1px solid rgba(255,255,255,0.06)',
+            minHeight: 200,
+          }}>
+            <Logo size={size} variant={variant} showWordmark={showWordmark}/>
+          </div>
+        </div>
+
+        {/* colour variants */}
+        <div>
+          <SectionLabel>Өнгөний хувилбарууд · Colour Variants</SectionLabel>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <Row label="Dark background — primary use" bg="#111827">
+              <Logo size={48} variant="dark" showWordmark={true}/>
+              <Logo size={32} variant="dark" showWordmark={true}/>
+              <Logo size={24} variant="dark" showWordmark={true}/>
+            </Row>
+            <Row label="Light background" bg="#f4f4f0">
+              <Logo size={48} variant="light" showWordmark={true}/>
+              <Logo size={32} variant="light" showWordmark={true}/>
+              <Logo size={24} variant="light" showWordmark={true}/>
+            </Row>
+            <Row label="Blue background — reversed" bg="#0053A3">
+              <Logo size={48} variant="blue" showWordmark={true}/>
+              <Logo size={32} variant="blue" showWordmark={true}/>
+              <Logo size={24} variant="blue" showWordmark={true}/>
+            </Row>
+          </div>
+        </div>
+
+        {/* mark only */}
+        <div>
+          <SectionLabel>Тэмдэг · Mark Only</SectionLabel>
+          <div style={{
+            borderRadius: 20, padding: '40px 48px',
+            background: '#111827',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 40,
+            border: '1px solid rgba(255,255,255,0.06)',
+            flexWrap: 'wrap',
+          }}>
+            {[80, 56, 40, 28, 20].map(s => (
+              <div key={s} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                <Mark size={s} color="#0053A3"/>
+                <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.22)', letterSpacing: '0.06em' }}>{s}px</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* app icon */}
+        <div>
+          <SectionLabel>Апп дүрс · App Icon</SectionLabel>
+          <div style={{
+            borderRadius: 20, padding: '40px 48px',
+            background: '#111827',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 40,
+            border: '1px solid rgba(255,255,255,0.06)',
+            flexWrap: 'wrap',
+          }}>
+            <AppIcon size={120} label="1024px" bg="#0053A3" markColor="white"/>
+            <AppIcon size={72}  label="512px"  bg="#0053A3" markColor="white"/>
+            <AppIcon size={48}  label="192px"  bg="#0053A3" markColor="white"/>
+            <AppIcon size={36}  label="96px"   bg="#0053A3" markColor="white"/>
+            <AppIcon size={72}  label="Dark alt" bg="#0d1117" markColor="#0053A3"/>
+          </div>
+        </div>
+
+        {/* spacing / clear space rule */}
+        <div>
+          <SectionLabel>Орон зай · Clear Space</SectionLabel>
+          <div style={{
+            borderRadius: 20, padding: '40px 48px',
+            background: '#111827',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '1px solid rgba(255,255,255,0.06)',
+          }}>
+            {/* clear space demo */}
+            <div style={{ position: 'relative', display: 'inline-block' }}>
+              {/* exclusion zone dashes */}
+              <div style={{
+                position: 'absolute',
+                inset: -20,
+                border: '1px dashed rgba(255,255,255,0.15)',
+                borderRadius: 4,
+                pointerEvents: 'none',
+              }}/>
+              <div style={{
+                position: 'absolute', top: -20, left: '50%', transform: 'translateX(-50%) translateY(-100%)',
+                fontSize: 9, color: 'rgba(255,255,255,0.25)', letterSpacing: '0.06em', whiteSpace: 'nowrap',
+              }}>x = cap height</div>
+              <Logo size={56} variant="dark" showWordmark={true}/>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* tweaks */}
+      <TweaksPanel>
+        <TweakSection title="Preview">
+          <TweakSelect
+            id="variant" label="Variant"
+            value={variant}
+            options={[
+              {value:'dark',    label:'Dark'},
+              {value:'light',   label:'Light'},
+              {value:'blue',    label:'Blue'},
+            ]}
+            onChange={v => setTweak('variant', v)}
+          />
+          <TweakToggle id="showWordmark" label="Wordmark" value={showWordmark} onChange={v => setTweak('showWordmark', v)}/>
+          <TweakSlider id="size" label="Size" value={size} min={24} max={120} step={4} onChange={v => setTweak('size', v)}/>
+        </TweakSection>
+      </TweaksPanel>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Alert, Animated, Image, Pressable, ScrollView, StyleSheet, Text, View,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -22,6 +23,31 @@ export default function SettingsScreen({ navigation }: Props) {
   const [pushNotif, setPushNotif] = useState(true);
   const [promoNotif, setPromoNotif] = useState(true);
   const [orderNotif, setOrderNotif] = useState(true);
+
+  // Load persisted toggle state
+  useEffect(() => {
+    AsyncStorage.getItem('monmap.notif_prefs').then(raw => {
+      if (raw) {
+        try {
+          const prefs = JSON.parse(raw);
+          if (typeof prefs.push === 'boolean') setPushNotif(prefs.push);
+          if (typeof prefs.promo === 'boolean') setPromoNotif(prefs.promo);
+          if (typeof prefs.order === 'boolean') setOrderNotif(prefs.order);
+        } catch {}
+      }
+    });
+  }, []);
+
+  // Persist when any toggle changes
+  function setAndPersist(key: 'push' | 'promo' | 'order', value: boolean) {
+    const setters = { push: setPushNotif, promo: setPromoNotif, order: setOrderNotif };
+    setters[key](value);
+    AsyncStorage.getItem('monmap.notif_prefs').then(raw => {
+      const prefs = raw ? JSON.parse(raw) : {};
+      prefs[key] = value;
+      AsyncStorage.setItem('monmap.notif_prefs', JSON.stringify(prefs));
+    });
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -67,15 +93,21 @@ export default function SettingsScreen({ navigation }: Props) {
       <ScrollView style={s.flex} contentContainerStyle={s.scroll}>
         <SectionLabel label="Мэдэгдэл" />
         <MenuCard>
-          <MenuItem icon="🔔" iconColor={colors.primary} label="Push мэдэгдэл" onTap={() => {}} trailing={<Toggle value={pushNotif} onChanged={setPushNotif} />} />
-          <MenuItem icon="🏷" iconColor={colors.purple} label="Урамшуулал" onTap={() => {}} trailing={<Toggle value={promoNotif} onChanged={setPromoNotif} />} />
-          <MenuItem icon="📄" iconColor={colors.sky} label="Захиалгын мэдэгдэл" onTap={() => {}} trailing={<Toggle value={orderNotif} onChanged={setOrderNotif} />} isLast />
+          <MenuItem icon="🔔" iconColor={colors.primary} label="Push мэдэгдэл" onTap={() => {}} trailing={<Toggle value={pushNotif} onChanged={(v) => setAndPersist('push', v)} />} />
+          <MenuItem icon="🏷" iconColor={colors.purple} label="Урамшуулал" onTap={() => {}} trailing={<Toggle value={promoNotif} onChanged={(v) => setAndPersist('promo', v)} />} />
+          <MenuItem icon="📄" iconColor={colors.sky} label="Захиалгын мэдэгдэл" onTap={() => {}} trailing={<Toggle value={orderNotif} onChanged={(v) => setAndPersist('order', v)} />} isLast />
         </MenuCard>
 
         <SectionLabel label="Тусламж" />
         <MenuCard>
-          <MenuItem icon="🎧" iconColor={colors.indigo} label="Тусламжийн төв" onTap={() => {}} />
-          <MenuItem icon="💬" iconColor={colors.success} label="Санал хүсэлт" onTap={() => {}} isLast />
+          <MenuItem icon="🎧" iconColor={colors.indigo} label="Тусламжийн төв" onTap={() => navigation.navigate('Help')} />
+          <MenuItem icon="💬" iconColor={colors.success} label="Санал хүсэлт" onTap={() => navigation.navigate('Feedback')} isLast />
+        </MenuCard>
+
+        <SectionLabel label="Хууль зүйн" />
+        <MenuCard>
+          <MenuItem icon="📜" iconColor={colors.textSec} label="Үйлчилгээний нөхцөл" onTap={() => navigation.navigate('Legal', { kind: 'terms' })} />
+          <MenuItem icon="🔒" iconColor={colors.textSec} label="Нууцлалын бодлого" onTap={() => navigation.navigate('Legal', { kind: 'privacy' })} isLast />
         </MenuCard>
 
         <MenuCard>

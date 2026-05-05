@@ -40,19 +40,43 @@ const USE_CACHED = process.argv.includes('--use-cached');
 const BBOX = [47.78, 106.65, 48.05, 107.20];
 
 // OSM tag → our category key. Keys must match src/constants/categories.ts.
-// Only civic categories Google Places doesn't index well.
-// hospital / clinic / pharmacy are intentionally excluded — Google covers those.
-// apartments are excluded — Google Places handles residential buildings.
+// Civic categories Google Places doesn't index well, plus going-out/lodging
+// categories that have no Google Places type= filter.
+// hospital / clinic / pharmacy excluded — Google covers those adequately.
+// apartments excluded — Google covers residential buildings.
 const AMENITY_CATEGORY = {
-  school:        'school',
-  university:    'university',
-  college:       'university',
-  kindergarten:  'kindergarten',
-  library:       'library',
-  police:        'police',
-  post_office:   'post_office',
-  fire_station:  'fire_station',
-  townhall:      'government',
+  // Civic
+  school:             'school',
+  university:         'university',
+  college:            'university',
+  kindergarten:       'kindergarten',
+  library:            'library',
+  police:             'police',
+  post_office:        'post_office',
+  fire_station:       'fire_station',
+  townhall:           'government',
+  // Going-out — no Google Places type= equivalent
+  karaoke_box:        'karaoke',
+  nightclub:          'nightclub',
+  internet_cafe:      'pc_cafe',
+  events_venue:       'event_hall',
+  conference_centre:  'event_hall',
+  community_centre:   'event_hall',
+};
+
+// OSM tourism=* → category. Supplements Google's lodging coverage.
+const TOURISM_CATEGORY = {
+  hotel:       'hotel',
+  motel:       'hotel',
+  guest_house: 'hotel',
+  hostel:      'hotel',
+  apartment:   'hotel',
+};
+
+// OSM leisure=* → category (beyond parks which are handled separately).
+const LEISURE_CATEGORY = {
+  sauna:                'sauna',
+  adult_gaming_centre:  'billiards', // commonly used for billiards halls in MN
 };
 
 // ─── Overpass query ──────────────────────────────────────────────────────────
@@ -66,11 +90,13 @@ const OVERPASS_ENDPOINTS = [
 function buildOverpassQuery() {
   const [s, w, n, e] = BBOX;
   const bbox = `${s},${w},${n},${e}`;
-  const amenityRegex = Object.keys(AMENITY_CATEGORY).join('|');
+  const amenityRegex  = Object.keys(AMENITY_CATEGORY).join('|');
+  const tourismRegex  = Object.keys(TOURISM_CATEGORY).join('|');
+  const leisureRegex  = Object.keys(LEISURE_CATEGORY).join('|');
   return `
-[out:json][timeout:120];
+[out:json][timeout:180];
 (
-  // Civic amenities
+  // Civic + going-out amenities
   node["amenity"~"^(${amenityRegex})$"](${bbox});
   way["amenity"~"^(${amenityRegex})$"](${bbox});
   relation["amenity"~"^(${amenityRegex})$"](${bbox});
@@ -79,7 +105,17 @@ function buildOverpassQuery() {
   node["office"="government"](${bbox});
   way["office"="government"](${bbox});
 
-  // Named parks
+  // Lodging (tourism=*)
+  node["tourism"~"^(${tourismRegex})$"](${bbox});
+  way["tourism"~"^(${tourismRegex})$"](${bbox});
+  relation["tourism"~"^(${tourismRegex})$"](${bbox});
+
+  // Sauna, billiards halls (leisure=*)
+  node["leisure"~"^(${leisureRegex})$"](${bbox});
+  way["leisure"~"^(${leisureRegex})$"](${bbox});
+  relation["leisure"~"^(${leisureRegex})$"](${bbox});
+
+  // Named parks (require name to avoid unnamed green areas)
   node["leisure"="park"]["name"](${bbox});
   way["leisure"="park"]["name"](${bbox});
   relation["leisure"="park"]["name"](${bbox});
@@ -116,10 +152,11 @@ async function fetchOverpass(query) {
 // ─── Transform ───────────────────────────────────────────────────────────────
 
 function osmCategory(tags) {
-  const a = tags.amenity;
-  if (a && AMENITY_CATEGORY[a]) return AMENITY_CATEGORY[a];
-  if (tags.office === 'government') return 'government';
-  if (tags.leisure === 'park') return 'park';
+  if (tags.amenity  && AMENITY_CATEGORY[tags.amenity])   return AMENITY_CATEGORY[tags.amenity];
+  if (tags.tourism  && TOURISM_CATEGORY[tags.tourism])   return TOURISM_CATEGORY[tags.tourism];
+  if (tags.leisure  && LEISURE_CATEGORY[tags.leisure])   return LEISURE_CATEGORY[tags.leisure];
+  if (tags.office === 'government')                       return 'government';
+  if (tags.leisure === 'park')                            return 'park';
   return null;
 }
 
@@ -229,7 +266,7 @@ async function upsertPlaces(rows, supabaseUrl, serviceKey) {
 console.log('\n🗺️  MonMap — OSM Scraper');
 console.log('═══════════════════════════════════');
 console.log(`Bounding box : (${BBOX[0]}, ${BBOX[1]}) → (${BBOX[2]}, ${BBOX[3]})`);
-console.log(`Categories   : ${[...new Set(Object.values(AMENITY_CATEGORY)), 'apartments', 'government', 'park'].join(', ')}`);
+console.log(`Categories   : ${[...new Set([...Object.values(AMENITY_CATEGORY), ...Object.values(TOURISM_CATEGORY), ...Object.values(LEISURE_CATEGORY), 'government', 'park'])].join(', ')}`);
 
 const rawPath  = path.join(DATA_DIR, 'raw_osm.json');
 const outPath  = path.join(DATA_DIR, 'osm_places.json');

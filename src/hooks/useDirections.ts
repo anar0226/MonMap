@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Feature, FeatureCollection, LineString } from 'geojson';
 import type { NavStep } from '../lib/navigation';
+import type { TransitLeg } from '../types/transit';
 import {
   type TransportMode,
   type PriceEstimate,
@@ -9,10 +10,11 @@ import {
   escooterPrice,
   transitPrice,
   walkingPrice,
-  estimateTransitDurationSec,
 } from '../lib/transport';
 
-const MAPBOX_TOKEN = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN!;
+const MAPBOX_TOKEN     = process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN!;
+const SUPABASE_URL     = process.env.EXPO_PUBLIC_SUPABASE_URL!;
+const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
 export type Congestion = 'unknown' | 'low' | 'moderate' | 'heavy' | 'severe';
 
@@ -25,6 +27,8 @@ export interface ModeRoute {
   bounds: { sw: [number, number]; ne: [number, number] };
   steps: NavStep[];
   price: PriceEstimate | null;
+  /** Populated only for mode === 'transit' */
+  transitLegs?: TransitLeg[];
 }
 
 export interface MultiRoute {
@@ -43,6 +47,7 @@ interface MapboxRouteResult {
   steps: NavStep[];
 }
 
+// ── Mapbox directions ──────────────────────────────────────────────────────
 async function fetchMapboxRoute(
   profile: 'driving-traffic' | 'walking' | 'cycling',
   from: [number, number],
@@ -115,6 +120,70 @@ async function fetchMapboxRoute(
   }
 }
 
+// ── Transit route via Edge Function ───────────────────────────────────────
+interface TransitRouteResult {
+  legs: TransitLeg[];
+  fetchedAt: string;
+}
+
+async function fetchTransitRoute(
+  from: [number, number],
+  to: [number, number],
+): Promise<TransitRouteResult | null> {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/transit-route`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+      body: JSON.stringify({
+        from_lng: from[0],
+        from_lat: from[1],
+        to_lng: to[0],
+        to_lat: to[1],
+      }),
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    if (!Array.isArray(json?.legs)) return null;
+    return json as TransitRouteResult;
+  } catch {
+    return null;
+  }
+}
+
+/** Build a GeoJSON FeatureCollection from a [lng,lat][] polyline. */
+function polylineToSegments(
+  coords: [number, number][],
+): FeatureCollection<LineString, { congestion: Congestion }> {
+  const features: Feature<LineString, { congestion: Congestion }>[] = [];
+  for (let i = 0; i < coords.length - 1; i++) {
+    features.push({
+      type: 'Feature',
+      properties: { congestion: 'unknown' },
+      geometry: { type: 'LineString', coordinates: [coords[i], coords[i + 1]] },
+    });
+  }
+  return { type: 'FeatureCollection', features };
+}
+
+/** Compute a bounding box from an array of [lng,lat] coordinates. */
+function coordsBounds(
+  coords: [number, number][],
+): { sw: [number, number]; ne: [number, number] } {
+  let minLng = Infinity, minLat = Infinity, maxLng = -Infinity, maxLat = -Infinity;
+  for (const [lng, lat] of coords) {
+    if (lng < minLng) minLng = lng;
+    if (lng > maxLng) maxLng = lng;
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+  }
+  return { sw: [minLng, minLat], ne: [maxLng, maxLat] };
+}
+
+// ── Hook ───────────────────────────────────────────────────────────────────
 export function useDirections() {
   const [multi, setMulti] = useState<MultiRoute | null>(null);
   const [loading, setLoading] = useState(false);
@@ -127,10 +196,12 @@ export function useDirections() {
     setLoading(true);
     setError(null);
     try {
-      const [driving, walking, cycling] = await Promise.all([
+      // Fire all fetches concurrently; transit is best-effort
+      const [driving, walking, cycling, transitResult] = await Promise.all([
         fetchMapboxRoute('driving-traffic', from, to),
         fetchMapboxRoute('walking', from, to),
         fetchMapboxRoute('cycling', from, to),
+        fetchTransitRoute(from, to),
       ]);
 
       if (!driving) {
@@ -172,16 +243,43 @@ export function useDirections() {
         price: abaPrice(driving.distanceMeters),
       };
 
-      modes.transit = {
-        mode: 'transit',
-        durationSeconds: estimateTransitDurationSec(driving.durationSeconds),
-        durationTypicalSeconds: null,
-        distanceMeters: driving.distanceMeters,
-        segments: driving.segments,
-        bounds: driving.bounds,
-        steps: [],
-        price: transitPrice(),
-      };
+      // Transit: use real USCC data if available, otherwise omit the mode entirely
+      if (transitResult && transitResult.legs.length > 0) {
+        const bestLeg = transitResult.legs[0];
+        // Build polyline from the best leg; fall back to straight line
+        const polyCoords: [number, number][] =
+          bestLeg.polyline.length > 0
+            ? bestLeg.polyline
+            : [
+                [bestLeg.boardStop.lng, bestLeg.boardStop.lat],
+                [bestLeg.alightStop.lng, bestLeg.alightStop.lat],
+              ];
+
+        const allCoords: [number, number][] = [
+          [from[0], from[1]],
+          ...polyCoords,
+          [to[0], to[1]],
+        ];
+
+        // Total distance: walk-to-stop + ride distance + walk-from-stop
+        const WALK_SPEED_MPS = 1.3;
+        const AVG_BUS_MPS    = 5.5;
+        const rideDist = bestLeg.rideSec * AVG_BUS_MPS;
+        const walkDist = (bestLeg.walkToStopSec + bestLeg.walkFromStopSec) * WALK_SPEED_MPS;
+
+        modes.transit = {
+          mode: 'transit',
+          durationSeconds: bestLeg.totalSec,
+          durationTypicalSeconds: null,
+          distanceMeters: Math.round(rideDist + walkDist),
+          segments: polylineToSegments(polyCoords),
+          bounds: coordsBounds(allCoords),
+          steps: [],
+          price: transitPrice(),
+          transitLegs: transitResult.legs,
+        };
+      }
+      // If transit Edge Function returned nothing, 'transit' is simply absent from modes.
 
       if (walking) {
         modes.walking = {
@@ -227,12 +325,12 @@ export function useDirections() {
     setError(null);
   }, []);
 
-  const activeRoute = useMemo<ModeRoute | null>(
+  const route = useMemo<ModeRoute | null>(
     () => (multi ? multi.modes[multi.selectedMode] ?? null : null),
     [multi],
   );
 
-  return { multi, activeRoute, loading, error, fetchRoute, selectMode, clear };
+  return { multi, route, loading, error, fetchRoute, selectMode, clear };
 }
 
 export function formatDuration(seconds: number): string {

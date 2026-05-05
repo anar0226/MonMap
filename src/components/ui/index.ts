@@ -1,5 +1,5 @@
 export { Screen } from './Screen';
-export { AppLogo } from './AppLogo';
+export { AppLogo, LogoMark } from './AppLogo';
 export { Label } from './Label';
 export { Input } from './Input';
 export type { InputProps } from './Input';

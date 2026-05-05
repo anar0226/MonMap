@@ -44,27 +44,31 @@ const GRID_POINTS = [
   [47.850, 106.855], [47.850, 106.920], [47.850, 106.985],
 ];
 
-// Google Places type → our schema category
+// Google Places type → our schema category.
+// Key = Google's type= parameter value; must be a supported nearbysearch type.
 const CATEGORIES = {
-  restaurant:               { name: 'Restaurant',       name_mn: 'Зоогийн газар',       icon: 'restaurant' },
-  cafe:                     { name: 'Cafe',              name_mn: 'Кафе',                 icon: 'cafe' },
-  bar:                      { name: 'Bar',               name_mn: 'Бар',                  icon: 'bar' },
-  bakery:                   { name: 'Bakery',            name_mn: 'Нарийн боовны газар',  icon: 'bakery' },
-  grocery_or_supermarket:   { name: 'Grocery',           name_mn: 'Хүнсний дэлгүүр',     icon: 'grocery' },
-  convenience_store:        { name: 'Convenience Store', name_mn: 'Жижиг дэлгүүр',       icon: 'store' },
-  shopping_mall:            { name: 'Shopping Mall',     name_mn: 'Худалдааны төв',       icon: 'mall' },
-  clothing_store:           { name: 'Clothing',          name_mn: 'Хувцасны дэлгүүр',    icon: 'clothing' },
-  beauty_salon:             { name: 'Beauty Salon',      name_mn: 'Гоо сайхны салон',     icon: 'salon' },
-  hair_care:                { name: 'Hair Salon',        name_mn: 'Үсний салон',          icon: 'hair' },
-  spa:                      { name: 'Spa',               name_mn: 'Спа',                  icon: 'spa' },
-  gym:                      { name: 'Gym',               name_mn: 'Фитнесс клуб',        icon: 'gym' },
-  pharmacy:                 { name: 'Pharmacy',          name_mn: 'Эмийн сан',           icon: 'pharmacy' },
-  hospital:                 { name: 'Hospital',          name_mn: 'Эмнэлэг',             icon: 'hospital' },
-  doctor:                   { name: 'Clinic',            name_mn: 'Эмнэлгийн клиник',    icon: 'clinic' },
-  dentist:                  { name: 'Dentist',           name_mn: 'Шүдний эмч',           icon: 'dentist' },
-  bank:                     { name: 'Bank',              name_mn: 'Банк',                 icon: 'bank' },
-  car_repair:               { name: 'Car Repair',        name_mn: 'Авто засвар',          icon: 'car_repair' },
-  gas_station:              { name: 'Gas Station',       name_mn: 'Шатахуун',             icon: 'fuel' },
+  restaurant:               { name: 'Restaurant',       name_mn: 'Зоогийн газар',       icon: 'restaurant',  category_key: 'restaurant' },
+  cafe:                     { name: 'Cafe',              name_mn: 'Кафе',                 icon: 'cafe',        category_key: 'cafe' },
+  bar:                      { name: 'Bar',               name_mn: 'Бар',                  icon: 'bar',         category_key: 'bar' },
+  bakery:                   { name: 'Bakery',            name_mn: 'Нарийн боовны газар',  icon: 'bakery',      category_key: 'bakery' },
+  grocery_or_supermarket:   { name: 'Grocery',           name_mn: 'Хүнсний дэлгүүр',     icon: 'grocery',     category_key: 'grocery_or_supermarket' },
+  convenience_store:        { name: 'Convenience Store', name_mn: 'Жижиг дэлгүүр',       icon: 'store',       category_key: 'convenience_store' },
+  shopping_mall:            { name: 'Shopping Mall',     name_mn: 'Худалдааны төв',       icon: 'mall',        category_key: 'shopping_mall' },
+  clothing_store:           { name: 'Clothing',          name_mn: 'Хувцасны дэлгүүр',    icon: 'clothing',    category_key: 'clothing_store' },
+  beauty_salon:             { name: 'Beauty Salon',      name_mn: 'Гоо сайхны салон',     icon: 'salon',       category_key: 'beauty_salon' },
+  hair_care:                { name: 'Hair Salon',        name_mn: 'Үсний салон',          icon: 'hair',        category_key: 'hair_care' },
+  spa:                      { name: 'Spa',               name_mn: 'Спа',                  icon: 'spa',         category_key: 'spa' },
+  gym:                      { name: 'Gym',               name_mn: 'Фитнесс клуб',        icon: 'gym',         category_key: 'gym' },
+  pharmacy:                 { name: 'Pharmacy',          name_mn: 'Эмийн сан',           icon: 'pharmacy',    category_key: 'pharmacy' },
+  hospital:                 { name: 'Hospital',          name_mn: 'Эмнэлэг',             icon: 'hospital',    category_key: 'hospital' },
+  doctor:                   { name: 'Clinic',            name_mn: 'Эмнэлгийн клиник',    icon: 'clinic',      category_key: 'doctor' },
+  dentist:                  { name: 'Dentist',           name_mn: 'Шүдний эмч',           icon: 'dentist',     category_key: 'dentist' },
+  bank:                     { name: 'Bank',              name_mn: 'Банк',                 icon: 'bank',        category_key: 'bank' },
+  car_repair:               { name: 'Car Repair',        name_mn: 'Авто засвар',          icon: 'car_repair',  category_key: 'car_repair' },
+  gas_station:              { name: 'Gas Station',       name_mn: 'Шатахуун',             icon: 'fuel',        category_key: 'gas_station' },
+  // Going-out & lodging — Google supports these as nearbysearch type= values
+  lodging:                  { name: 'Hotel',             name_mn: 'Зочид буудал',         icon: 'hotel',       category_key: 'hotel' },
+  night_club:               { name: 'Nightclub',         name_mn: 'Шөнийн клуб',          icon: 'nightclub',   category_key: 'nightclub' },
 };
 
 const SEARCH_RADIUS = 2500; // metres
@@ -169,14 +173,13 @@ function transformHours(openingHours) {
 
 function detectCategory(googleTypes) {
   for (const type of Object.keys(CATEGORIES)) {
-    if (googleTypes.includes(type)) return type;
+    if (googleTypes.includes(type)) return CATEGORIES[type];
   }
   return null;
 }
 
 function transformPlace(detail) {
-  const googleType = detectCategory(detail.types ?? []);
-  const category = googleType ? CATEGORIES[googleType] : null;
+  const category = detectCategory(detail.types ?? []);
 
   return {
     external_id:   detail.place_id,
@@ -191,6 +194,7 @@ function transformPlace(detail) {
     category_name:    category?.name ?? 'Other',
     category_name_mn: category?.name_mn ?? 'Бусад',
     category_icon:    category?.icon ?? 'store',
+    primary_category: category?.category_key ?? null,
     source:        'google_places',
     is_active:     detail.business_status === 'OPERATIONAL',
   };

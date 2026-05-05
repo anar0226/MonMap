@@ -43,13 +43,14 @@ type Bounds = { sw: [number, number]; ne: [number, number] };
 export default function MapScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'Map'>>();
   const cameraRef = useRef<MapboxGL.Camera>(null);
+  const poiPressedRef = useRef(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [bounds, setBounds] = useState<Bounds | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const { geojson, loading: placesLoading, error: placesError } = usePlaces();
   const { place, loading: detailLoading, fetchDetail, clear } = usePlaceDetail();
-  const { route, loading: routeLoading, error: routeError, fetchRoute, clear: clearRoute } = useDirections();
+  const { multi, route, loading: routeLoading, error: routeError, fetchRoute, selectMode, clear: clearRoute } = useDirections();
   const [routeDestName, setRouteDestName] = useState<string | null>(null);
 
   useEffect(() => {
@@ -112,12 +113,19 @@ export default function MapScreen() {
   const handlePoiPress = useCallback(
     (event: any) => {
       const placeId = event.features?.[0]?.properties?.place_id;
-      if (placeId) fetchDetail(placeId);
+      if (placeId) {
+        poiPressedRef.current = true;
+        fetchDetail(placeId);
+      }
     },
     [fetchDetail],
   );
 
   const handleMapPress = useCallback(() => {
+    if (poiPressedRef.current) {
+      poiPressedRef.current = false;
+      return;
+    }
     clear();
   }, [clear]);
 
@@ -157,6 +165,10 @@ export default function MapScreen() {
     clearRoute();
     setRouteDestName(null);
   }, [clearRoute]);
+
+  const handleStartNavigation = useCallback(() => {
+    // TODO: launch turn-by-turn navigation
+  }, []);
 
   useEffect(() => {
     if (route) fitBoundsToRoute(route.bounds.sw, route.bounds.ne);
@@ -206,8 +218,9 @@ export default function MapScreen() {
           id="basemap"
           existing
           config={{
-            showPointOfInterestLabels: false,
-            showTransitLabels: false,
+            showPointOfInterestLabels: 'false' as any,
+            showTransitLabels: 'false' as any,
+            showPlaceLabels: 'false' as any,
           }}
         />
 
@@ -254,9 +267,60 @@ export default function MapScreen() {
                 textAllowOverlap: false,
                 textIgnorePlacement: false,
 
-                // Lower sortKey = drawn first = wins collisions.
-                // Map rating 5→0, 0→5, missing→5 (so unrated lose to rated).
-                symbolSortKey: ['-', 5, ['coalesce', ['get', 'rating'], 0]] as any,
+                // Higher sortKey wins collisions (appears on top).
+                // Tier 1: category priority. Tier 2: rating tiebreaker.
+                // Tier 3: closure reports — subtract 50 so reported places lose to clean ones.
+                symbolSortKey: [
+                  '-',
+                  ['-',
+                    ['match', ['get', 'primary_category'],
+                      // Top priority — commercial places users actively look for
+                      'restaurant',             100,
+                      'cafe',                   100,
+                      'bar',                    100,
+                      'bakery',                 100,
+                      'grocery_or_supermarket', 100,
+                      'convenience_store',      100,
+                      'shopping_mall',          100,
+                      'clothing_store',         100,
+                      'pharmacy',               100,
+                      'gas_station',            100,
+                      'bank',                   100,
+                      // Going-out & lodging
+                      'karaoke',                100,
+                      'billiards',              100,
+                      'sauna',                  100,
+                      'nightclub',              100,
+                      'event_hall',             100,
+                      'hotel',                  100,
+                      // Mid — services & tech
+                      'beauty_salon',           80,
+                      'hair_care',              80,
+                      'spa',                    80,
+                      'gym',                    80,
+                      'car_repair',             80,
+                      'pc_cafe',                80,
+                      // Civic / health
+                      'hospital',               60,
+                      'doctor',                 60,
+                      'dentist',                60,
+                      'school',                 60,
+                      'university',             60,
+                      'kindergarten',           60,
+                      'library',                60,
+                      'police',                 60,
+                      'post_office',            60,
+                      'fire_station',           60,
+                      'government',             60,
+                      'park',                   60,
+                      // Residential — lowest priority, only show when nothing else competes
+                      'apartments',             10,
+                      /* default */             40,
+                    ],
+                    ['coalesce', ['get', 'rating'], 0],
+                  ],
+                  ['case', ['>', ['get', 'closure_report_count'], 1], 50, 0],
+                ] as any,
               }}
             />
           </MapboxGL.ShapeSource>
@@ -305,8 +369,10 @@ export default function MapScreen() {
         )}
       </MapboxGL.MapView>
 
-      {/* Search bar (top) */}
-      <SearchBar onPress={() => setSearchOpen(true)} onProfilePress={() => navigation.navigate('Profile')} />
+      {/* Search bar (top) — box-none lets map touches pass through the wrapper but not the bar itself */}
+      <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+        <SearchBar onPress={() => setSearchOpen(true)} onProfilePress={() => navigation.navigate('Profile')} />
+      </View>
 
       {mapError && (
         <View style={styles.errorBanner}>
@@ -328,11 +394,13 @@ export default function MapScreen() {
       )}
 
       <DirectionsPanel
-        route={route}
+        multi={multi}
         loading={routeLoading}
         error={routeError}
         destinationName={routeDestName}
         onClose={handleCloseRoute}
+        onStart={handleStartNavigation}
+        onSelectMode={selectMode}
       />
 
       <PlaceDetailCard

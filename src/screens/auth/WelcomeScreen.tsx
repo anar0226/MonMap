@@ -12,8 +12,7 @@ export function WelcomeScreen({ onSignIn, onSignUp }: Props) {
   return (
     <Screen edges={['top', 'bottom']}>
       <View style={s.hero}>
-        <AppLogo size="lg" />
-        <Text style={s.title}>MonMap</Text>
+        <AppLogo size="xl" showWordmark variant="dark" />
         <Text style={s.tagline}>Улаанбаатарын газрын зураг</Text>
       </View>
 
@@ -31,13 +30,6 @@ const s = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing['2xl'],
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: '700',
-    color: colors.text,
-    letterSpacing: -0.5,
-    marginTop: -spacing.md,
   },
   tagline: {
     fontSize: 15,

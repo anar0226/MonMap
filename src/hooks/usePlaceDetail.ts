@@ -8,7 +8,9 @@ const DETAIL_COLUMNS = [
   'phone_intl', 'phone_national',
   'regular_opening_hours', 'current_opening_hours',
   'rating', 'user_rating_count',
-  'website_uri', 'business_status',
+  'website_uri', 'business_status', 'slot_capacity',
+  'booking_open_hour', 'booking_close_hour',
+  'hours_verified_at',
 ].join(', ');
 
 export function usePlaceDetail() {

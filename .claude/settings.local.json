@@ -1,7 +1,25 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx supabase *)"
+      "Bash(npx supabase *)",
+      "WebFetch(domain:api.anthropic.com)",
+      "Bash(mkdir -p /tmp/monmap-design)",
+      "Read(//tmp/**)",
+      "Bash(cp \"C:\\\\Users\\\\anar0\\\\.claude\\\\projects\\\\C--Users-anar0-Downloads-MonMap\\\\6ea94c73-2ae2-4c68-9e46-44e9b07a93dd\\\\tool-results\\\\webfetch-1777837588409-wrl5l1.bin\" design.tar.gz)",
+      "Bash(tar -xzf design.tar.gz)",
+      "Bash(magick --version)",
+      "Bash(convert --version)",
+      "Bash(npm install *)",
+      "Bash(node -e \"console.log\\(require.resolve\\('sharp'\\)\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(git -C \"C:\\\\Users\\\\anar0\\\\Downloads\\\\MonMap\" log --all --oneline -- \"supabase/migrations/*.sql\")",
+      "Bash(git -C \"C:\\\\Users\\\\anar0\\\\Downloads\\\\MonMap\" show d99b134:supabase/migrations/)",
+      "Bash(git -C \"C:\\\\Users\\\\anar0\\\\Downloads\\\\MonMap\" ls-tree -r HEAD supabase/migrations/)",
+      "Bash(git -C \"C:\\\\Users\\\\anar0\\\\Downloads\\\\MonMap\" show HEAD:supabase/migrations/20260501000000_initial_schema.sql)",
+      "Bash(xargs grep *)",
+      "Bash(npx expo *)",
+      "mcp__b1eebbc1-e9fb-4880-b01f-820f60379d1c__execute_sql",
+      "mcp__b1eebbc1-e9fb-4880-b01f-820f60379d1c__apply_migration"
     ]
   }
 }

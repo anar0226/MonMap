@@ -16,6 +16,8 @@ import {
   type MultiRoute,
 } from '../hooks/useDirections';
 import { MODES, MODE_BY_KEY, type TransportMode } from '../lib/transport';
+import { openTaxiApp } from '../lib/taxiHandoff';
+import type { TransitLeg } from '../types/transit';
 
 const C = {
   bg:        '#111520',
@@ -67,11 +69,87 @@ function shortDuration(seconds: number): string {
 
 function infoText(mode: TransportMode): string {
   switch (mode) {
-    case 'transit': return 'Бодит цагийн хуваариа аппликэйшнаас шалгана уу';
-    case 'ubcab':   return 'UBCab аппликэйшнээр захиална уу';
-    case 'aba':     return 'ABA Таксины аппликэйшнээр захиална уу';
+    case 'transit': return 'UBSmartBus маршрут мэдээлэл';
     default:        return '';
   }
+}
+
+// ── Transit leg cards ──────────────────────────────────────────────────────
+function fmtSec(sec: number): string {
+  const m = Math.round(sec / 60);
+  if (m < 60) return `${m} мин`;
+  return `${Math.floor(m / 60)}ц ${m % 60}м`;
+}
+
+function TransitLegsView({ legs }: { legs: TransitLeg[] }) {
+  return (
+    <View style={tl.wrap}>
+      {legs.map((leg, idx) => (
+        <View key={`${leg.routeId}-${idx}`} style={[tl.card, idx > 0 && tl.cardNotFirst]}>
+          {/* Route number pill + realtime badge */}
+          <View style={tl.header}>
+            <View style={tl.routePill}>
+              <Ionicons name="bus" size={11} color="#fff" />
+              <Text style={tl.routeNo}>{leg.routeNo}</Text>
+            </View>
+            {leg.hasRealtime && leg.nextArrivalSec !== null && (
+              <View style={tl.realtimeBadge}>
+                <View style={tl.realtimeDot} />
+                <Text style={tl.realtimeText}>
+                  {leg.nextArrivalSec < 60
+                    ? 'Ирж байна'
+                    : `${Math.round(leg.nextArrivalSec / 60)} мин`}
+                </Text>
+              </View>
+            )}
+            <Text style={tl.totalTime}>{fmtSec(leg.totalSec)}</Text>
+          </View>
+
+          {/* Journey steps */}
+          <View style={tl.steps}>
+            {/* Walk to stop */}
+            <View style={tl.step}>
+              <Ionicons name="walk" size={12} color={C.textSec} style={tl.stepIcon} />
+              <Text style={tl.stepText} numberOfLines={1}>
+                {fmtSec(leg.walkToStopSec)} явган → {leg.boardStop.nameMn || leg.boardStop.nameEn}
+              </Text>
+            </View>
+            {/* Board */}
+            <View style={tl.step}>
+              <Ionicons name="arrow-up-circle" size={12} color={C.green} style={tl.stepIcon} />
+              <Text style={tl.stepText} numberOfLines={1}>
+                Суух: <Text style={tl.stopName}>{leg.boardStop.nameMn || leg.boardStop.nameEn}</Text>
+              </Text>
+              {leg.boardStopDistM > 0 && (
+                <Text style={tl.stopDist}> · {leg.boardStopDistM}м</Text>
+              )}
+            </View>
+            {/* Ride */}
+            <View style={tl.step}>
+              <Ionicons name="bus" size={12} color={C.green} style={tl.stepIcon} />
+              <Text style={tl.stepText}>
+                {leg.stopCount} буудал · {fmtSec(leg.rideSec)}
+              </Text>
+            </View>
+            {/* Alight */}
+            <View style={tl.step}>
+              <Ionicons name="arrow-down-circle" size={12} color={C.amber} style={tl.stepIcon} />
+              <Text style={tl.stepText} numberOfLines={1}>
+                Буух: <Text style={tl.stopName}>{leg.alightStop.nameMn || leg.alightStop.nameEn}</Text>
+              </Text>
+            </View>
+            {/* Walk from stop */}
+            {leg.walkFromStopSec > 30 && (
+              <View style={tl.step}>
+                <Ionicons name="walk" size={12} color={C.textSec} style={tl.stepIcon} />
+                <Text style={tl.stepText}>{fmtSec(leg.walkFromStopSec)} явган → очих цэг</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      ))}
+    </View>
+  );
 }
 
 export function DirectionsPanel({
@@ -173,10 +251,8 @@ export function DirectionsPanel({
                 </View>
               )}
 
-              {active.mode === 'transit' && (
-                <Text style={s.disclaimer}>
-                  Тооцоолсон цаг. Маршрут болон хуваарь өөр байж болзошгүй.
-                </Text>
+              {active.mode === 'transit' && active.transitLegs && active.transitLegs.length > 0 && (
+                <TransitLegsView legs={active.transitLegs} />
               )}
 
               {(active.mode === 'ubcab' || active.mode === 'aba' || active.mode === 'escooter')
@@ -195,6 +271,22 @@ export function DirectionsPanel({
                   <Ionicons name="navigate" size={18} color="#fff" />
                   <Text style={s.startBtnText}>Эхлэх</Text>
                 </TouchableOpacity>
+              ) : (active.mode === 'ubcab' || active.mode === 'aba') ? (
+                <>
+                  <TouchableOpacity
+                    onPress={() => openTaxiApp(active.mode as 'ubcab' | 'aba', destinationName)}
+                    activeOpacity={0.85}
+                    style={[s.startBtn, { backgroundColor: meta.color }]}
+                  >
+                    <Ionicons name="open-outline" size={18} color="#fff" />
+                    <Text style={s.startBtnText}>
+                      {meta.shortLabel} нээх
+                    </Text>
+                  </TouchableOpacity>
+                  <Text style={s.handoffHint}>
+                    Зорчих газрын нэр хуулагдана. {meta.shortLabel}-ийн хайлтанд буулгана уу.
+                  </Text>
+                </>
               ) : (
                 <View style={s.infoBtn}>
                   <Ionicons name="information-circle-outline" size={16} color={C.textSec} />
@@ -375,11 +467,109 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
   },
+  handoffHint: {
+    marginTop: 8,
+    fontSize: 11,
+    color: C.textMuted,
+    textAlign: 'center',
+    lineHeight: 15,
+  },
   infoBtnText: {
     color: C.textSec,
     fontSize: 12,
     fontWeight: '500',
     flexShrink: 1,
     textAlign: 'center',
+  },
+});
+
+// Transit leg styles
+const tl = StyleSheet.create({
+  wrap: {
+    marginTop: 10,
+    gap: 8,
+  },
+  card: {
+    backgroundColor: 'rgba(16,185,129,0.08)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.22)',
+    padding: 10,
+  },
+  cardNotFirst: {
+    opacity: 0.75,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  routePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: C.green,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  routeNo: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
+  realtimeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(16,185,129,0.15)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.30)',
+  },
+  realtimeDot: {
+    width: 5,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: C.green,
+  },
+  realtimeText: {
+    color: C.green,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  totalTime: {
+    color: C.text,
+    fontSize: 13,
+    fontWeight: '700',
+    marginLeft: 'auto',
+  },
+  steps: {
+    gap: 5,
+  },
+  step: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  stepIcon: {
+    marginRight: 6,
+    width: 14,
+  },
+  stepText: {
+    color: C.textSec,
+    fontSize: 11,
+    flex: 1,
+  },
+  stopName: {
+    color: C.text,
+    fontWeight: '600',
+  },
+  stopDist: {
+    color: C.textMuted,
+    fontSize: 10,
   },
 });

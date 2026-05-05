@@ -124,12 +124,6 @@ export function walkingPrice(): PriceEstimate {
   return { amountMnt: 0, label: 'Үнэгүй', approximate: false };
 }
 
-// Approximate transit time from driving time:
-// city buses run slower than cars and add stop+wait overhead.
-export function estimateTransitDurationSec(drivingDurationSec: number): number {
-  return drivingDurationSec * 1.4 + 5 * 60;
-}
-
 function formatMnt(amount: number): string {
   return `${amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}₮`;
 }

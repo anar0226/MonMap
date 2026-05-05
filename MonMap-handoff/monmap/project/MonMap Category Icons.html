@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonMap — Category Icons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { background: #080c14; font-family: 'Inter', sans-serif; min-height: 100%; }
+
+  .page { padding: 56px 48px 80px; }
+
+  .header { text-align: center; margin-bottom: 56px; }
+  .header-logo { display: inline-flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+  .header-dot { width: 10px; height: 10px; border-radius: 50%; background: #0053A3; }
+  .header-title { font-size: 22px; font-weight: 700; color: rgba(255,255,255,0.92); letter-spacing: -0.03em; }
+  .header-sub { font-size: 11px; color: rgba(255,255,255,0.28); letter-spacing: 0.12em; text-transform: uppercase; }
+
+  /* section label */
+  .section-label {
+    font-size: 10px; font-weight: 600; color: rgba(255,255,255,0.25);
+    letter-spacing: 0.14em; text-transform: uppercase;
+    margin-bottom: 20px; padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+
+  /* grid */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  /* card */
+  .card {
+    background: #111827;
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    padding: 20px 12px 16px;
+    display: flex; flex-direction: column; align-items: center; gap: 14px;
+    transition: border-color 0.2s, background 0.2s;
+    cursor: default;
+  }
+  .card:hover { background: #1a2233; border-color: rgba(255,255,255,0.16); }
+
+  .card-meta { text-align: center; }
+  .card-name { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.8); letter-spacing: 0.01em; margin-bottom: 3px; }
+  .card-hex  { font-size: 10px; color: rgba(255,255,255,0.28); font-family: 'Courier New', monospace; letter-spacing: 0.05em; }
+  .card-key  { font-size: 9.5px; color: rgba(255,255,255,0.18); letter-spacing: 0.04em; margin-top: 2px; }
+
+  /* icon sizes row */
+  .sizes-section { margin-bottom: 56px; }
+  .sizes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+  }
+  .size-card {
+    background: #111827; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px; padding: 20px 16px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .size-row {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .size-label { font-size: 10px; color: rgba(255,255,255,0.28); letter-spacing: 0.08em; text-transform: uppercase; width: 36px; flex-shrink: 0; }
+
+  /* map preview strip */
+  .map-strip {
+    background: #e8e0d4; border-radius: 16px; padding: 24px 28px;
+    display: flex; gap: 16px; flex-wrap: wrap; align-items: center; justify-content: center;
+    margin-bottom: 48px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-logo">
+      <div class="header-dot"></div>
+      <span class="header-title">MonMap</span>
+    </div>
+    <p class="header-sub">Категорийн дүрсүүд · Category Icons</p>
+  </div>
+
+  <!-- All icons grid -->
+  <div class="section-label">Бүх категори · All Categories</div>
+  <div class="grid" id="iconGrid"></div>
+
+  <!-- Sizes showcase -->
+  <div class="section-label">Хэмжээний харьцаа · Sizes</div>
+  <div class="sizes-grid" id="sizesGrid"></div>
+
+  <!-- Map preview (light bg like Mapbox Standard) -->
+  <div class="section-label" style="margin-top:48px">Газрын зурган дээр · On Map (Mapbox Standard basemap)</div>
+  <div class="map-strip" id="mapStrip"></div>
+
+</div>
+
+<script>
+/* ─── category data ──────────────────────────────────────── */
+const CATS = [
+  { key: 'restaurant',           label: 'Ресторан',           hex: '#E53935' },
+  { key: 'cafe',                 label: 'Кафе',               hex: '#6D4C41' },
+  { key: 'bar',                  label: 'Бар',                hex: '#7B1FA2' },
+  { key: 'bakery',               label: 'Нарийн боов',        hex: '#FB8C00' },
+  { key: 'grocery_or_supermarket',label:'Дэлгүүр',            hex: '#43A047' },
+  { key: 'convenience_store',    label: 'Жижиг дэлгүүр',     hex: '#00897B' },
+  { key: 'shopping_mall',        label: 'Худалдааны төв',     hex: '#3949AB' },
+  { key: 'clothing_store',       label: 'Хувцасны дэлгүүр',  hex: '#E91E63' },
+  { key: 'beauty_salon',         label: 'Гоо сайхан',         hex: '#AD1457' },
+  { key: 'hair_care',            label: 'Үсний салон',        hex: '#880E4F' },
+  { key: 'spa',                  label: 'Спа',                hex: '#00838F' },
+  { key: 'gym',                  label: 'Фитнесс',            hex: '#2E7D32' },
+  { key: 'pharmacy',             label: 'Эмийн сан',          hex: '#C62828' },
+  { key: 'hospital',             label: 'Эмнэлэг',            hex: '#B71C1C' },
+  { key: 'doctor',               label: 'Эмч',                hex: '#EF5350' },
+  { key: 'dentist',              label: 'Шүдний эмч',         hex: '#1565C0' },
+  { key: 'bank',                 label: 'Банк',               hex: '#0D47A1' },
+  { key: 'car_repair',           label: 'Авто засвар',        hex: '#37474F' },
+  { key: 'gas_station',          label: 'Шатахуун',           hex: '#E65100' },
+  { key: 'fallback',             label: 'Бусад',              hex: '#1A73E8' },
+];
+
+/* ─── icon paths (24×24 viewBox, stroke-based, white) ───── */
+const ICONS = {
+  restaurant: `
+    <line x1="8" y1="3" x2="8" y2="13" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M5 5 C5 5 5 9 8 9 C11 9 11 5 11 5" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="8" y1="13" x2="8" y2="21" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="15" y1="3" x2="15" y2="21" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M13 3 L13 10 L17 10 L17 3" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`,
+
+  cafe: `
+    <path d="M6 3 L6 14 C6 16.2 7.8 18 10 18 C12.2 18 14 16.2 14 14 L14 3" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M14 7 L16 7 C17.1 7 18 7.9 18 9 C18 10.1 17.1 11 16 11 L14 11" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="7" y1="21" x2="13" y2="21" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="10" y1="18" x2="10" y2="21" stroke="white" stroke-width="1.7" stroke-linecap="round"/>`,
+
+  bar: `
+    <path d="M5 3 L19 3 L13 11 L13 20 L11 20 L11 11 Z" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="8" y1="21" x2="16" y2="21" stroke="white" stroke-width="1.7" stroke-linecap="round"/>`,
+
+  bakery: `
+    <path d="M12 3 C8.7 3 6 5.7 6 9 C6 10.6 6.6 12 7.6 13.1 L7 20 L17 20 L16.4 13.1 C17.4 12 18 10.6 18 9 C18 5.7 15.3 3 12 3 Z" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="7" y1="21" x2="17" y2="21" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M9 9 C9 9 9 11 12 11 C15 11 15 9 15 9" fill="none" stroke="white" stroke-width="1.4" stroke-linecap="round"/>`,
+
+  grocery_or_supermarket: `
+    <path d="M3 5 L5 5 L7 15 L19 15 L21 8 L7 8" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="9" cy="19" r="1.5" fill="white"/>
+    <circle cx="17" cy="19" r="1.5" fill="white"/>`,
+
+  convenience_store: `
+    <rect x="4" y="8" width="16" height="13" rx="1.5" fill="none" stroke="white" stroke-width="1.7"/>
+    <path d="M4 8 L8 3 L16 3 L20 8" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="9" y="14" width="6" height="7" rx="1" fill="none" stroke="white" stroke-width="1.4"/>
+    <line x1="8" y1="12" x2="8" y2="14" stroke="white" stroke-width="1.4" stroke-linecap="round"/>
+    <line x1="16" y1="12" x2="16" y2="14" stroke="white" stroke-width="1.4" stroke-linecap="round"/>`,
+
+  shopping_mall: `
+    <rect x="3" y="9" width="18" height="12" rx="1.5" fill="none" stroke="white" stroke-width="1.7"/>
+    <path d="M3 9 L6 4 L18 4 L21 9" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="9" y1="9" x2="9" y2="21" stroke="white" stroke-width="1.4"/>
+    <line x1="15" y1="9" x2="15" y2="21" stroke="white" stroke-width="1.4"/>
+    <line x1="3" y1="15" x2="21" y2="15" stroke="white" stroke-width="1.4"/>`,
+
+  clothing_store: `
+    <path d="M8 3 L3 8 L6 10 L6 21 L18 21 L18 10 L21 8 L16 3 C16 3 14.5 6 12 6 C9.5 6 8 3 8 3 Z" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`,
+
+  beauty_salon: `
+    <path d="M12 3 C12 3 8 6 8 10 C8 12.2 9.8 14 12 14 C14.2 14 16 12.2 16 10 C16 6 12 3 12 3 Z" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="12" y1="14" x2="12" y2="21" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="9" y1="18" x2="15" y2="18" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <path d="M9 10 C9 10 10 12 12 12 C14 12 15 10 15 10" fill="none" stroke="white" stroke-width="1.3" stroke-linecap="round"/>`,
+
+  hair_care: `
+    <path d="M7 3 C7 3 5 7 6 11 C6.7 13.6 9 15 9 15 L9 21" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M17 3 C17 3 19 7 18 11 C17.3 13.6 15 15 15 15 L15 21" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M9 9 C9 9 10.5 11 12 11 C13.5 11 15 9 15 9" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="9" y1="18" x2="15" y2="18" stroke="white" stroke-width="1.5" stroke-linecap="round"/>`,
+
+  spa: `
+    <path d="M12 20 C12 20 5 16 5 10 C5 7 7 5 9.5 5 C10.7 5 11.5 5.8 12 7 C12.5 5.8 13.3 5 14.5 5 C17 5 19 7 19 10 C19 16 12 20 12 20 Z" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M12 7 C12 7 12 12 12 20" stroke="white" stroke-width="1.3" stroke-linecap="round" opacity="0.6"/>`,
+
+  gym: `
+    <line x1="2" y1="12" x2="22" y2="12" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="6" y1="8" x2="6" y2="16" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="18" y1="8" x2="18" y2="16" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+    <line x1="3" y1="10" x2="3" y2="14" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="21" y1="10" x2="21" y2="14" stroke="white" stroke-width="2" stroke-linecap="round"/>`,
+
+  pharmacy: `
+    <rect x="4" y="4" width="16" height="16" rx="2.5" fill="none" stroke="white" stroke-width="1.7"/>
+    <line x1="12" y1="8" x2="12" y2="16" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="8" y1="12" x2="16" y2="12" stroke="white" stroke-width="2" stroke-linecap="round"/>`,
+
+  hospital: `
+    <path d="M12 3 L12 3 C7.6 3 4 6.6 4 11 C4 16 12 21 12 21 C12 21 20 16 20 11 C20 6.6 16.4 3 12 3 Z" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="12" y1="8" x2="12" y2="15" stroke="white" stroke-width="1.8" stroke-linecap="round"/>
+    <line x1="8.5" y1="11.5" x2="15.5" y2="11.5" stroke="white" stroke-width="1.8" stroke-linecap="round"/>`,
+
+  doctor: `
+    <circle cx="12" cy="8" r="4" fill="none" stroke="white" stroke-width="1.7"/>
+    <path d="M4 21 C4 17.1 7.6 14 12 14 C16.4 14 20 17.1 20 21" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="16" y1="10" x2="16" y2="15" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="13.5" y1="12.5" x2="18.5" y2="12.5" stroke="white" stroke-width="1.5" stroke-linecap="round"/>`,
+
+  dentist: `
+    <path d="M8 3 C5.5 3 4 5 4 7 C4 9 5 10 5 12 C5 15 6 21 8 21 C10 21 10 17 12 17 C14 17 14 21 16 21 C18 21 19 15 19 12 C19 10 20 9 20 7 C20 5 18.5 3 16 3 C14.5 3 13.3 4 12 4 C10.7 4 9.5 3 8 3 Z" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>`,
+
+  bank: `
+    <polygon points="12,3 21,8 21,9 3,9 3,8" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="6" y1="9" x2="6" y2="18" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="10" y1="9" x2="10" y2="18" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="14" y1="9" x2="14" y2="18" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="18" y1="9" x2="18" y2="18" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="3" y1="18" x2="21" y2="18" stroke="white" stroke-width="1.7" stroke-linecap="round"/>
+    <line x1="3" y1="21" x2="21" y2="21" stroke="white" stroke-width="2" stroke-linecap="round"/>`,
+
+  car_repair: `
+    <path d="M6 8 L4 12 L4 17 C4 17.6 4.4 18 5 18 L7 18 C7.6 18 8 17.6 8 17 L8 16 L16 16 L16 17 C16 17.6 16.4 18 17 18 L19 18 C19.6 18 20 17.6 20 17 L20 12 L18 8 Z" fill="none" stroke="white" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="4" y1="12" x2="20" y2="12" stroke="white" stroke-width="1.4"/>
+    <circle cx="7.5" cy="17.5" r="2" fill="none" stroke="white" stroke-width="1.4"/>
+    <circle cx="16.5" cy="17.5" r="2" fill="none" stroke="white" stroke-width="1.4"/>
+    <path d="M10 5 L14 5 M12 3 L12 7" stroke="white" stroke-width="1.5" stroke-linecap="round"/>`,
+
+  gas_station: `
+    <rect x="3" y="6" width="12" height="15" rx="1.5" fill="none" stroke="white" stroke-width="1.7"/>
+    <line x1="3" y1="11" x2="15" y2="11" stroke="white" stroke-width="1.4"/>
+    <path d="M15 8 L17 8 C18.1 8 19 8.9 19 10 L19 14 C19 14.6 19.4 15 20 15 C20.6 15 21 14.6 21 14 L21 9 L19 7" fill="none" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="7" y1="15" x2="11" y2="15" stroke="white" stroke-width="1.5" stroke-linecap="round"/>`,
+
+  fallback: `
+    <circle cx="12" cy="12" r="9" fill="none" stroke="white" stroke-width="1.7"/>
+    <circle cx="12" cy="12" r="3.5" fill="white"/>
+    <line x1="12" y1="3" x2="12" y2="6" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="12" y1="18" x2="12" y2="21" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="3" y1="12" x2="6" y2="12" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="18" y1="12" x2="21" y2="12" stroke="white" stroke-width="1.5" stroke-linecap="round"/>`,
+};
+
+/* ─── build icon SVG string ──────────────────────────────── */
+function makeSVG(key, size, bg) {
+  const paths = ICONS[key] || ICONS.fallback;
+  const pad = size * 0.22;
+  const inner = size - pad * 2;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${size/2}" cy="${size/2}" r="${size/2}" fill="${bg}"/>
+    <g transform="translate(${pad},${pad}) scale(${inner/24})">
+      ${paths}
+    </g>
+  </svg>`;
+}
+
+/* ─── map marker SVG (circle dot with white stroke, like app) */
+function makeMarker(key, hex) {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="38" viewBox="0 0 32 38">
+    <circle cx="16" cy="16" r="14" fill="${hex}" stroke="white" stroke-width="2.5"/>
+    <g transform="translate(4,4) scale(0.667)">
+      ${ICONS[key] || ICONS.fallback}
+    </g>
+    <line x1="16" y1="30" x2="16" y2="37" stroke="${hex}" stroke-width="2.5" stroke-linecap="round"/>
+    <circle cx="16" cy="37" r="1.5" fill="${hex}"/>
+  </svg>`;
+}
+
+/* ─── build main grid ────────────────────────────────────── */
+const grid = document.getElementById('iconGrid');
+CATS.forEach(cat => {
+  const card = document.createElement('div');
+  card.className = 'card';
+  const svgStr = makeSVG(cat.key, 56, cat.hex);
+  card.innerHTML = `
+    <div>${svgStr}</div>
+    <div class="card-meta">
+      <div class="card-name">${cat.label}</div>
+      <div class="card-hex">${cat.hex}</div>
+      <div class="card-key">${cat.key}</div>
+    </div>
+  `;
+  grid.appendChild(card);
+});
+
+/* ─── sizes grid ─────────────────────────────────────────── */
+const sizesGrid = document.getElementById('sizesGrid');
+const sizeShowcase = [
+  { key: 'restaurant', label: 'Ресторан', hex: '#E53935' },
+  { key: 'spa',        label: 'Спа',      hex: '#00838F' },
+  { key: 'hospital',   label: 'Эмнэлэг',  hex: '#B71C1C' },
+  { key: 'bank',       label: 'Банк',     hex: '#0D47A1' },
+];
+sizeShowcase.forEach(cat => {
+  const card = document.createElement('div');
+  card.className = 'size-card';
+  card.innerHTML = `
+    <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,0.7);letter-spacing:-0.01em;margin-bottom:4px">${cat.label}</div>
+    <div class="size-row">
+      <span class="size-label">Map<br>8px</span>
+      ${makeSVG(cat.key, 20, cat.hex)}
+      <span style="font-size:10px;color:rgba(255,255,255,0.2)">z16 marker</span>
+    </div>
+    <div class="size-row">
+      <span class="size-label">UI<br>24px</span>
+      ${makeSVG(cat.key, 28, cat.hex)}
+      <span style="font-size:10px;color:rgba(255,255,255,0.2)">list / badge</span>
+    </div>
+    <div class="size-row">
+      <span class="size-label">Card<br>40px</span>
+      ${makeSVG(cat.key, 44, cat.hex)}
+      <span style="font-size:10px;color:rgba(255,255,255,0.2)">popup header</span>
+    </div>
+    <div class="size-row">
+      <span class="size-label">Hero<br>56px</span>
+      ${makeSVG(cat.key, 64, cat.hex)}
+      <span style="font-size:10px;color:rgba(255,255,255,0.2)">detail screen</span>
+    </div>
+  `;
+  sizesGrid.appendChild(card);
+});
+
+/* ─── map strip ──────────────────────────────────────────── */
+const mapStrip = document.getElementById('mapStrip');
+CATS.forEach(cat => {
+  const wrap = document.createElement('div');
+  wrap.style.display = 'flex';
+  wrap.style.flexDirection = 'column';
+  wrap.style.alignItems = 'center';
+  wrap.style.gap = '5px';
+  wrap.innerHTML = `
+    ${makeMarker(cat.key, cat.hex)}
+    <span style="font-size:9.5px;font-family:Inter,sans-serif;color:#555;letter-spacing:0.03em;text-align:center;max-width:56px;line-height:1.3">${cat.label}</span>
+  `;
+  mapStrip.appendChild(wrap);
+});
+</script>
+</body>
+</html>

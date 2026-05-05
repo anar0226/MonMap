@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonMap — POI Popup v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; min-height: 100%; background: #080c14; font-family: 'Inter', sans-serif; }
+  #root { width: 100%; min-height: 100%; }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar { width: 4px; height: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.12); border-radius: 4px; }
+
+  @keyframes sheetUp {
+    from { transform: translateY(100%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="text/babel">
+
+/* ═══════════════════════════════════════════════════════════
+   DESIGN TOKENS  (from design doc)
+═══════════════════════════════════════════════════════════ */
+const T = {
+  bg:        '#0d1117',
+  bgCard:    '#111827',
+  bgSurface: '#1a2233',
+  bgInput:   '#1e2a3a',
+  border:    'rgba(255,255,255,0.10)',
+  borderSub: 'rgba(255,255,255,0.06)',
+  blue:      '#0053A3',
+  blueLight: '#1a6fc4',
+  blueDim:   'rgba(0,83,163,0.18)',
+  textPrim:  'rgba(255,255,255,0.95)',
+  textSec:   'rgba(255,255,255,0.55)',
+  textTert:  'rgba(255,255,255,0.30)',
+  green:     '#34d399',
+  red:       '#ef4444',
+  amber:     '#f59e0b',
+  r16: 16, r12: 12, r8: 8, r6: 6,
+};
+
+/* category → hex (from design doc) */
+const CAT_COLORS = {
+  restaurant: '#E53935', cafe: '#6D4C41', bar: '#7B1FA2',
+  bakery: '#FB8C00', grocery: '#43A047', convenience: '#00897B',
+  mall: '#3949AB', clothing: '#E91E63', beauty: '#AD1457',
+  hair: '#880E4F', spa: '#00838F', gym: '#2E7D32',
+  pharmacy: '#C62828', hospital: '#B71C1C', doctor: '#EF5350',
+  dentist: '#1565C0', bank: '#0D47A1', car: '#37474F',
+  gas: '#E65100', fallback: '#1A73E8',
+};
+
+/* ── Mock POI data ────────────────────────────────────────── */
+const POIS = {
+  restaurant: {
+    category: 'restaurant', categoryLabel: 'Ресторан',
+    name: 'Зочин Буудал Ресторан', address: 'Сүхбаатар дүүрэг, 1-р хороо',
+    rating: 4.6, reviewCount: 218, priceLevel: '₮₮', status: 'open',
+    hours: '08:00 – 22:00', phone: '+976 9911-2233',
+    tags: ['Монгол хоол', 'Халяал', 'WiFi', 'Зогсоол'],
+    description: 'Улаанбаатарын төвд жинхэнэ монгол хоол. Хорхог, цуйван нь алдартай.',
+    bookable: true, nextSlot: 'Өнөөдөр, 13:30',
+  },
+  spa: {
+    category: 'spa', categoryLabel: 'Спа',
+    name: 'Чарминг Бьюти & Спа', address: 'Зайсан, Хан-Уул дүүрэг',
+    rating: 4.8, reviewCount: 94, priceLevel: '₮₮₮', status: 'open',
+    hours: '09:00 – 21:00', phone: '+976 9922-3344',
+    tags: ['Массаж', 'Нүүрний арчилгаа', 'VIP өрөө'],
+    description: 'Тансаг спа үйлчилгээ. Урьдчилан захиалга шаардлагатай.',
+    bookable: true, nextSlot: 'Маргааш, 10:00',
+  },
+  cafe: {
+    category: 'cafe', categoryLabel: 'Кафе',
+    name: 'Piccolo Coffee Shop', address: 'Зайсан хилл, 3-р байр',
+    rating: 4.3, reviewCount: 57, priceLevel: '₮', status: 'open',
+    hours: '07:30 – 20:00', phone: '+976 9933-4455',
+    tags: ['Specialty Coffee', 'WiFi', 'Хөгжил'],
+    description: 'Зайсаны хамгийн тансаг кафе. Specialty кофе болон гар хийцийн чихэр.',
+    bookable: false, nextSlot: null,
+  },
+};
+
+const REVIEWS = [
+  { author: 'Билгүүн Т.', initial: 'Б', rating: 5, time: '2 өдрийн өмнө', text: 'Хорхог гайхалтай байлаа — утлага, зөөлөн. Үйлчилгээ халуун дулаан байсан. Дахин ирнэ!' },
+  { author: 'Оюунаа Б.', initial: 'О', rating: 4, time: '1 долоо хоногийн өмнө', text: 'Гоё орчин, жинхэнэ амт. Цуйван хотын хамгийн сайн. Амралтын өдрүүдэд дүүрэн байдаг.' },
+  { author: 'Гантулга М.', initial: 'Г', rating: 5, time: '2 долоо хоногийн өмнө', text: 'Улаанбаатарт заавал зочлох газар. Дотоод засал нь монгол соёлыг гоёор тусгасан.' },
+];
+
+/* ═══════════════════════════════════════════════════════════
+   TINY ICON SET  (inline SVG, no external deps)
+═══════════════════════════════════════════════════════════ */
+const Ic = ({ n, s = 16, c = 'currentColor', sw = 1.5 }) => {
+  const paths = {
+    star:     <polygon points="8,1.5 9.8,5.5 14,6.2 11,9 11.7,13.2 8,11.1 4.3,13.2 5,9 2,6.2 6.2,5.5" fill={c}/>,
+    starO:    <polygon points="8,1.5 9.8,5.5 14,6.2 11,9 11.7,13.2 8,11.1 4.3,13.2 5,9 2,6.2 6.2,5.5" fill="none" stroke={c} strokeWidth={sw}/>,
+    pin:      <><path d="M8 1.5C5.5 1.5 3.5 3.5 3.5 6c0 3.5 4.5 8.5 4.5 8.5s4.5-5 4.5-8.5c0-2.5-2-4.5-4.5-4.5z" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round"/><circle cx="8" cy="6" r="1.5" fill={c}/></>,
+    clock:    <><circle cx="8" cy="8" r="6.5" fill="none" stroke={c} strokeWidth={sw}/><path d="M8 4.5V8l2.5 2" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round"/></>,
+    phone:    <path d="M3 2h3l1.5 4-2 1.2c1 2 2.3 3.3 4.3 4.3L11 9.5l4 1.5v3c0 1-1 2-2 1.8C5 14 2 9 2 4c-.2-1 .8-2 1-2z" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round"/>,
+    chevUp:   <path d="M3 10l5-5 5 5" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"/>,
+    chevDn:   <path d="M3 6l5 5 5-5" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"/>,
+    chevL:    <path d="M10 3L5 8l5 5" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"/>,
+    close:    <path d="M3 3l10 10M13 3L3 13" fill="none" stroke={c} strokeWidth="2" strokeLinecap="round"/>,
+    calendar: <><rect x="1.5" y="3" width="13" height="11.5" rx="2" fill="none" stroke={c} strokeWidth={sw}/><path d="M5 1.5V4M11 1.5V4M1.5 7h13" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round"/></>,
+    nav:      <path d="M2 2l12 5.5-7 1.5-1.5 7z" fill={c}/>,
+    share:    <><circle cx="12.5" cy="3" r="1.5" fill="none" stroke={c} strokeWidth={sw}/><circle cx="12.5" cy="13" r="1.5" fill="none" stroke={c} strokeWidth={sw}/><circle cx="3.5" cy="8" r="1.5" fill="none" stroke={c} strokeWidth={sw}/><path d="M5 8.7l6 3.6M11 4.3L5 7.3" stroke={c} strokeWidth={sw}/></>,
+    bookmark: <path d="M3 2h10v12l-5-3-5 3V2z" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round"/>,
+    globe:    <><circle cx="8" cy="8" r="6.5" fill="none" stroke={c} strokeWidth={sw}/><path d="M1.5 8h13M8 1.5S5 4.5 5 8s3 6.5 3 6.5 3-3.5 3-6.5-3-6.5-3-6.5z" fill="none" stroke={c} strokeWidth={sw} strokeLinecap="round"/></>,
+    plus:     <path d="M8 3v10M3 8h10" stroke={c} strokeWidth="2" strokeLinecap="round"/>,
+    check:    <path d="M3 8l3.5 3.5L13 5" stroke={c} strokeWidth="2" strokeLinecap="round"/>,
+  };
+  return (
+    <svg width={s} height={s} viewBox="0 0 16 16" style={{ display: 'block', flexShrink: 0 }}>
+      {paths[n]}
+    </svg>
+  );
+};
+
+/* ─── star row ───────────────────────────────────────────── */
+const Stars = ({ v, s = 12 }) => (
+  <span style={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+    {[1,2,3,4,5].map(i => (
+      <span key={i} style={{ color: i <= Math.round(v) ? T.amber : T.border }}>
+        <Ic n="star" s={s} c="currentColor"/>
+      </span>
+    ))}
+  </span>
+);
+
+/* ─── category dot ───────────────────────────────────────── */
+const CatDot = ({ cat, size = 10 }) => (
+  <span style={{
+    display: 'inline-block',
+    width: size, height: size, borderRadius: '50%',
+    background: CAT_COLORS[cat] || CAT_COLORS.fallback,
+    border: '1.5px solid rgba(255,255,255,0.4)',
+    flexShrink: 0,
+  }}/>
+);
+
+/* ─── tag pill ───────────────────────────────────────────── */
+const Pill = ({ label }) => (
+  <span style={{
+    display: 'inline-flex', alignItems: 'center',
+    padding: '3px 10px', borderRadius: T.r6,
+    background: 'rgba(255,255,255,0.07)',
+    border: `1px solid ${T.border}`,
+    color: T.textSec, fontSize: 11, fontWeight: 500,
+    whiteSpace: 'nowrap', letterSpacing: '0.03em',
+  }}>{label}</span>
+);
+
+/* ─── info row ───────────────────────────────────────────── */
+const InfoRow = ({ icon, children }) => (
+  <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+    <span style={{ color: T.textTert, marginTop: 1, flexShrink: 0 }}>
+      <Ic n={icon} s={14} c="currentColor"/>
+    </span>
+    <span style={{ color: T.textSec, fontSize: 13, lineHeight: 1.5 }}>{children}</span>
+  </div>
+);
+
+/* ─── avatar ─────────────────────────────────────────────── */
+const Avatar = ({ initial, color }) => (
+  <div style={{
+    width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
+    background: color + '33',
+    border: `1.5px solid ${color}55`,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    fontSize: 13, fontWeight: 700, color: color,
+  }}>{initial}</div>
+);
+
+/* ─── cover photo placeholder ────────────────────────────── */
+const Cover = ({ h = 180, catColor }) => (
+  <div style={{
+    width: '100%', height: h, flexShrink: 0,
+    background: `linear-gradient(160deg, ${catColor}22 0%, #0d1117 100%)`,
+    position: 'relative', overflow: 'hidden',
+  }}>
+    <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, opacity: 0.08 }}>
+      <defs>
+        <pattern id="hatch" width="24" height="24" patternUnits="userSpaceOnUse" patternTransform="rotate(30)">
+          <line x1="0" y1="0" x2="0" y2="24" stroke="white" strokeWidth="1.5"/>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#hatch)"/>
+    </svg>
+    <div style={{
+      position: 'absolute', inset: 0,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8,
+    }}>
+      <div style={{ width: 48, height: 48, borderRadius: 14, background: catColor + '33', border: `1.5px solid ${catColor}55`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <CatDot cat="restaurant" size={18}/>
+      </div>
+      <span style={{ fontSize: 10, color: T.textTert, letterSpacing: '0.12em', textTransform: 'uppercase' }}>зургийн байршил</span>
+    </div>
+    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 80, background: 'linear-gradient(to top, #0d1117, transparent)' }}/>
+  </div>
+);
+
+/* ─── action icon button (bottom row) ───────────────────── */
+const QuickBtn = ({ icon, label, highlight }) => (
+  <button style={{
+    display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5,
+    flex: 1, padding: '10px 4px',
+    background: highlight ? T.blueDim : 'rgba(255,255,255,0.05)',
+    border: `1px solid ${highlight ? T.blue + '60' : T.border}`,
+    borderRadius: T.r12,
+    cursor: 'pointer',
+    transition: 'background 0.15s',
+  }}>
+    <span style={{ color: highlight ? T.blueLight : T.textSec }}>
+      <Ic n={icon} s={18} c="currentColor"/>
+    </span>
+    <span style={{ fontSize: 10.5, color: highlight ? T.blueLight : T.textTert, fontFamily: 'Inter, sans-serif', letterSpacing: '0.04em' }}>{label}</span>
+  </button>
+);
+
+/* ─── primary CTA button ─────────────────────────────────── */
+const CTA = ({ label, secondary, full, onClick }) => (
+  <button onClick={onClick} style={{
+    padding: '13px 20px',
+    borderRadius: T.r12,
+    border: secondary ? `1px solid ${T.border}` : 'none',
+    background: secondary ? 'rgba(255,255,255,0.06)' : T.blue,
+    color: secondary ? T.textSec : '#fff',
+    fontSize: 14, fontWeight: 600,
+    fontFamily: 'Inter, sans-serif',
+    cursor: 'pointer', width: full ? '100%' : 'auto',
+    transition: 'opacity 0.15s',
+    letterSpacing: '-0.01em',
+  }}
+    onMouseEnter={e => e.currentTarget.style.opacity = '0.85'}
+    onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+  >{label}</button>
+);
+
+/* ─── divider ────────────────────────────────────────────── */
+const Div = () => <div style={{ height: 1, background: T.borderSub, margin: '0 -16px' }}/>;
+
+/* ═══════════════════════════════════════════════════════════
+   MAP BACKGROUND  (matches Mapbox Standard style loosely)
+═══════════════════════════════════════════════════════════ */
+const MapBG = () => (
+  <svg width="390" height="100%" viewBox="0 0 390 500" preserveAspectRatio="xMidYMid slice"
+    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}>
+    {/* base */}
+    <rect width="390" height="500" fill="#e8e0d4"/>
+    {/* water */}
+    <path d="M0 60 Q100 50 200 70 Q300 85 390 65 L390 0 L0 0Z" fill="#a8c8e8" opacity="0.8"/>
+    <path d="M0 75 Q100 65 200 82 Q300 95 390 78 L390 60 Q300 85 200 70 Q100 50 0 60Z" fill="#89b8df" opacity="0.5"/>
+    {/* parks */}
+    <rect x="60" y="130" width="70" height="50" rx="4" fill="#c8e6c9" opacity="0.7"/>
+    <rect x="250" y="170" width="50" height="40" rx="4" fill="#c8e6c9" opacity="0.5"/>
+    {/* roads */}
+    <rect x="0" y="200" width="390" height="14" fill="#d4ccbc"/>
+    <rect x="0" y="310" width="390" height="10" fill="#d4ccbc"/>
+    <rect x="155" y="100" width="8" height="400" fill="#d4ccbc"/>
+    <rect x="260" y="100" width="6" height="400" fill="#d4ccbc"/>
+    <rect x="70" y="100" width="6" height="400" fill="#d4ccbc"/>
+    {/* road borders */}
+    <rect x="0" y="199" width="390" height="1" fill="#c4bbaa"/>
+    <rect x="0" y="215" width="390" height="1" fill="#c4bbaa"/>
+    {/* blocks */}
+    {[[20,100,60,80],[100,110,50,70],[180,95,70,95],[290,105,80,85],
+      [20,230,90,60],[130,230,80,55],[250,225,60,55],[330,230,50,55],
+      [20,330,70,80],[110,330,100,60],[230,330,80,80],[330,330,55,80]].map(([x,y,w,h],i) => (
+      <rect key={i} x={x} y={y} width={w} height={h} rx="3" fill="#cfc8ba" opacity="0.7"/>
+    ))}
+    {/* text labels */}
+    {[['Туул гол',135,48],['Зайсан',300,350]].map(([txt,x,y]) => (
+      <text key={txt} x={x} y={y} textAnchor="middle" fontSize="11" fontFamily="Inter,sans-serif" fill="#666" letterSpacing="0.05em">{txt}</text>
+    ))}
+    {/* POI dots */}
+    {[
+      [195,175,'#E53935'],[120,150,'#6D4C41'],[310,240,'#AD1457'],
+      [80,280,'#00838F'],[260,290,'#43A047'],[150,370,'#7B1FA2'],
+      [320,380,'#E91E63'],[50,400,'#1A73E8'],
+    ].map(([cx,cy,fill],i) => (
+      <g key={i}>
+        <circle cx={cx} cy={cy} r={i===0?11:7} fill={fill} stroke="white" strokeWidth="1.5"/>
+        {i===0 && <circle cx={cx} cy={cy} r={14} fill="none" stroke={fill} strokeWidth="2" opacity="0.4"/>}
+      </g>
+    ))}
+  </svg>
+);
+
+/* ═══════════════════════════════════════════════════════════
+   BOTTOM SHEET  (the main popup)
+═══════════════════════════════════════════════════════════ */
+const BottomSheet = ({ poi, reviews, expanded, onToggle, onClose }) => {
+  const [tab, setTab] = React.useState('info');
+  const catColor = CAT_COLORS[poi.category] || CAT_COLORS.fallback;
+  const tabs = [
+    { id: 'info',    label: 'Мэдээлэл' },
+    { id: 'book',    label: 'Захиалах' },
+    { id: 'reviews', label: 'Сэтгэгдэл' },
+  ];
+
+  const collapsedH = 172;
+  const expandedH  = 620;
+
+  return (
+    <div style={{
+      position: 'absolute', bottom: 0, left: 0, right: 0,
+      height: expanded ? expandedH : collapsedH,
+      transition: 'height 0.38s cubic-bezier(0.32,0.72,0,1)',
+      display: 'flex', flexDirection: 'column',
+      background: T.bgCard,
+      borderRadius: '20px 20px 0 0',
+      border: `1px solid ${T.border}`,
+      borderBottom: 'none',
+      overflow: 'hidden',
+      willChange: 'height',
+    }}>
+
+      {/* ── drag handle ── */}
+      <div
+        onClick={onToggle}
+        style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 0', cursor: 'pointer', flexShrink: 0 }}>
+        <div style={{ width: 40, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.15)' }}/>
+      </div>
+
+      {/* ── peek header (always visible) ── */}
+      <div style={{ padding: '10px 16px 0', flexShrink: 0 }}>
+        {/* name row */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 6 }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {/* category + status badges */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                <CatDot cat={poi.category}/>
+                <span style={{ fontSize: 11, color: T.textTert, letterSpacing: '0.06em', textTransform: 'uppercase', fontWeight: 500 }}>
+                  {poi.categoryLabel}
+                </span>
+              </div>
+              <span style={{ color: T.textTert }}>·</span>
+              <span style={{
+                fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
+                padding: '1px 7px', borderRadius: T.r6,
+                background: poi.status === 'open' ? 'rgba(52,211,153,0.12)' : 'rgba(239,68,68,0.12)',
+                color: poi.status === 'open' ? '#34d399' : '#ef4444',
+              }}>
+                {poi.status === 'open' ? 'НЭЭЛТТЭЙ' : 'ХААЛТТАЙ'} · {poi.hours.split('–')[1].trim()}
+              </span>
+            </div>
+            <h2 style={{
+              fontSize: 18, fontWeight: 700, color: T.textPrim,
+              letterSpacing: '-0.03em', lineHeight: 1.2,
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>{poi.name}</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+              <Stars v={poi.rating} s={12}/>
+              <span style={{ fontSize: 13, fontWeight: 600, color: T.amber }}>{poi.rating}</span>
+              <span style={{ fontSize: 12, color: T.textTert }}>({poi.reviewCount} үнэлгээ)</span>
+              <span style={{ fontSize: 12, color: T.textTert }}>· {poi.priceLevel}</span>
+            </div>
+          </div>
+          <button onClick={onToggle} style={{
+            width: 32, height: 32, borderRadius: '50%',
+            background: 'rgba(255,255,255,0.07)', border: `1px solid ${T.border}`,
+            cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexShrink: 0, color: T.textTert,
+          }}>
+            <Ic n={expanded ? 'chevDn' : 'chevUp'} s={14} c="currentColor"/>
+          </button>
+        </div>
+
+        {/* quick action row */}
+        <div style={{ display: 'flex', gap: 8, marginTop: 8, paddingBottom: 12 }}>
+          <QuickBtn icon="nav"      label="Чиглэл"    highlight/>
+          <QuickBtn icon="phone"    label="Залгах"/>
+          <QuickBtn icon="bookmark" label="Хадгалах"/>
+          <QuickBtn icon="share"    label="Хуваалцах"/>
+        </div>
+      </div>
+
+      {/* ── expanded content ── */}
+      {expanded && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <Div/>
+
+          {/* cover */}
+          <Cover h={150} catColor={catColor}/>
+
+          {/* tabs */}
+          <div style={{ display: 'flex', borderBottom: `1px solid ${T.borderSub}`, flexShrink: 0, background: T.bgCard }}>
+            {tabs.map(tb => (
+              <button key={tb.id} onClick={() => setTab(tb.id)} style={{
+                flex: 1, padding: '11px 4px',
+                background: 'none', border: 'none', cursor: 'pointer',
+                fontFamily: 'Inter, sans-serif', fontSize: 13,
+                fontWeight: tab === tb.id ? 600 : 400,
+                color: tab === tb.id ? T.blueLight : T.textTert,
+                borderBottom: `2px solid ${tab === tb.id ? T.blue : 'transparent'}`,
+                marginBottom: -1, transition: 'color 0.15s',
+                letterSpacing: '0.01em',
+              }}>{tb.label}</button>
+            ))}
+          </div>
+
+          {/* tab body */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '16px 16px 24px' }}>
+
+            {/* ── INFO tab ── */}
+            {tab === 'info' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                {/* contact */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <InfoRow icon="pin">{poi.address}</InfoRow>
+                  <InfoRow icon="clock">{poi.hours}</InfoRow>
+                  <InfoRow icon="phone">{poi.phone}</InfoRow>
+                </div>
+                <Div/>
+                {/* description */}
+                <p style={{ fontSize: 13, color: T.textSec, lineHeight: 1.65 }}>{poi.description}</p>
+                <Div/>
+                {/* tags */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {poi.tags.map(t => <Pill key={t} label={t}/>)}
+                </div>
+                <Div/>
+                {/* mini map placeholder */}
+                <div style={{
+                  height: 96, borderRadius: T.r12, overflow: 'hidden',
+                  background: '#1a2233', border: `1px solid ${T.border}`,
+                  position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg width="100%" height="100%" style={{ position: 'absolute', inset: 0, opacity: 0.2 }}>
+                    <defs>
+                      <pattern id="mgrid" width="16" height="16" patternUnits="userSpaceOnUse">
+                        <path d="M0 0h16v16H0z" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="0.5"/>
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill="url(#mgrid)"/>
+                    <line x1="0" y1="50%" x2="100%" y2="50%" stroke="rgba(255,255,255,0.15)" strokeWidth="2"/>
+                    <line x1="50%" y1="0" x2="50%" y2="100%" stroke="rgba(255,255,255,0.1)" strokeWidth="1"/>
+                  </svg>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', background: T.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1, boxShadow: `0 0 0 6px ${T.blueDim}` }}>
+                    <Ic n="pin" s={12} c="#fff"/>
+                  </div>
+                  <span style={{ position: 'absolute', bottom: 6, right: 8, fontSize: 9, color: T.textTert, letterSpacing: '0.1em', textTransform: 'uppercase' }}>газрын зураг</span>
+                </div>
+              </div>
+            )}
+
+            {/* ── BOOK tab ── */}
+            {tab === 'book' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                {poi.bookable ? (
+                  <>
+                    {/* next slot */}
+                    <div style={{
+                      background: T.blueDim, border: `1px solid ${T.blue}44`,
+                      borderRadius: T.r12, padding: '14px 16px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    }}>
+                      <div>
+                        <p style={{ fontSize: 11, color: T.textTert, letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>Дараагийн боломжит цаг</p>
+                        <p style={{ fontSize: 18, fontWeight: 700, color: T.blueLight, letterSpacing: '-0.02em' }}>{poi.nextSlot}</p>
+                      </div>
+                      <Ic n="calendar" s={22} c={T.blueLight}/>
+                    </div>
+
+                    {/* time slots */}
+                    <div>
+                      <p style={{ fontSize: 11, color: T.textTert, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>Өнөөдрийн цагийн хуваарь</p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {['11:00','11:30','12:00','12:30','13:00','13:30','14:00','14:30','15:00'].map((slot, i) => {
+                          const sel = i === 5;
+                          const unavail = i === 2 || i === 6;
+                          return (
+                            <button key={slot} style={{
+                              padding: '8px 14px', borderRadius: T.r8,
+                              fontFamily: 'Inter, sans-serif', fontSize: 13, fontWeight: sel ? 600 : 400,
+                              cursor: unavail ? 'default' : 'pointer',
+                              background: sel ? T.blue : unavail ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.07)',
+                              color: sel ? '#fff' : unavail ? T.textTert : T.textSec,
+                              border: `1px solid ${sel ? T.blue : T.border}`,
+                              opacity: unavail ? 0.4 : 1,
+                              textDecoration: unavail ? 'line-through' : 'none',
+                              letterSpacing: sel ? '-0.01em' : '0',
+                            }}>{slot}</button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* party size */}
+                    <div>
+                      <p style={{ fontSize: 11, color: T.textTert, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 10 }}>Хүний тоо</p>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {[1,2,3,4,'5+'].map((n, i) => (
+                          <button key={n} style={{
+                            flex: 1, padding: '10px 4px', borderRadius: T.r8,
+                            fontFamily: 'Inter, sans-serif', fontSize: 14, fontWeight: i === 1 ? 600 : 400,
+                            background: i === 1 ? T.blue : 'rgba(255,255,255,0.07)',
+                            color: i === 1 ? '#fff' : T.textSec,
+                            border: `1px solid ${i === 1 ? T.blue : T.border}`,
+                            cursor: 'pointer',
+                          }}>{n}</button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <Div/>
+                    <CTA label="Захиалгыг баталгаажуулах" full/>
+                    <CTA label="Хүлээлгийн жагсаалтад нэгдэх" secondary full/>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '32px 16px' }}>
+                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'rgba(255,255,255,0.06)', margin: '0 auto 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ic n="calendar" s={20} c={T.textTert}/>
+                    </div>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: T.textSec, marginBottom: 6 }}>Захиалга боломжгүй</p>
+                    <p style={{ fontSize: 12, color: T.textTert, lineHeight: 1.6 }}>Энэ газар одоогоор онлайн захиалга хүлээн авахгүй байна.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── REVIEWS tab ── */}
+            {tab === 'reviews' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {/* summary */}
+                <div style={{
+                  display: 'flex', gap: 20, alignItems: 'center',
+                  background: T.bgSurface, borderRadius: T.r12,
+                  padding: '16px', marginBottom: 16,
+                  border: `1px solid ${T.border}`,
+                }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ fontSize: 38, fontWeight: 700, color: T.amber, letterSpacing: '-0.04em', lineHeight: 1 }}>{poi.rating}</p>
+                    <Stars v={poi.rating} s={11}/>
+                    <p style={{ fontSize: 10, color: T.textTert, marginTop: 4, letterSpacing: '0.06em' }}>{poi.reviewCount} ҮНЭЛГЭЭ</p>
+                  </div>
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 5 }}>
+                    {[5,4,3,2,1].map(n => {
+                      const pcts = [78, 14, 5, 2, 1];
+                      return (
+                        <div key={n} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ fontSize: 10, color: T.textTert, width: 8, textAlign: 'right' }}>{n}</span>
+                          <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.08)' }}>
+                            <div style={{ height: '100%', borderRadius: 2, background: T.amber, width: `${pcts[5-n]}%`, transition: 'width 0.4s' }}/>
+                          </div>
+                          <span style={{ fontSize: 10, color: T.textTert, width: 20 }}>{pcts[5-n]}%</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* review list */}
+                {reviews.map((r, i) => (
+                  <div key={i} style={{
+                    padding: '14px 0',
+                    borderBottom: i < reviews.length - 1 ? `1px solid ${T.borderSub}` : 'none',
+                  }}>
+                    <div style={{ display: 'flex', gap: 10, marginBottom: 8 }}>
+                      <Avatar initial={r.initial} color={T.blue}/>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: T.textPrim }}>{r.author}</span>
+                          <Stars v={r.rating} s={11}/>
+                        </div>
+                        <span style={{ fontSize: 11, color: T.textTert, letterSpacing: '0.03em' }}>{r.time}</span>
+                      </div>
+                    </div>
+                    <p style={{ fontSize: 13, color: T.textSec, lineHeight: 1.65, paddingLeft: 42 }}>{r.text}</p>
+                  </div>
+                ))}
+
+                <button style={{
+                  marginTop: 12, padding: '12px', borderRadius: T.r12,
+                  border: `1px solid ${T.border}`,
+                  background: 'transparent', color: T.textSec,
+                  cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                  fontSize: 13, fontWeight: 500, width: '100%',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}>
+                  <Ic n="plus" s={14} c="currentColor"/>
+                  Сэтгэгдэл бичих
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════
+   ANDROID PHONE FRAME
+═══════════════════════════════════════════════════════════ */
+const Phone = ({ label, children, poiKey, tweaks }) => {
+  const [expanded, setExpanded] = React.useState(tweaks.startExpanded);
+  const poi = POIS[poiKey];
+
+  // sync expanded with tweak
+  React.useEffect(() => {
+    setExpanded(tweaks.startExpanded);
+  }, [tweaks.startExpanded]);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+      <div style={{
+        width: 390, height: 780,
+        background: T.bg,
+        borderRadius: 48,
+        overflow: 'hidden',
+        position: 'relative',
+        boxShadow: '0 50px 140px rgba(0,0,0,0.85), 0 0 0 1.5px rgba(255,255,255,0.09), inset 0 0 0 1px rgba(255,255,255,0.04)',
+      }}>
+        {/* Status bar */}
+        <div style={{
+          position: 'absolute', top: 0, left: 0, right: 0, height: 36,
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '0 24px', zIndex: 200,
+          background: 'linear-gradient(to bottom, rgba(13,17,23,0.9), transparent)',
+        }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.7)', letterSpacing: '0.02em' }}>10:33</span>
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            {/* signal bars */}
+            {[3,4,5,6].map(h => (
+              <div key={h} style={{ width: 3, height: h, borderRadius: 1, background: 'rgba(255,255,255,0.6)' }}/>
+            ))}
+            <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.6)', marginLeft: 2 }}>A</span>
+            {/* battery */}
+            <div style={{ width: 20, height: 10, borderRadius: 2, border: '1.5px solid rgba(255,255,255,0.5)', display: 'flex', alignItems: 'center', padding: '1px', marginLeft: 2 }}>
+              <div style={{ width: '80%', height: '100%', borderRadius: 1, background: 'rgba(255,255,255,0.6)' }}/>
+            </div>
+          </div>
+        </div>
+
+        {/* Map */}
+        <div style={{ position: 'absolute', inset: 0 }}>
+          <MapBG/>
+        </div>
+
+        {/* Top search bar */}
+        <div style={{
+          position: 'absolute', top: 44, left: 16, right: 16, zIndex: 100,
+          background: 'rgba(13,17,23,0.92)', backdropFilter: 'blur(12px)',
+          borderRadius: T.r12, padding: '10px 14px',
+          border: `1px solid ${T.border}`,
+          display: 'flex', alignItems: 'center', gap: 10,
+          boxShadow: '0 4px 24px rgba(0,0,0,0.4)',
+        }}>
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2" strokeLinecap="round">
+            <circle cx="7" cy="7" r="5"/><path d="M10.5 10.5l3 3"/>
+          </svg>
+          <span style={{ fontSize: 13, color: T.textTert, letterSpacing: '0.01em' }}>Улаанбаатарт хайх…</span>
+        </div>
+
+        {/* Recenter button */}
+        <div style={{
+          position: 'absolute', bottom: expanded ? 240 : 190, right: 16,
+          width: 48, height: 48, borderRadius: '50%',
+          background: 'white', boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 100, transition: 'bottom 0.38s cubic-bezier(0.32,0.72,0,1)',
+          cursor: 'pointer',
+        }}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#333" strokeWidth="2" strokeLinecap="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+          </svg>
+        </div>
+
+        {/* Bottom sheet */}
+        <BottomSheet
+          poi={poi}
+          reviews={REVIEWS}
+          expanded={expanded}
+          onToggle={() => setExpanded(p => !p)}
+          onClose={() => setExpanded(false)}
+        />
+
+        {/* Nav bar */}
+        <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 20, display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 300 }}>
+          <div style={{ width: 120, height: 4, borderRadius: 2, background: 'rgba(255,255,255,0.25)' }}/>
+        </div>
+      </div>
+
+      <p style={{ fontSize: 13, fontWeight: 500, color: 'rgba(255,255,255,0.4)', letterSpacing: '0.06em', textTransform: 'uppercase', textAlign: 'center' }}>{label}</p>
+    </div>
+  );
+};
+
+/* ═══════════════════════════════════════════════════════════
+   TWEAK DEFAULTS
+═══════════════════════════════════════════════════════════ */
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "startExpanded": true,
+  "poiType": "restaurant"
+}/*EDITMODE-END*/;
+
+/* ═══════════════════════════════════════════════════════════
+   APP
+═══════════════════════════════════════════════════════════ */
+const App = () => {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  if (!tweaks) return null;
+
+  return (
+    <div style={{ minHeight: '100vh', background: '#080c14', padding: '48px 48px 80px', display: 'flex', flexDirection: 'column', gap: 56 }}>
+
+      {/* header */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <div style={{ width: 36, height: 36, borderRadius: 10, background: T.blue, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Ic n="pin" s={18} c="#fff"/>
+          </div>
+          <span style={{ fontSize: 22, fontWeight: 700, color: T.textPrim, letterSpacing: '-0.03em' }}>MonMap</span>
+        </div>
+        <p style={{ fontSize: 11, color: T.textTert, letterSpacing: '0.12em', textTransform: 'uppercase' }}>
+          POI Popup · Дизайн хувилбарууд
+        </p>
+      </div>
+
+      {/* three phones */}
+      <div style={{ display: 'flex', gap: 48, justifyContent: 'center', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <Phone label="Ресторан" poiKey="restaurant" tweaks={tweaks}/>
+        <Phone label="Спа" poiKey="spa" tweaks={tweaks}/>
+        <Phone label="Кафе" poiKey="cafe" tweaks={tweaks}/>
+      </div>
+
+      {/* Tweaks */}
+      <TweaksPanel>
+        <TweakSection title="Харуулах байдал">
+          <TweakToggle id="startExpanded" label="Дэлгэсэн байдлаар" value={tweaks.startExpanded} onChange={v => setTweak('startExpanded', v)}/>
+        </TweakSection>
+      </TweaksPanel>
+    </div>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>

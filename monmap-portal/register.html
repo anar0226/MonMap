@@ -161,6 +161,39 @@
         <h3 style="margin-bottom:6px;">Бизнесийн мэдээлэл</h3>
         <p class="mb-24">МонМэп дэлгэцэнд харагдах бизнесийн мэдээллийг оруулна уу</p>
 
+        <!-- Claim existing place -->
+        <div id="claimSection" style="margin-bottom:24px;">
+          <div class="alert alert-info" style="margin-bottom:16px;">
+            <span class="alert-icon">🔍</span>
+            <div>
+              <strong>Таны бизнес МонМэп-д аль хэдийн байж болзошгүй!</strong><br>
+              Эхлээд хайж үзнэ үү — олдвол нэг товшилтоор нэхэмжилж авна.
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-bottom:12px;">
+            <input type="text" id="claimSearchInput" class="form-control" placeholder="Бизнесийнхээ нэрийг бичнэ үү..." oninput="onClaimSearch()" />
+          </div>
+          <div id="claimResults" style="display:none;border:1px solid var(--gray-200);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:12px;"></div>
+          <div id="claimedPlaceBox" style="display:none;background:var(--success-light);border:1.5px solid var(--success);border-radius:var(--radius-lg);padding:16px;margin-bottom:12px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+              <div>
+                <div style="font-weight:700;color:var(--gray-900);" id="claimedName"></div>
+                <div style="font-size:0.8125rem;color:var(--gray-500);margin-top:2px;" id="claimedAddress"></div>
+              </div>
+              <button onclick="clearClaimedPlace()" style="background:none;border:none;cursor:pointer;color:var(--gray-400);font-size:1.1rem;" title="Цуцлах">✕</button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-ghost" style="font-size:0.875rem;color:var(--gray-500);" onclick="switchToCreateMode()">
+            МонМэп-д байхгүй — Шинэ бизнес бүртгэх →
+          </button>
+        </div>
+
+        <!-- Create new place (hidden by default, shown when user skips claim) -->
+        <div id="createSection" style="display:none;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;cursor:pointer;" onclick="switchToClaimMode()">
+            <span style="font-size:0.875rem;color:var(--primary);font-weight:600;">← МонМэп-д хайх руу буцах</span>
+          </div>
+
         <div class="form-group">
           <label class="form-label">Бизнесийн нэр <span class="required">*</span></label>
           <input type="text" class="form-control" id="bizName" placeholder="жш: Эрдэнэт Салон, Blue Sky Cafe" />
@@ -243,10 +276,19 @@
           <input type="file" id="fileInput" accept="image/*" hidden />
         </div>
 
+        <!-- nav buttons for create mode -->
         <div style="display:flex;justify-content:space-between;gap:12px;">
           <button class="btn btn-ghost btn-lg" onclick="goStep(1)">← Буцах</button>
           <button class="btn btn-primary btn-lg" onclick="goStep(3)">Үргэлжлүүлэх →</button>
         </div>
+        </div><!-- /createSection -->
+
+        <!-- nav buttons for claim mode (visible only in claim mode) -->
+        <div id="claimNavButtons" style="display:flex;justify-content:space-between;gap:12px;margin-top:8px;">
+          <button class="btn btn-ghost btn-lg" onclick="goStep(1)">← Буцах</button>
+          <button class="btn btn-primary btn-lg" id="claimNextBtn" onclick="goStep(3)" disabled>Үргэлжлүүлэх →</button>
+        </div>
+
       </div>
 
       <!-- Step 3: Services & Hours -->
@@ -356,6 +398,72 @@
   let currentStep = 1;
   const services = [];
 
+  // ── Claim vs Create state ──
+  let claimedPlace = null;   // { place_id, name, primary_category, formatted_address }
+  let createMode   = false;  // true = user chose "register new business"
+  let claimSearchTimer = null;
+
+  function switchToCreateMode() {
+    createMode = true;
+    claimedPlace = null;
+    document.getElementById('claimSection').style.display  = 'none';
+    document.getElementById('createSection').style.display = 'block';
+    document.getElementById('claimNavButtons').style.display = 'none';
+  }
+  function switchToClaimMode() {
+    createMode = false;
+    document.getElementById('claimSection').style.display  = 'block';
+    document.getElementById('createSection').style.display = 'none';
+    document.getElementById('claimNavButtons').style.display = 'flex';
+  }
+
+  function onClaimSearch() {
+    clearTimeout(claimSearchTimer);
+    const q = document.getElementById('claimSearchInput').value.trim();
+    if (q.length < 2) {
+      document.getElementById('claimResults').style.display = 'none';
+      return;
+    }
+    claimSearchTimer = setTimeout(() => runClaimSearch(q), 300);
+  }
+
+  async function runClaimSearch(q) {
+    const results = await searchPlaces(q);
+    const box = document.getElementById('claimResults');
+    if (!results.length) {
+      box.style.display = 'block';
+      box.innerHTML = `<div style="padding:16px;text-align:center;color:var(--gray-500);font-size:0.875rem;">
+        Олдсонгүй — <button class="btn btn-ghost" style="font-size:0.875rem;" onclick="switchToCreateMode()">Шинэ бизнес бүртгэх →</button>
+      </div>`;
+      return;
+    }
+    box.style.display = 'block';
+    box.innerHTML = results.map(p => `
+      <div onclick="selectClaimedPlace(${JSON.stringify(p).replace(/"/g,'&quot;')})"
+           style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--gray-100);display:flex;flex-direction:column;gap:2px;transition:background .15s;"
+           onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background=''">
+        <div style="font-weight:600;font-size:0.9rem;color:var(--gray-900);">${p.name}</div>
+        <div style="font-size:0.8rem;color:var(--gray-500);">${p.formatted_address || p.primary_category || ''}</div>
+      </div>
+    `).join('');
+  }
+
+  function selectClaimedPlace(p) {
+    claimedPlace = p;
+    document.getElementById('claimResults').style.display = 'none';
+    document.getElementById('claimSearchInput').value = '';
+    document.getElementById('claimedName').textContent    = p.name;
+    document.getElementById('claimedAddress').textContent = p.formatted_address || p.primary_category || '';
+    document.getElementById('claimedPlaceBox').style.display = 'block';
+    document.getElementById('claimNextBtn').disabled = false;
+  }
+
+  function clearClaimedPlace() {
+    claimedPlace = null;
+    document.getElementById('claimedPlaceBox').style.display = 'none';
+    document.getElementById('claimNextBtn').disabled = true;
+  }
+
   const days = [
     { key: 'mon', label: 'Даваа' },
     { key: 'tue', label: 'Мягмар' },
@@ -383,6 +491,9 @@
     `).join('');
   }
   buildHoursGrid();
+
+  // Start Step 2 in claim mode — show claim nav, hide create nav
+  switchToClaimMode();
 
   function toggleDay(key) {
     const checked = document.getElementById('day-' + key).checked;
@@ -451,6 +562,15 @@
       return ok;
     }
     if (step === 2) {
+      // Claim mode: a place must be selected
+      if (!createMode) {
+        if (!claimedPlace) {
+          showToast('error', 'Бизнес сонгоно уу', 'МонМэп-д хайж бизнесээ сонгох эсвэл "Шинэ бизнес бүртгэх" товчийг дарна уу.');
+          return false;
+        }
+        return true;
+      }
+      // Create mode: validate form fields
       let ok = true;
       clearErrors('panel-2');
       if (!document.getElementById('bizName').value.trim()) { setError('bizName', true); ok = false; }
@@ -473,26 +593,38 @@
   }
 
   function buildReview() {
-    const data = {
-      name: document.getElementById('lastName').value + ' ' + document.getElementById('firstName').value,
-      email: document.getElementById('regEmail').value,
-      bizName: document.getElementById('bizName').value,
-      bizType: document.getElementById('bizType').value,
-      district: document.getElementById('district').value,
-      address: document.getElementById('address').value,
-      phone: document.getElementById('bizPhone').value,
-    };
-    document.getElementById('reviewBlock').innerHTML = `
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">Нэр</div><div class="font-semibold">${data.name}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">И-мэйл</div><div class="font-semibold">${data.email}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">Бизнесийн нэр</div><div class="font-semibold">${data.bizName}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">Төрөл</div><div class="font-semibold">${data.bizType}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">Дүүрэг</div><div class="font-semibold">${data.district}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">Хаяг</div><div class="font-semibold">${data.address}</div></div>
-        ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s=>`<span class="badge badge-primary">${s}</span>`).join('')}</div></div>` : ''}
-      </div>
-    `;
+    const ownerName = document.getElementById('lastName').value + ' ' + document.getElementById('firstName').value;
+    const email     = document.getElementById('regEmail').value;
+    const row = (label, val) => val
+      ? `<div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">${label}</div><div class="font-semibold">${val}</div></div>`
+      : '';
+
+    if (!createMode && claimedPlace) {
+      document.getElementById('reviewBlock').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          ${row('Нэр', ownerName)}
+          ${row('И-мэйл', email)}
+          <div style="grid-column:1/-1;padding:12px;background:var(--primary-light);border-radius:var(--radius);border:1.5px solid var(--primary);">
+            <div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:6px;">Нэхэмжлэх бизнес</div>
+            <div style="font-weight:700;font-size:1rem;">${claimedPlace.name}</div>
+            <div style="font-size:0.8125rem;color:var(--gray-500);margin-top:2px;">${claimedPlace.formatted_address || ''}</div>
+          </div>
+          ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s=>`<span class="badge badge-primary">${s}</span>`).join('')}</div></div>` : ''}
+        </div>
+      `;
+    } else {
+      document.getElementById('reviewBlock').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          ${row('Нэр', ownerName)}
+          ${row('И-мэйл', email)}
+          ${row('Бизнесийн нэр', document.getElementById('bizName').value)}
+          ${row('Төрөл', document.getElementById('bizType').value)}
+          ${row('Дүүрэг', document.getElementById('district').value)}
+          ${row('Хаяг', document.getElementById('address').value)}
+          ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s=>`<span class="badge badge-primary">${s}</span>`).join('')}</div></div>` : ''}
+        </div>
+      `;
+    }
   }
 
   // Map UI business-type label → places.primary_category slug
@@ -533,10 +665,14 @@
     const bizDesc   = document.getElementById('bizDesc').value.trim();
     const concurrent = Math.max(1, parseInt(document.getElementById('concurrent').value) || 1);
 
-    // Persist form data so completeRegistration can finish after the magic-link redirect
+    // Persist form data so completeRegistration can finish after the magic-link redirect.
+    // claimPlaceId is set when the owner is claiming an existing place instead of creating one.
     localStorage.setItem('mm_pending_reg', JSON.stringify({
       email, lastName, firstName, userPhone,
       bizName, bizType, district, khoroo, address, bizPhone, bizDesc, concurrent,
+      claimPlaceId: (!createMode && claimedPlace) ? claimedPlace.place_id : null,
+      claimBizName: (!createMode && claimedPlace) ? claimedPlace.name : null,
+      claimCategory: (!createMode && claimedPlace) ? claimedPlace.primary_category : null,
     }));
 
     const { error } = await _sb.auth.signInWithOtp({
@@ -561,28 +697,40 @@
   }
 
   async function completeRegistration(userId, d) {
-    const placeId   = 'owner_' + userId;
-    const category  = CATEGORY_MAP[d.bizType] || 'other';
-    const fullAddress = [d.address, d.khoroo, d.district, 'Улаанбаатар'].filter(Boolean).join(', ');
+    let placeId, bizName, bizType;
 
-    const { error: placeErr } = await _sb.from('places').upsert({
-      place_id:          placeId,
-      name:              d.bizName,
-      primary_category:  category,
-      types:             [category],
-      location:          `SRID=4326;POINT(${UB_LNG} ${UB_LAT})`,
-      lat:               UB_LAT,
-      lng:               UB_LNG,
-      formatted_address: fullAddress,
-      short_address:     d.address || null,
-      phone_national:    d.bizPhone || null,
-      slot_capacity:     d.concurrent,
-      business_status:   'OPERATIONAL',
-      raw:               { source: 'portal', description: d.bizDesc || null, district: d.district, khoroo: d.khoroo || null },
-      fetched_at:        nowIso(),
-      updated_at:        nowIso(),
-    }, { onConflict: 'place_id' });
-    if (placeErr) { showToast('error', 'Бизнес бүртгэх алдаа', placeErr.message); return; }
+    if (d.claimPlaceId) {
+      // ── CLAIM PATH: link this user to an existing place ──
+      placeId = d.claimPlaceId;
+      bizName = d.claimBizName || d.claimPlaceId;
+      bizType = d.claimCategory || 'Бизнес';
+    } else {
+      // ── CREATE PATH: insert a brand-new place ──
+      placeId = 'owner_' + userId;
+      bizName = d.bizName;
+      bizType = d.bizType;
+      const category    = CATEGORY_MAP[d.bizType] || 'other';
+      const fullAddress = [d.address, d.khoroo, d.district, 'Улаанбаатар'].filter(Boolean).join(', ');
+
+      const { error: placeErr } = await _sb.from('places').upsert({
+        place_id:          placeId,
+        name:              d.bizName,
+        primary_category:  category,
+        types:             [category],
+        location:          `SRID=4326;POINT(${UB_LNG} ${UB_LAT})`,
+        lat:               UB_LAT,
+        lng:               UB_LNG,
+        formatted_address: fullAddress,
+        short_address:     d.address || null,
+        phone_national:    d.bizPhone || null,
+        slot_capacity:     d.concurrent,
+        business_status:   'OPERATIONAL',
+        raw:               { source: 'portal', description: d.bizDesc || null, district: d.district, khoroo: d.khoroo || null },
+        fetched_at:        nowIso(),
+        updated_at:        nowIso(),
+      }, { onConflict: 'place_id' });
+      if (placeErr) { showToast('error', 'Бизнес бүртгэх алдаа', placeErr.message); return; }
+    }
 
     const { error: linkErr } = await _sb.from('business_owners').upsert(
       { user_id: userId, place_id: placeId },
@@ -592,7 +740,7 @@
 
     localStorage.removeItem('mm_pending_reg');
     localStorage.setItem('mm_biz', JSON.stringify({
-      id: placeId, name: d.bizName, type: d.bizType || 'Бизнес', verified: false,
+      id: placeId, name: bizName, type: bizType || 'Бизнес', verified: false,
     }));
 
     window.location.href = 'dashboard.html';

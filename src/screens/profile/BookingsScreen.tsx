@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -33,6 +34,36 @@ export default function BookingsScreen({ navigation }: Props) {
   const { session } = useSupabase();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cancelling, setCancelling] = useState<Set<string>>(new Set());
+
+  const handleCancel = (b: Booking) => {
+    Alert.alert(
+      'Захиалга цуцлах',
+      `"${b.place_name ?? b.place_id}" захиалгыг цуцлах уу?`,
+      [
+        { text: 'Болих', style: 'cancel' },
+        {
+          text: 'Цуцлах',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelling(prev => new Set(prev).add(b.id));
+            const { error } = await supabase
+              .from('bookings')
+              .update({ status: 'cancelled' })
+              .eq('id', b.id);
+            if (error) {
+              Alert.alert('Алдаа', 'Цуцлах боломжгүй байна. Дахин оролдоно уу.');
+            } else {
+              setBookings(prev =>
+                prev.map(x => x.id === b.id ? { ...x, status: 'cancelled' } : x),
+              );
+            }
+            setCancelling(prev => { const s = new Set(prev); s.delete(b.id); return s; });
+          },
+        },
+      ],
+    );
+  };
 
   useEffect(() => {
     if (!session?.user) return;
@@ -113,6 +144,17 @@ export default function BookingsScreen({ navigation }: Props) {
                 <Text style={s.detailText}>👤 {b.guest_name}</Text>
                 <Text style={s.detailText}>👥 {b.party_size} хүн</Text>
               </View>
+              {(b.status === 'pending' || b.status === 'confirmed') && (
+                <Pressable
+                  onPress={() => handleCancel(b)}
+                  disabled={cancelling.has(b.id)}
+                  style={({ pressed }) => [s.cancelBtn, pressed && { opacity: 0.6 }]}
+                >
+                  {cancelling.has(b.id)
+                    ? <ActivityIndicator size="small" color={colors.danger} />
+                    : <Text style={s.cancelBtnText}>Цуцлах</Text>}
+                </Pressable>
+              )}
             </View>
           ))}
         </ScrollView>
@@ -185,4 +227,16 @@ const s = StyleSheet.create({
     borderTopWidth: 0.5, borderTopColor: colors.border,
   },
   detailText: { color: colors.textSec, fontSize: 12 },
+  cancelBtn: {
+    marginTop: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: `${colors.danger}44`,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: `${colors.danger}0D`,
+    minHeight: 34,
+  },
+  cancelBtnText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
 });

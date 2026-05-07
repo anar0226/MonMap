@@ -30,7 +30,7 @@ export function SearchBar({ onPress, onProfilePress }: Props) {
 const styles = StyleSheet.create({
   bar: {
     position: 'absolute',
-    top: 8,
+    top: 52,
     left: 16,
     right: 16,
     flexDirection: 'row',

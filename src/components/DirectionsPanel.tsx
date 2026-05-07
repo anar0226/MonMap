@@ -16,7 +16,6 @@ import {
   type MultiRoute,
 } from '../hooks/useDirections';
 import { MODES, MODE_BY_KEY, type TransportMode } from '../lib/transport';
-import { openTaxiApp } from '../lib/taxiHandoff';
 import type { TransitLeg } from '../types/transit';
 
 const C = {
@@ -42,10 +41,11 @@ interface Props {
   onClose: () => void;
   onStart: () => void;
   onSelectMode: (m: TransportMode) => void;
+  onSelectAlternative?: (altIdx: number) => void;
 }
 
 function trafficLabel(route: ModeRoute): { color: string; label: string } | null {
-  if (route.mode !== 'driving' && route.mode !== 'ubcab' && route.mode !== 'aba') return null;
+  if (route.mode !== 'driving') return null;
   const counts: Record<string, number> = {};
   for (const f of route.segments.features) {
     const c = f.properties.congestion;
@@ -68,9 +68,10 @@ function shortDuration(seconds: number): string {
 }
 
 function infoText(mode: TransportMode): string {
+  // Used only when meta.hasNavigation is false.  All four modes now have
+  // navigation, so this is effectively dead code — kept defensively.
   switch (mode) {
-    case 'transit': return 'UBSmartBus маршрут мэдээлэл';
-    default:        return '';
+    default: return '';
   }
 }
 
@@ -160,6 +161,7 @@ export function DirectionsPanel({
   onClose,
   onStart,
   onSelectMode,
+  onSelectAlternative,
 }: Props) {
   if (!loading && !multi && !error) return null;
 
@@ -251,12 +253,35 @@ export function DirectionsPanel({
                 </View>
               )}
 
+              {active.mode === 'driving' && active.alternatives && active.alternatives.length > 0 && (
+                <View style={alt.wrap}>
+                  <Text style={alt.label}>ӨӨР ЗАМ</Text>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={alt.row}
+                  >
+                    {active.alternatives.map((a, idx) => (
+                      <TouchableOpacity
+                        key={idx}
+                        style={alt.chip}
+                        onPress={() => onSelectAlternative?.(idx)}
+                        activeOpacity={0.75}
+                      >
+                        <Ionicons name="git-branch-outline" size={12} color={C.textSec} />
+                        <Text style={alt.chipDur}>{shortDuration(a.durationSeconds)}</Text>
+                        <Text style={alt.chipDist}>· {formatDistance(a.distanceMeters)}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
+
               {active.mode === 'transit' && active.transitLegs && active.transitLegs.length > 0 && (
                 <TransitLegsView legs={active.transitLegs} />
               )}
 
-              {(active.mode === 'ubcab' || active.mode === 'aba' || active.mode === 'escooter')
-                && active.price?.approximate && (
+              {active.mode === 'escooter' && active.price?.approximate && (
                 <Text style={s.disclaimer}>
                   Тооцоолсон үнэ. Жинхэнэ үнэ цаг, эрэлтээс хамаарч өөр байж болно.
                 </Text>
@@ -271,22 +296,6 @@ export function DirectionsPanel({
                   <Ionicons name="navigate" size={18} color="#fff" />
                   <Text style={s.startBtnText}>Эхлэх</Text>
                 </TouchableOpacity>
-              ) : (active.mode === 'ubcab' || active.mode === 'aba') ? (
-                <>
-                  <TouchableOpacity
-                    onPress={() => openTaxiApp(active.mode as 'ubcab' | 'aba', destinationName)}
-                    activeOpacity={0.85}
-                    style={[s.startBtn, { backgroundColor: meta.color }]}
-                  >
-                    <Ionicons name="open-outline" size={18} color="#fff" />
-                    <Text style={s.startBtnText}>
-                      {meta.shortLabel} нээх
-                    </Text>
-                  </TouchableOpacity>
-                  <Text style={s.handoffHint}>
-                    Зорчих газрын нэр хуулагдана. {meta.shortLabel}-ийн хайлтанд буулгана уу.
-                  </Text>
-                </>
               ) : (
                 <View style={s.infoBtn}>
                   <Ionicons name="information-circle-outline" size={16} color={C.textSec} />
@@ -467,13 +476,6 @@ const s = StyleSheet.create({
     borderWidth: 1,
     borderColor: C.border,
   },
-  handoffHint: {
-    marginTop: 8,
-    fontSize: 11,
-    color: C.textMuted,
-    textAlign: 'center',
-    lineHeight: 15,
-  },
   infoBtnText: {
     color: C.textSec,
     fontSize: 12,
@@ -571,5 +573,46 @@ const tl = StyleSheet.create({
   stopDist: {
     color: C.textMuted,
     fontSize: 10,
+  },
+});
+
+// ── Alternative-route chip styles ────────────────────────────────────────────
+const alt = StyleSheet.create({
+  wrap: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.border,
+  },
+  label: {
+    color: C.textMuted,
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    marginBottom: 6,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: C.bgAlt,
+    borderWidth: 1,
+    borderColor: C.border,
+  },
+  chipDur: {
+    color: C.text,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  chipDist: {
+    color: C.textSec,
+    fontSize: 11,
   },
 });

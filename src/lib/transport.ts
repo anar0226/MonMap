@@ -5,8 +5,6 @@
 export type TransportMode =
   | 'driving'
   | 'transit'
-  | 'ubcab'
-  | 'aba'
   | 'escooter'
   | 'walking';
 
@@ -36,25 +34,7 @@ export const MODES: ModeMeta[] = [
     shortLabel: 'Автобус',
     icon: 'bus',
     color: '#10B981',
-    hasNavigation: false,
-    mapboxProfile: null,
-  },
-  {
-    key: 'ubcab',
-    label: 'UBCab такси',
-    shortLabel: 'UBCab',
-    icon: 'car-sport',
-    color: '#FBB824',
-    hasNavigation: false,
-    mapboxProfile: null,
-  },
-  {
-    key: 'aba',
-    label: 'ABA такси',
-    shortLabel: 'ABA',
-    icon: 'car-sport',
-    color: '#F59E0B',
-    hasNavigation: false,
+    hasNavigation: true,
     mapboxProfile: null,
   },
   {
@@ -89,22 +69,6 @@ export interface PriceEstimate {
   amountMnt: number;
   label: string;
   approximate: boolean;
-}
-
-// UBCab: ≈ 1500₮ initial + 1500₮/km
-export function ubcabPrice(distanceMeters: number): PriceEstimate {
-  const km = distanceMeters / 1000;
-  const fare = 1500 + km * 1500;
-  const rounded = Math.round(fare / 100) * 100;
-  return { amountMnt: rounded, label: `~${formatMnt(rounded)}`, approximate: true };
-}
-
-// ABA: ≈ 1200₮ initial + 1300₮/km
-export function abaPrice(distanceMeters: number): PriceEstimate {
-  const km = distanceMeters / 1000;
-  const fare = 1200 + km * 1300;
-  const rounded = Math.round(fare / 100) * 100;
-  return { amountMnt: rounded, label: `~${formatMnt(rounded)}`, approximate: true };
 }
 
 // E-scooter: ≈ 500₮ unlock + 180₮/min

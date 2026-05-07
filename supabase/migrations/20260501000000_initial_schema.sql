@@ -7,10 +7,8 @@ create extension if not exists "postgis";
 -- ============================================================
 -- Enums
 -- ============================================================
-create type booking_type   as enum ('reservation', 'appointment', 'queue');
-create type booking_status as enum ('pending', 'confirmed', 'cancelled', 'completed', 'no_show');
-create type price_source   as enum ('receipt', 'owner', 'manual');
-create type receipt_status as enum ('pending', 'processed', 'failed');
+create type price_source    as enum ('receipt', 'owner', 'manual');
+create type receipt_status  as enum ('pending', 'processed', 'failed');
 create type business_source as enum ('google_places', 'owner', 'manual');
 
 -- ============================================================
@@ -61,7 +59,63 @@ create trigger on_auth_user_created
   for each row execute function handle_new_user();
 
 -- ============================================================
--- Businesses
+-- Places  (reference data from OSM / Google Places)
+-- ============================================================
+-- The places table is the canonical business reference for the app. The
+-- legacy `businesses` table below is unused but kept for now to avoid breaking
+-- downstream tooling; do not use it for new development.
+create table if not exists places (
+  place_id               text primary key,
+  name                   text not null,
+  primary_category       text,
+  lat                    numeric(10, 8) not null,
+  lng                    numeric(11, 8) not null,
+  formatted_address      text,
+  short_address          text,
+  phone_intl             text,
+  phone_national         text,
+  regular_opening_hours  jsonb,
+  current_opening_hours  jsonb,
+  rating                 numeric(3, 2),
+  user_rating_count      integer,
+  website_uri            text,
+  business_status        text,
+  closure_report_count   integer not null default 0,
+  created_at             timestamptz not null default now(),
+  updated_at             timestamptz not null default now()
+);
+
+create index if not exists places_location_idx on places
+  using gist(st_geogfromtext(format('POINT(%s %s)', lng, lat)));
+create index if not exists places_category_idx on places(primary_category);
+create index if not exists places_name_idx     on places(name);
+create index if not exists places_rating_idx   on places(rating desc nulls last);
+create index if not exists places_closure_idx  on places(closure_report_count) where closure_report_count > 0;
+
+alter table places enable row level security;
+drop policy if exists "places: public read"         on places;
+drop policy if exists "places: service role write"  on places;
+create policy "places: public read"        on places for select using (true);
+create policy "places: service role write" on places
+  for all
+  using (auth.role() = 'service_role')
+  with check (auth.role() = 'service_role');
+
+-- ============================================================
+-- Business Owners  (links auth user → place)
+-- ============================================================
+-- Policies for this table are added in 20260503000001 (and tightened in
+-- 20260510000001 with claim_status). Defined here so the FK from bookings
+-- below resolves on a fresh `db reset`.
+create table if not exists public.business_owners (
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  place_id   text not null references public.places(place_id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, place_id)
+);
+
+-- ============================================================
+-- Businesses (LEGACY — unused by the app, kept for compatibility)
 -- ============================================================
 create table businesses (
   id              uuid primary key default uuid_generate_v4(),
@@ -81,7 +135,7 @@ create table businesses (
   is_verified     boolean not null default false,
   is_active       boolean not null default true,
   source          business_source not null default 'manual',
-  external_id     text unique,  -- Google Places ID for deduplication
+  external_id     text unique,
   created_at      timestamptz not null default now(),
   updated_at      timestamptz not null default now()
 );
@@ -90,23 +144,15 @@ create trigger businesses_updated_at
   before update on businesses
   for each row execute function set_updated_at();
 
--- ============================================================
--- Business Hours
--- ============================================================
 create table business_hours (
   id          uuid primary key default uuid_generate_v4(),
   business_id uuid not null references businesses(id) on delete cascade,
-  day_of_week smallint not null check (day_of_week between 0 and 6),  -- 0=Mon, 6=Sun
+  day_of_week smallint not null check (day_of_week between 0 and 6),
   open_time   time,
   close_time  time,
   is_closed   boolean not null default false
 );
--- Note: no (business_id, day_of_week) unique — Google Places returns split shifts
--- (e.g. restaurant 09:00–14:00 and 18:00–22:00 on the same day).
 
--- ============================================================
--- Services  (bookable offerings within a business)
--- ============================================================
 create table services (
   id               uuid primary key default uuid_generate_v4(),
   business_id      uuid not null references businesses(id) on delete cascade,
@@ -118,9 +164,6 @@ create table services (
   is_active        boolean not null default true
 );
 
--- ============================================================
--- Staff
--- ============================================================
 create table staff (
   id          uuid primary key default uuid_generate_v4(),
   business_id uuid not null references businesses(id) on delete cascade,
@@ -139,24 +182,24 @@ create table staff_services (
 -- ============================================================
 -- Bookings
 -- ============================================================
+-- Shape matches the mobile app (src/hooks/useBooking.ts), portal
+-- (monmap-portal/js/utils.js), and edge functions. user_id is nullable so
+-- guest bookings (no account) can still be inserted; the portal owner read
+-- path goes through business_owners rather than user_id.
 create table bookings (
   id           uuid primary key default uuid_generate_v4(),
-  user_id      uuid not null references users(id) on delete cascade,
-  business_id  uuid not null references businesses(id) on delete cascade,
-  service_id   uuid references services(id) on delete set null,
-  staff_id     uuid references staff(id) on delete set null,
-  booking_type booking_type   not null,
-  status       booking_status not null default 'pending',
-  scheduled_at timestamptz    not null,
-  party_size   smallint,
-  notes        text,
-  created_at   timestamptz not null default now(),
-  updated_at   timestamptz not null default now()
+  user_id      uuid references users(id) on delete set null,
+  place_id     text not null references places(place_id) on delete cascade,
+  booked_date  date  not null,
+  time_slot    text  not null,
+  party_size   smallint not null default 1,
+  guest_name   text,
+  guest_phone  text,
+  status       text  not null default 'pending'
+                 constraint bookings_status_check
+                 check (status in ('pending', 'confirmed', 'cancelled')),
+  created_at   timestamptz not null default now()
 );
-
-create trigger bookings_updated_at
-  before update on bookings
-  for each row execute function set_updated_at();
 
 -- ============================================================
 -- Reviews
@@ -169,7 +212,7 @@ create table reviews (
   rating      smallint not null check (rating between 1 and 5),
   body        text,
   created_at  timestamptz not null default now(),
-  unique (user_id, booking_id)  -- one review per booking
+  unique (user_id, booking_id)
 );
 
 -- ============================================================
@@ -180,7 +223,7 @@ create table products (
   name     text not null,
   name_mn  text,
   barcode  text unique,
-  unit     text,   -- 'kg', 'piece', '500ml', etc.
+  unit     text,
   category text
 );
 
@@ -197,7 +240,6 @@ create trigger business_products_updated_at
   before update on business_products
   for each row execute function set_updated_at();
 
--- Append-only price log — never update rows, only insert
 create table price_history (
   id                  uuid primary key default uuid_generate_v4(),
   business_product_id uuid not null references business_products(id) on delete cascade,
@@ -219,26 +261,19 @@ create table receipts (
 -- ============================================================
 -- Indexes
 -- ============================================================
-
--- Geospatial: find businesses within radius of user
 create index businesses_location_idx    on businesses using gist(location);
-
--- Business filters
 create index businesses_category_idx    on businesses(category_id);
 create index businesses_district_idx    on businesses(district);
 create index businesses_active_idx      on businesses(is_active) where is_active = true;
 create index businesses_external_id_idx on businesses(external_id) where external_id is not null;
 
--- Booking lookups
 create index bookings_user_id_idx       on bookings(user_id);
-create index bookings_business_id_idx   on bookings(business_id);
-create index bookings_scheduled_at_idx  on bookings(scheduled_at);
+create index bookings_place_id_idx      on bookings(place_id);
+create index bookings_booked_date_idx   on bookings(booked_date);
 create index bookings_status_idx        on bookings(status);
 
--- Reviews
 create index reviews_business_id_idx    on reviews(business_id);
 
--- Price history time-series
 create index price_history_bp_idx       on price_history(business_product_id);
 create index price_history_time_idx     on price_history(recorded_at);
 
@@ -267,7 +302,6 @@ create policy "businesses: public read"
   on businesses for select
   using (is_active = true);
 
--- businesses: owner can update their listing
 create policy "businesses: owner update"
   on businesses for update
   using (auth.uid() = owner_id);
@@ -278,7 +312,6 @@ create policy "services: public read"       on services        for select using 
 create policy "staff: public read"          on staff           for select using (true);
 create policy "staff_services: public read" on staff_services  for select using (true);
 
--- business_hours, services, staff: owner write
 create policy "business_hours: owner write"
   on business_hours for all
   using (
@@ -297,17 +330,25 @@ create policy "staff: owner write"
     exists (select 1 from businesses b where b.id = business_id and b.owner_id = auth.uid())
   );
 
--- bookings: users see their own; business owner sees bookings for their business
+-- bookings: users see their own; place owner sees bookings for their place
+-- (owner read goes through business_owners; the owner-update policy is added
+-- in 20260503000001 and tightened in 20260510000001 to require verification.)
 create policy "bookings: read own"
   on bookings for select
   using (
     auth.uid() = user_id or
-    exists (select 1 from businesses b where b.id = business_id and b.owner_id = auth.uid())
+    exists (
+      select 1 from public.business_owners bo
+      where bo.place_id = bookings.place_id
+        and bo.user_id  = auth.uid()
+    )
   );
 
+-- Insert: authenticated users insert their own; anonymous guest bookings
+-- (user_id null) are allowed so the public booking flow works without account.
 create policy "bookings: insert own"
   on bookings for insert
-  with check (auth.uid() = user_id);
+  with check (auth.uid() = user_id or user_id is null);
 
 create policy "bookings: update own"
   on bookings for update

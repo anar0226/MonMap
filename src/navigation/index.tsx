@@ -16,6 +16,7 @@ import AboutScreen from '../screens/profile/AboutScreen';
 import HelpScreen from '../screens/profile/HelpScreen';
 import FeedbackScreen from '../screens/profile/FeedbackScreen';
 import VerifyOtpScreen from '../screens/auth/VerifyOtpScreen';
+import PhoneLoginScreen from '../screens/auth/PhoneLoginScreen';
 import LegalScreen from '../screens/LegalScreen';
 import SplashScreen from '../screens/SplashScreen';
 import { colors } from '../theme';
@@ -26,12 +27,13 @@ export type AuthStackParamList = {
   Login: undefined;
   SignUp: undefined;
   ForgotPassword: undefined;
+  PhoneLogin: undefined;
   VerifyOtp: { method: 'email' | 'phone'; identifier: string; fullName?: string };
   Legal: LegalParams;
 };
 
 export type AppStackParamList = {
-  Map: undefined;
+  Map: { focusPlaceId?: string; focusLng?: number; focusLat?: number } | undefined;
   Profile: undefined;
   Settings: undefined;
   SavedPlaces: undefined;
@@ -52,6 +54,7 @@ function AuthNavigator() {
       <AuthStack.Screen name="Login" component={LoginScreen} />
       <AuthStack.Screen name="SignUp" component={SignUpScreen} />
       <AuthStack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+      <AuthStack.Screen name="PhoneLogin" component={PhoneLoginScreen} />
       <AuthStack.Screen name="VerifyOtp" component={VerifyOtpScreen} />
       <AuthStack.Screen name="Legal" component={LegalScreen} />
     </AuthStack.Navigator>

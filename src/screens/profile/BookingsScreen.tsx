@@ -34,6 +34,8 @@ export default function BookingsScreen({ navigation }: Props) {
   const { session } = useSupabase();
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
   const [cancelling, setCancelling] = useState<Set<string>>(new Set());
 
   const handleCancel = (b: Booking) => {
@@ -54,6 +56,7 @@ export default function BookingsScreen({ navigation }: Props) {
             if (error) {
               Alert.alert('Алдаа', 'Цуцлах боломжгүй байна. Дахин оролдоно уу.');
             } else {
+              supabase.functions.invoke('notify-booking', { body: { bookingId: b.id } }).catch(console.warn);
               setBookings(prev =>
                 prev.map(x => x.id === b.id ? { ...x, status: 'cancelled' } : x),
               );
@@ -68,38 +71,47 @@ export default function BookingsScreen({ navigation }: Props) {
   useEffect(() => {
     if (!session?.user) return;
     let cancelled = false;
+    setLoading(true);
+    setLoadError(null);
     (async () => {
       try {
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from('bookings')
           .select('id, place_id, booked_date, time_slot, party_size, guest_name, status, created_at')
           .eq('user_id', session.user.id)
           .order('created_at', { ascending: false })
           .limit(50);
         if (cancelled) return;
+        if (error) throw error;
 
         const rows = (data ?? []) as Booking[];
 
-        // Resolve place names
+        // Resolve place names. A failure here only loses the names — the
+        // bookings themselves are still useful, so don't fail the whole screen.
         const placeIds = [...new Set(rows.map(b => b.place_id))];
         if (placeIds.length > 0) {
-          const { data: places } = await supabase
+          const { data: places, error: placesErr } = await supabase
             .from('places')
             .select('place_id, name')
             .in('place_id', placeIds);
+          if (placesErr) {
+            console.warn('BookingsScreen: failed to resolve place names', placesErr);
+          }
           const nameMap = new Map((places ?? []).map((p: any) => [p.place_id, p.name]));
           for (const b of rows) b.place_name = nameMap.get(b.place_id) ?? 'Тодорхойгүй';
         }
 
         if (!cancelled) setBookings(rows);
-      } catch {
-        // ignore
+      } catch (e: any) {
+        if (cancelled) return;
+        console.warn('BookingsScreen: failed to load bookings', e);
+        setLoadError('Захиалгуудыг ачаалж чадсангүй. Дахин оролдоно уу.');
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
     return () => { cancelled = true; };
-  }, [session?.user]);
+  }, [session?.user, reloadTick]);
 
   return (
     <View style={s.flex}>
@@ -115,6 +127,20 @@ export default function BookingsScreen({ navigation }: Props) {
       {loading ? (
         <View style={s.center}>
           <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : loadError ? (
+        <View style={s.center}>
+          <View style={s.emptyIcon}>
+            <Ionicons name="cloud-offline-outline" size={32} color={colors.textMuted} />
+          </View>
+          <Text style={s.emptyTitle}>Алдаа гарлаа</Text>
+          <Text style={s.emptyDesc}>{loadError}</Text>
+          <Pressable
+            onPress={() => setReloadTick(t => t + 1)}
+            style={({ pressed }) => [s.retryBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={s.retryBtnText}>Дахин оролдох</Text>
+          </Pressable>
         </View>
       ) : bookings.length === 0 ? (
         <View style={s.center}>
@@ -166,16 +192,26 @@ export default function BookingsScreen({ navigation }: Props) {
 function StatusBadge({ status }: { status: string }) {
   const isConfirmed = status === 'confirmed';
   const isCancelled = status === 'cancelled';
-  const isPending = status === 'pending';
-  const bg = isConfirmed
-    ? 'rgba(16,185,129,0.12)'
-    : isCancelled
-    ? 'rgba(239,68,68,0.12)'
-    : isPending
-    ? 'rgba(251,184,36,0.12)'
+  const isPending   = status === 'pending';
+  const isExpired   = status === 'expired';
+
+  const bg = isConfirmed ? 'rgba(16,185,129,0.12)'
+    : isCancelled ? 'rgba(239,68,68,0.12)'
+    : isPending   ? 'rgba(251,184,36,0.12)'
+    : isExpired   ? 'rgba(148,163,184,0.14)'
     : 'rgba(255,255,255,0.08)';
-  const fg = isConfirmed ? '#10B981' : isCancelled ? colors.danger : isPending ? '#FBB824' : colors.textSec;
-  const label = isConfirmed ? 'Баталгаажсан' : isCancelled ? 'Цуцлагдсан' : isPending ? 'Хүлээгдэж байна' : status;
+
+  const fg = isConfirmed ? '#10B981'
+    : isCancelled ? colors.danger
+    : isPending   ? '#FBB824'
+    : isExpired   ? '#94A3B8'
+    : colors.textSec;
+
+  const label = isConfirmed ? 'Баталгаажсан'
+    : isCancelled ? 'Татгалзсан'
+    : isPending   ? 'Хүлээгдэж байна'
+    : isExpired   ? 'Хариу ирээгүй'
+    : status;
 
   return (
     <View style={[s.statusBadge, { backgroundColor: bg }]}>
@@ -239,4 +275,14 @@ const s = StyleSheet.create({
     minHeight: 34,
   },
   cancelBtnText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
+  retryBtn: {
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  retryBtnText: { color: colors.text, fontSize: 13, fontWeight: '600' },
 });

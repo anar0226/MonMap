@@ -21,6 +21,8 @@ import {
   removeRecent,
   type RecentPlace,
 } from '../lib/searchRecents';
+import { normalizeForSearch } from '../lib/searchNormalize';
+import { distanceMeters } from '../lib/navigation';
 
 const C = {
   bg:        '#080c14',
@@ -39,28 +41,6 @@ const C = {
 
 const MAX_RESULTS = 50;
 
-// ── Cyrillic → Latin transliteration for bilingual search ─────────────────
-// Digraphs must come before single chars to avoid double-substitution.
-const CYR_TO_LAT: [RegExp, string][] = [
-  [/щ/g, 'shch'], [/ш/g, 'sh'], [/ч/g, 'ch'], [/ц/g, 'ts'],
-  [/ю/g, 'yu'],   [/я/g, 'ya'], [/ё/g, 'yo'],
-  [/а/g, 'a'], [/б/g, 'b'], [/в/g, 'v'], [/г/g, 'g'], [/д/g, 'd'],
-  [/е/g, 'e'], [/ж/g, 'j'], [/з/g, 'z'], [/и/g, 'i'], [/й/g, 'y'],
-  [/к/g, 'k'], [/л/g, 'l'], [/м/g, 'm'], [/н/g, 'n'], [/о/g, 'o'],
-  [/ө/g, 'o'], [/п/g, 'p'], [/р/g, 'r'], [/с/g, 's'], [/т/g, 't'],
-  [/у/g, 'u'], [/ү/g, 'u'], [/ф/g, 'f'], [/х/g, 'h'], [/ъ/g, ''],
-  [/ы/g, 'i'], [/ь/g, ''],  [/э/g, 'e'],
-];
-
-function normalizeForSearch(s: string): string {
-  let r = s.toLowerCase();
-  for (const [from, to] of CYR_TO_LAT) r = r.replace(from, to);
-  // fold "kh" → "h" so "Khan" and "Хаан" both become "haan"-derived
-  r = r.replace(/kh/g, 'h');
-  // collapse everything non-alphanumeric to a single space
-  return r.replace(/[^a-z0-9]+/g, ' ').trim();
-}
-
 type SearchResult = {
   place_id: string;
   name: string;
@@ -69,6 +49,8 @@ type SearchResult = {
   rating: number | null;
   lng: number;
   lat: number;
+  /** Distance from user in metres. null when no user location available. */
+  distanceM: number | null;
 };
 
 export type RouteWaypoint =
@@ -88,9 +70,25 @@ interface Props {
   initialToWaypoint?: { name: string; lng: number; lat: number; place_id?: string };
 }
 
+/**
+ * Composite ranking score: lower = better.  When the user's location is
+ * known, distance dominates; rating breaks ties between places that are
+ * roughly equidistant.  When location is unknown, falls back to rating only.
+ *
+ * Distance penalty is in km (so a 1km place adds 1.0 to the score).
+ * Rating penalty is `(5 - rating) * 0.4` — a 5-star place adds 0, a 1-star
+ * adds 1.6.  This means rating beats distance only when they're within ~2km.
+ */
+function _score(distanceM: number | null, rating: number | null): number {
+  const ratingPenalty = (5 - (rating ?? 3)) * 0.4;
+  if (distanceM === null) return ratingPenalty;
+  return distanceM / 1000 + ratingPenalty;
+}
+
 function buildResults(
   geojson: FeatureCollection<Point, PlaceMapFeature> | null,
   query: string,
+  userLocation: [number, number] | null | undefined,
 ): SearchResult[] {
   if (!geojson) return [];
   const q = normalizeForSearch(query);
@@ -100,8 +98,19 @@ function buildResults(
     const normName = normalizeForSearch(f.properties.name ?? '');
     const normAddr = normalizeForSearch(f.properties.short_address ?? '');
     const normCat  = normalizeForSearch(categoryLabel(f.properties.primary_category ?? ''));
-    if (normName.includes(q) || normAddr.includes(q) || normCat.includes(q)) {
+    // address_searchable is pre-normalized at write time, but we still run it
+    // through normalizeForSearch for safety against legacy unsanitized rows.
+    const normStructured = normalizeForSearch(f.properties.address_searchable ?? '');
+    if (
+      normName.includes(q) ||
+      normAddr.includes(q) ||
+      normCat.includes(q) ||
+      normStructured.includes(q)
+    ) {
       const [lng, lat] = f.geometry.coordinates as [number, number];
+      const distanceM = userLocation
+        ? Math.round(distanceMeters(userLocation, [lng, lat]))
+        : null;
       out.push({
         place_id: f.properties.place_id,
         name: f.properties.name,
@@ -110,12 +119,26 @@ function buildResults(
         rating: f.properties.rating,
         lng,
         lat,
+        distanceM,
       });
       if (out.length >= MAX_RESULTS) break;
     }
   }
-  out.sort((a, b) => (b.rating ?? 0) - (a.rating ?? 0));
+  out.sort((a, b) => _score(a.distanceM, a.rating) - _score(b.distanceM, b.rating));
   return out;
+}
+
+/**
+ * Format a metre count for display in a search result row.
+ *   <100m   →  "85 м"
+ *   <1km    →  "650 м"
+ *   <10km   →  "2.4 км"
+ *   else    →  "12 км"
+ */
+function formatSearchDistance(m: number): string {
+  if (m < 1000) return `${Math.round(m)} м`;
+  if (m < 10000) return `${(m / 1000).toFixed(1)} км`;
+  return `${Math.round(m / 1000)} км`;
 }
 
 export function SearchScreen({
@@ -209,8 +232,8 @@ export function SearchScreen({
     : query;
 
   const results = useMemo(
-    () => buildResults(geojson, activeQuery),
-    [geojson, activeQuery],
+    () => buildResults(geojson, activeQuery, userLocation),
+    [geojson, activeQuery, userLocation],
   );
 
   // ── Selection handlers ──
@@ -278,6 +301,12 @@ export function SearchScreen({
               <Text style={s.rowRating}>{item.rating.toFixed(1)}</Text>
             </>
           )}
+          {item.distanceM !== null && (
+            <>
+              <Text style={s.rowMetaDot}>·</Text>
+              <Text style={s.rowDistance}>{formatSearchDistance(item.distanceM)}</Text>
+            </>
+          )}
         </View>
         {item.short_address ? (
           <Text style={s.rowAddr} numberOfLines={1}>{item.short_address}</Text>
@@ -292,8 +321,8 @@ export function SearchScreen({
       style={s.row}
       activeOpacity={0.7}
       onPress={() => routeMode
-        ? handleSelectRoute(item)
-        : handleSelectSearch(item)
+        ? handleSelectRoute(item as unknown as SearchResult)
+        : handleSelectSearch(item as unknown as SearchResult)
       }
     >
       <View style={s.recentIcon}>
@@ -694,6 +723,11 @@ const s = StyleSheet.create({
   rowRating: {
     fontSize: 12,
     color: C.amber,
+    fontWeight: '600',
+  },
+  rowDistance: {
+    fontSize: 12,
+    color: C.green,
     fontWeight: '600',
   },
   rowAddr: {

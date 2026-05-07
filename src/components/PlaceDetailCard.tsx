@@ -16,7 +16,6 @@ import {
 import * as Notifications from 'expo-notifications';
 import { Ionicons } from '@expo/vector-icons';
 import MapboxGL from '@rnmapbox/maps';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { Place } from '../types/place';
 import { CategoryIcon } from './CategoryIcon';
 import { MAPBOX_STYLE } from '../constants/config';
@@ -30,8 +29,27 @@ import { useReviews, computeRatingBars, computeAverageRating, type Review } from
 import { useBooking, generateTimeSlots, parseTodayHours, todayDateString } from '../hooks/useBooking';
 import { useClosureReport } from '../hooks/useClosureReport';
 import { useConfirmOpen } from '../hooks/useConfirmOpen';
+import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { getOpenStatus, isStaleStatus, type OpenStatus } from '../utils/openStatus';
 import { useSupabase } from '../context/SupabaseContext';
+import { formatMnAddress } from '../lib/mnAddress';
+
+/**
+ * Build the best-available address string for a place: prefer structured
+ * Mongolian (district/khoroo/khoroolol/byr/khaalga/toot), fall back to the
+ * Google/OSM blob, then to short_address.
+ */
+function placeAddress(place: Place): string {
+  const structured = formatMnAddress({
+    district: place.district ?? undefined,
+    khoroo: place.khoroo ?? undefined,
+    khoroolol: place.khoroolol ?? undefined,
+    buildingNumber: place.building_number ?? undefined,
+    entranceNumber: place.entrance_number ?? undefined,
+    unitNumber: place.unit_number ?? undefined,
+  });
+  return structured || place.formatted_address || place.short_address || '';
+}
 
 const { height: SCREEN_H } = Dimensions.get('window');
 
@@ -73,7 +91,13 @@ const Stars = ({ value, size = 12 }: { value: number; size?: number }) => (
 const StarPicker = ({ value, onChange }: { value: number; onChange: (n: number) => void }) => (
   <View style={{ flexDirection: 'row', gap: 6 }}>
     {[1, 2, 3, 4, 5].map(i => (
-      <TouchableOpacity key={i} onPress={() => onChange(i)} hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}>
+      <TouchableOpacity
+        key={i}
+        onPress={() => onChange(i)}
+        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+        accessibilityRole="button"
+        accessibilityLabel={`${i} од өгөх`}
+      >
         <Ionicons
           name={i <= value ? 'star' : 'star-outline'}
           size={28}
@@ -110,6 +134,8 @@ const QuickBtn = ({
     onPress={onPress}
     activeOpacity={0.7}
     style={[s.quickBtn, highlight && s.quickBtnHighlight]}
+    accessibilityRole="button"
+    accessibilityLabel={label}
   >
     <Ionicons name={icon} size={18} color={highlight ? C.primaryLt : C.textSec} />
     <Text style={[s.quickBtnLabel, { color: highlight ? C.primaryLt : C.textMuted }]}>
@@ -137,7 +163,7 @@ const PlaceRatingRow = ({ placeId }: { placeId: string }) => {
 
 const InfoTab = ({ place, openStatus }: { place: Place; openStatus: OpenStatus | null }) => {
   const hoursLines = place.regular_opening_hours?.weekday_descriptions ?? [];
-  const address = place.formatted_address ?? place.short_address;
+  const address = placeAddress(place);
   const phone = place.phone_national ?? place.phone_intl;
   const { reported, submitting: reportSubmitting, reportClosure } = useClosureReport(place.place_id);
   const { confirmed, submitting: confirmSubmitting, confirmOpen } = useConfirmOpen(place.place_id);
@@ -371,7 +397,16 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
         <Text style={[s.emptyTitle, { color: C.amber }]}>Хүсэлт илгээгдлээ</Text>
         <Text style={s.emptyDesc}>
           {slots[selectedSlotIdx]?.slot} цагт {partySize} хүний захиалгын хүсэлт бүртгэгдлээ.
-          {'\n\n'}Газар баталгаажуулмагц мэдэгдэл хүлээн авна.
+          {'\n\n'}Газар 30 минутын дотор хариу өгнө. Хариу ирмэгц мэдэгдэл хүлээн авна.
+        </Text>
+        <Text style={[s.emptyDesc, { marginTop: 12 }]}>
+          Яаралтай тохиолдолд:{' '}
+          <Text
+            style={{ color: C.primaryLt, textDecorationLine: 'underline' }}
+            onPress={() => Linking.openURL('tel:+97694142121')}
+          >
+            +976 9414-2121
+          </Text>
         </Text>
         <TouchableOpacity
           style={[s.ctaSecondary, { marginTop: 16, alignSelf: 'stretch' }]}
@@ -384,21 +419,42 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     );
   }
 
-  const availableSlots = slots.length > 0 ? slots : timeSlots.map(s => ({ slot: s, booked: 0, available: true }));
+  // Fail closed: until we have a real availability response, every slot is
+  // treated as unavailable. The previous "fall back to all-available" path
+  // turned a network blip into a double-booking opportunity.
+  const slotsTrustworthy = !loadingSlots && !error && slots.length > 0;
+  const availableSlots = slotsTrustworthy
+    ? slots
+    : timeSlots.map(slot => ({ slot, booked: 0, available: false }));
   const selectedSlot = availableSlots[selectedSlotIdx];
   const nextAvailIdx = availableSlots.findIndex(s => s.available);
+
+  const retryFetchSlots = () => fetchSlots(place.place_id, today, timeSlots, slotCapacity);
 
   return (
     <View style={{ gap: 16 }}>
       {error && (
-        <Text style={{ color: C.red, fontSize: 12, textAlign: 'center' }}>{error}</Text>
+        <View style={{ alignItems: 'center', gap: 6 }}>
+          <Text style={{ color: C.red, fontSize: 12, textAlign: 'center' }}>{error}</Text>
+          <TouchableOpacity onPress={retryFetchSlots} activeOpacity={0.7}>
+            <Text style={{ color: C.primaryLt, fontSize: 12, textDecorationLine: 'underline' }}>
+              Дахин оролдох
+            </Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       <View style={s.nextSlotBanner}>
         <View>
           <Text style={s.nextSlotLabel}>Дараагийн боломжит цаг</Text>
           <Text style={s.nextSlotValue}>
-            {nextAvailIdx >= 0 ? `Өнөөдөр, ${availableSlots[nextAvailIdx].slot}` : 'Өнөөдөр захиалга дүүрсэн'}
+            {loadingSlots
+              ? 'Шалгаж байна…'
+              : error
+                ? 'Боломжит цагийг шалгаж чадсангүй'
+                : nextAvailIdx >= 0
+                  ? `Өнөөдөр, ${availableSlots[nextAvailIdx].slot}`
+                  : 'Өнөөдөр захиалга дүүрсэн'}
           </Text>
         </View>
         {loadingSlots
@@ -492,9 +548,6 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
             onPress={() => setShowForm(true)}
           >
             <Text style={s.ctaPrimaryText}>Захиалгыг баталгаажуулах</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={s.ctaSecondary} activeOpacity={0.85}>
-            <Text style={s.ctaSecondaryText}>Хүлээлгийн жагсаалтад нэгдэх</Text>
           </TouchableOpacity>
         </>
       )}
@@ -658,42 +711,21 @@ interface PlaceDetailCardProps {
   onRequestDirections?: (place: Place) => void;
 }
 
-const SAVED_PLACES_KEY = 'monmap.saved_places';
-
 export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }: PlaceDetailCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<'info' | 'book' | 'reviews'>('info');
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (!place) return;
-    let cancelled = false;
-    AsyncStorage.getItem(SAVED_PLACES_KEY).then(raw => {
-      if (cancelled) return;
-      const ids: string[] = raw ? JSON.parse(raw) : [];
-      setSaved(ids.includes(place.place_id));
-    }).catch(() => {});
-    return () => { cancelled = true; };
-  }, [place?.place_id]);
+  const { isSaved, toggle: toggleSaved } = useSavedPlaces();
+  const saved = place ? isSaved(place.place_id) : false;
 
   const handleToggleSave = useCallback(async () => {
     if (!place) return;
-    try {
-      const raw = await AsyncStorage.getItem(SAVED_PLACES_KEY);
-      const ids: string[] = raw ? JSON.parse(raw) : [];
-      const next = ids.includes(place.place_id)
-        ? ids.filter(id => id !== place.place_id)
-        : [...ids, place.place_id];
-      await AsyncStorage.setItem(SAVED_PLACES_KEY, JSON.stringify(next));
-      setSaved(next.includes(place.place_id));
-    } catch (e) {
-      Alert.alert('Хадгалж чадсангүй');
-    }
-  }, [place?.place_id]);
+    const ok = await toggleSaved(place.place_id);
+    if (!ok) Alert.alert('Хадгалж чадсангүй');
+  }, [place?.place_id, toggleSaved]);
 
   const handleShare = useCallback(async () => {
     if (!place) return;
-    const address = place.formatted_address ?? place.short_address ?? '';
+    const address = placeAddress(place);
     const geoUrl = `https://www.google.com/maps/search/?api=1&query=${place.lat},${place.lng}`;
     const message = `${place.name}${address ? `\n${address}` : ''}\n${geoUrl}`;
     try {
@@ -747,6 +779,8 @@ export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }
         onPress={() => setExpanded(p => !p)}
         style={s.handleArea}
         activeOpacity={1}
+        accessibilityRole="button"
+        accessibilityLabel={expanded ? 'Агшаах' : 'Дэлгэх'}
       >
         <View style={s.handle} />
       </TouchableOpacity>
@@ -776,6 +810,8 @@ export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }
                 style={s.chevronBtn}
                 activeOpacity={0.7}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessibilityRole="button"
+                accessibilityLabel={expanded ? 'Агшаах' : 'Дэлгэх'}
               >
                 <Ionicons
                   name={expanded ? 'chevron-down' : 'chevron-up'}

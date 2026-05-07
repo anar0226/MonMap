@@ -2,6 +2,7 @@
 <html lang="mn">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.hcaptcha.com https://hcaptcha.com; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Захиалга — МонМэп Бизнес Портал</title>
   <link rel="stylesheet" href="css/style.css" />
@@ -71,12 +72,12 @@
   <div class="main-content">
     <div class="top-bar">
       <div class="top-bar-left">
-        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Цэс нээх" title="Цэс">☰</button>
         <span class="page-title">Захиалга удирдах</span>
       </div>
       <div class="top-bar-right">
         <button class="btn btn-primary btn-sm" onclick="toggleAddForm()">➕ Шинэ захиалга</button>
-        <button class="notification-btn">🔔<span class="notification-dot"></span></button>
+        <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл">🔔<span class="notification-dot"></span></button>
         <div class="top-bar-avatar" id="topAvatar">Б</div>
       </div>
     </div>
@@ -259,7 +260,7 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js" integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae" crossorigin="anonymous"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
 <script>
@@ -337,24 +338,28 @@
     const empty = document.getElementById('emptyBookings');
     if (!list.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
     empty.classList.add('hidden');
+    // All `b.*` values originate from guest-controlled mobile-app input or
+    // owner-controlled portal input. Escape every interpolation that lands
+    // inside innerHTML — without this, a guest could inject script tags into
+    // their own name field and run JS in the owner's portal session.
     tbody.innerHTML = list.map(b => `
       <tr>
         <td>
-          <div style="font-weight:600;">${b.client}</div>
-          <div style="font-size:0.8125rem;color:var(--gray-500);">${b.phone || '—'}</div>
+          <div style="font-weight:600;">${escapeHtml(b.client)}</div>
+          <div style="font-size:0.8125rem;color:var(--gray-500);">${escapeHtml(b.phone) || '—'}</div>
         </td>
-        <td style="font-size:0.9rem;">${b.service}</td>
-        <td><span style="font-weight:600;">${b.time}</span></td>
-        <td style="font-size:0.875rem;">${b.duration} мин</td>
+        <td style="font-size:0.9rem;">${escapeHtml(b.service)}</td>
+        <td><span style="font-weight:600;">${escapeHtml(b.time)}</span></td>
+        <td style="font-size:0.875rem;">${escapeHtml(b.duration)} мин</td>
         <td>${statusBadge(b.status)}</td>
         <td>
           <div class="booking-row-actions">
-            <button class="btn btn-ghost btn-sm" onclick="openDetail('${b.id}')">Харах</button>
+            <button class="btn btn-ghost btn-sm" onclick="openDetail('${escapeHtml(b.id)}')">Харах</button>
             ${b.status === 'pending' ? `
-              <button class="btn btn-success btn-sm" onclick="confirmBooking('${b.id}')">✓</button>
-              <button class="btn btn-danger btn-sm"  onclick="openCancel('${b.id}')">✕</button>
+              <button class="btn btn-success btn-sm" onclick="confirmBooking('${escapeHtml(b.id)}')">✓</button>
+              <button class="btn btn-danger btn-sm"  onclick="openCancel('${escapeHtml(b.id)}')">✕</button>
             ` : ''}
-            ${b.status === 'confirmed' ? `<button class="btn btn-danger btn-sm" onclick="openCancel('${b.id}')">Цуцлах</button>` : ''}
+            ${b.status === 'confirmed' ? `<button class="btn btn-danger btn-sm" onclick="openCancel('${escapeHtml(b.id)}')">Цуцлах</button>` : ''}
           </div>
         </td>
       </tr>
@@ -394,21 +399,21 @@
     if (!b) return;
     document.getElementById('detailModalBody').innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Харилцагч</div><div class="font-semibold">${b.client}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Утас</div><div class="font-semibold">${b.phone || '—'}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Үйлчилгээ</div><div class="font-semibold">${b.service}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Хугацаа</div><div class="font-semibold">${b.duration} минут</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Огноо</div><div class="font-semibold">${formatDate(b.date)}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Цаг</div><div class="font-semibold">${b.time}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Харилцагч</div><div class="font-semibold">${escapeHtml(b.client)}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Утас</div><div class="font-semibold">${escapeHtml(b.phone) || '—'}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Үйлчилгээ</div><div class="font-semibold">${escapeHtml(b.service)}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Хугацаа</div><div class="font-semibold">${escapeHtml(b.duration)} минут</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Огноо</div><div class="font-semibold">${escapeHtml(formatDate(b.date))}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Цаг</div><div class="font-semibold">${escapeHtml(b.time)}</div></div>
         <div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Төлөв</div>${statusBadge(b.status)}</div>
-        ${b.note ? `<div style="grid-column:1/-1;background:var(--gray-50);padding:12px;border-radius:var(--radius);"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Тэмдэглэл</div><div style="font-size:0.9rem;">${b.note}</div></div>` : ''}
+        ${b.note ? `<div style="grid-column:1/-1;background:var(--gray-50);padding:12px;border-radius:var(--radius);"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Тэмдэглэл</div><div style="font-size:0.9rem;">${escapeHtml(b.note)}</div></div>` : ''}
       </div>`;
     const footer = document.getElementById('detailModalFooter');
     footer.innerHTML = `<button class="btn btn-ghost" onclick="closeModal('detailModal')">Хаах</button>`;
     if (b.status === 'pending') {
       footer.innerHTML += `
-        <button class="btn btn-danger btn-sm" onclick="closeModal('detailModal');openCancel('${b.id}')">✕ Цуцлах</button>
-        <button class="btn btn-success" onclick="confirmBooking('${b.id}');closeModal('detailModal')">✅ Баталгаажуулах</button>`;
+        <button class="btn btn-danger btn-sm" onclick="closeModal('detailModal');openCancel('${escapeHtml(b.id)}')">✕ Цуцлах</button>
+        <button class="btn btn-success" onclick="confirmBooking('${escapeHtml(b.id)}');closeModal('detailModal')">✅ Баталгаажуулах</button>`;
     }
     document.getElementById('detailModal').classList.add('open');
   }

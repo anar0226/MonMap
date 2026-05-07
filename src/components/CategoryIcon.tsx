@@ -77,22 +77,33 @@ const icons: Record<string, React.FC<IconProps>> = {
 
   beauty_salon: ({ sw = 1.7 }) => (
     <>
-      <Path d="M16 3 Q12 4 11 8 L7 13 Q5 15 6 17 Q7 19 9 18 L13 14 Q15 14 17 13 Q21 11 21 7 Q21 4 18 4 Q17 3 16 3 Z" strokeWidth={sw} />
-      <Line x1="7.5" y1="14.5" x2="9.5" y2="16.5" strokeWidth={sw * (1.5/1.7)} />
+      <Rect x="9" y="3" width="6" height="5" rx="0.6" strokeWidth={sw} />
+      <Rect x="7.5" y="8" width="9" height="3" rx="0.6" fill="white" strokeWidth={0} />
+      <Rect x="8.5" y="11" width="7" height="10" rx="1" strokeWidth={sw} />
+      <Line x1="10.5" y1="14" x2="13.5" y2="14" strokeWidth={sw * (1.4/1.7)} />
+      <Line x1="10.5" y1="17" x2="13.5" y2="17" strokeWidth={sw * (1.4/1.7)} />
     </>
   ),
 
   hair_care: ({ sw = 1.7 }) => (
     <>
-      <Path d="M7 5 Q5 5 5 7 V18 Q5 20 7 20 H10 V11 Q10 7 7 5 Z" strokeWidth={sw} />
-      <Path d="M14 11 V20 H17 Q19 20 19 18 V7 Q19 5 17 5 Q14 7 14 11 Z" strokeWidth={sw} />
-      <Line x1="11" y1="11" x2="13" y2="11" strokeWidth={sw} />
-      <Line x1="11" y1="14" x2="13" y2="14" strokeWidth={sw} />
+      <Circle cx="6" cy="17" r="3" strokeWidth={sw} />
+      <Circle cx="6" cy="7" r="3" strokeWidth={sw} />
+      <Line x1="8.1" y1="8.9" x2="21" y2="19" strokeWidth={sw} />
+      <Line x1="8.1" y1="15.1" x2="21" y2="5" strokeWidth={sw} />
+      <Line x1="14" y1="10.7" x2="17" y2="13" strokeWidth={sw} />
     </>
   ),
 
   spa: ({ sw = 1.7 }) => (
-    <Path d="M12 4 Q9 7 9 11 Q9 13 10.5 14 Q9 17 6 17 Q9 18 11 16 Q12 19 12 21 Q12 19 13 16 Q15 18 18 17 Q15 17 13.5 14 Q15 13 15 11 Q15 7 12 4 Z" strokeWidth={sw} />
+    <>
+      <Path d="M12 4 Q15 8 12 12 Q9 8 12 4 Z" fill="white" strokeWidth={0} />
+      <Path d="M12 12 Q16 9 20 11 Q18 15 13 13.5" fill="white" strokeWidth={0} />
+      <Path d="M12 12 Q8 9 4 11 Q6 15 11 13.5" fill="white" strokeWidth={0} />
+      <Path d="M12 12 Q15 14 16 19 Q13 19.5 12 16" fill="white" strokeWidth={0} />
+      <Path d="M12 12 Q9 14 8 19 Q11 19.5 12 16" fill="white" strokeWidth={0} />
+      <Circle cx="12" cy="12.5" r="1.4" fill="none" strokeWidth={sw * (1.2/1.7)} />
+    </>
   ),
 
   gym: ({ sw = 2 }) => (

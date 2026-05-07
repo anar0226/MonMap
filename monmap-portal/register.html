@@ -2,6 +2,7 @@
 <html lang="mn">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.hcaptcha.com https://hcaptcha.com; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Бизнес бүртгүүлэх — МонМэп</title>
   <link rel="stylesheet" href="css/style.css" />
@@ -391,7 +392,7 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js" integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae" crossorigin="anonymous"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
 <script>
@@ -697,53 +698,65 @@
   }
 
   async function completeRegistration(userId, d) {
-    let placeId, bizName, bizType;
+    // Atomic: the SECURITY DEFINER RPC inserts into places + business_owners
+    // in one transaction. If either fails, neither is written, so a retry
+    // (or opening the magic link from a different browser) is safe.
+    const category    = CATEGORY_MAP[d.bizType] || 'other';
+    const fullAddress = [d.address, d.khoroo, d.district, 'Улаанбаатар'].filter(Boolean).join(', ');
+    const payload = d.claimPlaceId
+      ? { claimPlaceId: d.claimPlaceId }
+      : {
+          name:              d.bizName,
+          category,
+          lat:               UB_LAT,
+          lng:               UB_LNG,
+          formatted_address: fullAddress,
+          short_address:     d.address || null,
+          phone_national:    d.bizPhone || null,
+          slot_capacity:     d.concurrent || 1,
+          raw: {
+            source: 'portal', description: d.bizDesc || null,
+            district: d.district, khoroo: d.khoroo || null,
+          },
+        };
 
-    if (d.claimPlaceId) {
-      // ── CLAIM PATH: link this user to an existing place ──
-      placeId = d.claimPlaceId;
-      bizName = d.claimBizName || d.claimPlaceId;
-      bizType = d.claimCategory || 'Бизнес';
-    } else {
-      // ── CREATE PATH: insert a brand-new place ──
-      placeId = 'owner_' + userId;
-      bizName = d.bizName;
-      bizType = d.bizType;
-      const category    = CATEGORY_MAP[d.bizType] || 'other';
-      const fullAddress = [d.address, d.khoroo, d.district, 'Улаанбаатар'].filter(Boolean).join(', ');
-
-      const { error: placeErr } = await _sb.from('places').upsert({
-        place_id:          placeId,
-        name:              d.bizName,
-        primary_category:  category,
-        types:             [category],
-        location:          `SRID=4326;POINT(${UB_LNG} ${UB_LAT})`,
-        lat:               UB_LAT,
-        lng:               UB_LNG,
-        formatted_address: fullAddress,
-        short_address:     d.address || null,
-        phone_national:    d.bizPhone || null,
-        slot_capacity:     d.concurrent,
-        business_status:   'OPERATIONAL',
-        raw:               { source: 'portal', description: d.bizDesc || null, district: d.district, khoroo: d.khoroo || null },
-        fetched_at:        nowIso(),
-        updated_at:        nowIso(),
-      }, { onConflict: 'place_id' });
-      if (placeErr) { showToast('error', 'Бизнес бүртгэх алдаа', placeErr.message); return; }
+    const { data: placeId, error } = await _sb.rpc(
+      'complete_business_registration', { p_payload: payload }
+    );
+    if (error || !placeId) {
+      showToast('error', 'Бүртгэл дуусгах алдаа',
+        'Дахин оролдоно уу. Асуудал үргэлжилбэл бидэнтэй холбогдоно уу.');
+      console.warn('[monmap-portal] complete_business_registration:', error);
+      return;
     }
 
-    const { error: linkErr } = await _sb.from('business_owners').upsert(
-      { user_id: userId, place_id: placeId },
-      { onConflict: 'user_id,place_id' }
-    );
-    if (linkErr) { showToast('error', 'Холбох алдаа', linkErr.message); return; }
-
+    const bizName = d.claimBizName || d.bizName || placeId;
+    const bizType = d.claimCategory || d.bizType || 'Бизнес';
     localStorage.removeItem('mm_pending_reg');
     localStorage.setItem('mm_biz', JSON.stringify({
-      id: placeId, name: bizName, type: bizType || 'Бизнес', verified: false,
+      id: placeId, name: bizName, type: bizType, verified: false,
     }));
 
     window.location.href = 'dashboard.html';
+  }
+
+  // If the magic link was opened in a different browser (no mm_pending_reg)
+  // but the user already has a business_owners row from a prior attempt,
+  // route them to the dashboard. Otherwise sign them out with a clear hint
+  // to reopen the link in the original browser.
+  async function _recoverFromMissingPending(userId) {
+    const { data } = await _sb
+      .from('business_owners')
+      .select('place_id')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (data?.place_id) {
+      window.location.href = 'dashboard.html';
+      return;
+    }
+    await _sb.auth.signOut();
+    showToast('warning', 'Бүртгэл дуусгах боломжгүй',
+      'Магтадтай линкийг бүртгэл эхлүүлсэн хөтчөөрөө нээнэ үү.');
   }
 
   // After the user clicks the magic link they land back here with a fresh session.
@@ -752,6 +765,7 @@
     if (event === 'SIGNED_IN' && session) {
       const pending = JSON.parse(localStorage.getItem('mm_pending_reg') || 'null');
       if (pending) await completeRegistration(session.user.id, pending);
+      else        await _recoverFromMissingPending(session.user.id);
     }
   });
 

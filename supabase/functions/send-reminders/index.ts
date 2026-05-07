@@ -1,11 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { sendSMS } from '../_shared/sms.ts'
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!
+const SUPABASE_URL              = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const TWILIO_ACCOUNT_SID = Deno.env.get('TWILIO_ACCOUNT_SID')!
-const TWILIO_AUTH_TOKEN = Deno.env.get('TWILIO_AUTH_TOKEN')!
-const TWILIO_FROM = Deno.env.get('TWILIO_FROM_NUMBER')!
-const CRON_SECRET = Deno.env.get('CRON_SECRET') ?? ''
+const CRON_SECRET               = Deno.env.get('CRON_SECRET') ?? ''
 
 // Mongolia Standard Time is UTC+8, no DST.
 // Combine a 'YYYY-MM-DD' date and 'HH:MM' time slot into a UTC Date.
@@ -14,19 +12,6 @@ function toUTC(dateStr: string, timeSlot: string): Date {
   const [h, min] = timeSlot.split(':').map(Number)
   // Subtract 8 hours to convert MNT → UTC
   return new Date(Date.UTC(y, m - 1, d, h - 8, min))
-}
-
-async function sendSMS(to: string, body: string): Promise<void> {
-  const url = `https://api.twilio.com/2010-04-01/Accounts/${TWILIO_ACCOUNT_SID}/Messages.json`
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      Authorization: `Basic ${btoa(`${TWILIO_ACCOUNT_SID}:${TWILIO_AUTH_TOKEN}`)}`,
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({ To: to, From: TWILIO_FROM, Body: body }).toString(),
-  })
-  if (!res.ok) console.error(`Twilio error:`, await res.text())
 }
 
 Deno.serve(async (req) => {

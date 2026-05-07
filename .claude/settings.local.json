@@ -19,7 +19,9 @@
       "Bash(xargs grep *)",
       "Bash(npx expo *)",
       "mcp__b1eebbc1-e9fb-4880-b01f-820f60379d1c__execute_sql",
-      "mcp__b1eebbc1-e9fb-4880-b01f-820f60379d1c__apply_migration"
+      "mcp__b1eebbc1-e9fb-4880-b01f-820f60379d1c__apply_migration",
+      "Bash(node --input-type=module -e ' *)",
+      "Bash(find C:\\\\\\\\Users\\\\\\\\anar0\\\\\\\\Downloads\\\\\\\\MonMap\\\\\\\\src\\\\\\\\hooks -name \"*.ts\" -o -name \"*.tsx\")"
     ]
   }
 }

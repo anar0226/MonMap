@@ -2,6 +2,7 @@
 <html lang="mn">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.hcaptcha.com https://hcaptcha.com; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Бизнесийн профайл — МонМэп</title>
   <link rel="stylesheet" href="css/style.css" />
@@ -85,11 +86,11 @@
   <div class="main-content">
     <div class="top-bar">
       <div class="top-bar-left">
-        <button class="mobile-menu-btn" id="mobileMenuBtn">☰</button>
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Цэс нээх" title="Цэс">☰</button>
         <span class="page-title">Бизнесийн профайл</span>
       </div>
       <div class="top-bar-right">
-        <button class="notification-btn">🔔<span class="notification-dot"></span></button>
+        <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл">🔔<span class="notification-dot"></span></button>
         <div class="top-bar-avatar" id="topAvatar">Б</div>
       </div>
     </div>
@@ -436,7 +437,7 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js" integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae" crossorigin="anonymous"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
 <script>

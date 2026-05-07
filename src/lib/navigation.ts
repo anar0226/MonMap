@@ -41,9 +41,18 @@ export function translateManeuver(m: Maneuver, streetName: string): string {
 
   switch (m.type) {
     case 'depart':
+      // For transit, `instruction` is set explicitly ("Bus 22 зогсоол руу алхах");
+      // prefer it over the street-based default.
+      if (m.instruction) return m.instruction;
       return street ? `${street}-аар хөдөлнө` : 'Замаар хөдөлнө';
     case 'arrive':
       return 'Хүрэх газартаа хүрлээ';
+    case 'board':
+      // streetName carries the bus number for transit board steps
+      return street ? `${street} автобусанд суух` : 'Автобусанд суух';
+    case 'alight':
+      // streetName carries the alight stop name
+      return street ? `${street} зогсоол дээр буух` : 'Энэ зогсоол дээр буух';
     case 'turn': {
       const phrase = TURN[m.modifier ?? ''] ?? 'эргэнэ';
       return street ? `${phrase}${onStreet}` : phrase;
@@ -88,7 +97,9 @@ export function translateManeuver(m: Maneuver, streetName: string): string {
 export function maneuverIcon(m: Maneuver): string {
   switch (m.type) {
     case 'arrive': return 'flag';
-    case 'depart': return 'navigate';
+    case 'depart': return 'walk-outline';
+    case 'board':  return 'bus';
+    case 'alight': return 'log-out-outline';
     case 'roundabout':
     case 'rotary':
     case 'exit roundabout':

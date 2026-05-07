@@ -12,8 +12,8 @@ export const colors = {
   borderStrong: 'rgba(255,255,255,0.18)',
 
   text: '#FFFFFF',
-  textSec: 'rgba(255,255,255,0.45)',
-  textMuted: 'rgba(255,255,255,0.28)',
+  textSec: 'rgba(255,255,255,0.70)',
+  textMuted: 'rgba(255,255,255,0.50)',
   textInverse: '#090C16',
 
   success: '#10B981',

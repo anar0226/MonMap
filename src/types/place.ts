@@ -5,6 +5,7 @@ export interface PlaceMapFeature {
   rating: number | null;
   closure_report_count: number;
   short_address: string | null;
+  address_searchable: string | null;
 }
 
 export interface OpeningHours {
@@ -32,4 +33,10 @@ export interface Place {
   booking_open_hour: number | null;
   booking_close_hour: number | null;
   hours_verified_at: string | null;
+  district: string | null;
+  khoroo: number | null;
+  khoroolol: string | null;
+  building_number: string | null;
+  entrance_number: number | null;
+  unit_number: string | null;
 }

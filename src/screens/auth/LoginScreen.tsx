@@ -13,9 +13,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../../lib/supabase';
 import { colors, gradientPrimary } from '../../theme';
 import type { AuthStackParamList } from '../../navigation';
+import HCaptchaModal from '../../components/HCaptchaModal';
+
+WebBrowser.maybeCompleteAuthSession();
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
@@ -27,17 +32,57 @@ export default function LoginScreen({ navigation }: Props) {
   const [passwordFocused, setPasswordFocused] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [captchaOpen, setCaptchaOpen] = useState(false);
+
+  async function handleFacebookLogin() {
+    setLoading(true);
+    setError('');
+    const redirectUri = makeRedirectUri();
+    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: { redirectTo: redirectUri, skipBrowserRedirect: true },
+    });
+    if (oauthError || !data.url) {
+      setError('Фэйсбүүкээр нэвтрэхэд алдаа гарлаа');
+      setLoading(false);
+      return;
+    }
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+    if (result.type === 'success') {
+      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
+      if (sessionError) setError('Нэвтрэхэд алдаа гарлаа');
+    }
+    setLoading(false);
+  }
 
   async function handleLogin() {
-    if (!email || !password) {
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !password) {
       setError('Имэйл болон нууц үгээ оруулна уу');
       return;
     }
-    setLoading(true);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Зөв и-мэйл хаяг оруулна уу');
+      return;
+    }
     setError('');
-    const { error: authError } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    setCaptchaOpen(true);
+  }
+
+  async function onCaptchaSolved(captchaToken: string) {
+    setCaptchaOpen(false);
+    setLoading(true);
+    const { error: authError } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+      options: { captchaToken },
+    });
     setLoading(false);
-    if (authError) setError(authError.message);
+    if (authError) {
+      const msg = authError.message;
+      if (msg.includes('Invalid login credentials')) setError('Имэйл эсвэл нууц үг буруу байна');
+      else setError('Нэвтрэхэд алдаа гарлаа');
+    }
   }
 
   return (
@@ -126,13 +171,10 @@ export default function LoginScreen({ navigation }: Props) {
 
               {/* Social auth row */}
               <View style={s.socialRow}>
-                <Pressable style={s.socialBtn}>
-                  <Text style={s.googleG}>G</Text>
+                <Pressable style={s.socialBtn} onPress={handleFacebookLogin} disabled={loading}>
+                  <Ionicons name="logo-facebook" size={18} color="#1877F2" />
                 </Pressable>
-                <Pressable style={s.socialBtn}>
-                  <Ionicons name="logo-apple" size={18} color={colors.text} />
-                </Pressable>
-                <Pressable style={s.socialBtn}>
+                <Pressable style={s.socialBtn} onPress={() => navigation.navigate('PhoneLogin')} disabled={loading}>
                   <Ionicons name="call-outline" size={18} color={colors.text} />
                 </Pressable>
               </View>
@@ -149,6 +191,11 @@ export default function LoginScreen({ navigation }: Props) {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <HCaptchaModal
+        visible={captchaOpen}
+        onSolved={onCaptchaSolved}
+        onCancel={() => setCaptchaOpen(false)}
+      />
     </View>
   );
 }

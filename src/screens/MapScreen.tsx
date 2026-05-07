@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../navigation';
 import { useNavigation as useTurnByTurnNav } from '../hooks/useNavigation';
@@ -22,10 +22,13 @@ import { usePlaces } from '../hooks/usePlaces';
 import { usePlaceDetail } from '../hooks/usePlaceDetail';
 import { PlaceDetailCard } from '../components/PlaceDetailCard';
 import { SearchBar } from '../components/SearchBar';
-import { SearchScreen } from './SearchScreen';
+import { SearchScreen, type RouteWaypoint } from './SearchScreen';
 import { DirectionsPanel } from '../components/DirectionsPanel';
 import { useDirections } from '../hooks/useDirections';
 import type { Place, PlaceMapFeature } from '../types/place';
+import { useNetworkStatus } from '../hooks/useNetworkStatus';
+import { OfflineBanner } from '../components/OfflineBanner';
+import { ensureUBOfflinePack, getUBPackStatus } from '../lib/offlineTiles';
 
 const VIEWPORT_BUFFER = 0.15;
 const FALLBACK_FEATURE_CAP = 200;
@@ -44,6 +47,7 @@ type Bounds = { sw: [number, number]; ne: [number, number] };
 
 export default function MapScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList, 'Map'>>();
+  const route = useRoute<RouteProp<AppStackParamList, 'Map'>>();
   const cameraRef = useRef<MapboxGL.Camera>(null);
   const poiPressedRef = useRef(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
@@ -52,9 +56,10 @@ export default function MapScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const { geojson, loading: placesLoading, error: placesError } = usePlaces();
   const { place, loading: detailLoading, fetchDetail, clear } = usePlaceDetail();
-  const { multi, route, loading: routeLoading, error: routeError, fetchRoute, selectMode, clear: clearRoute } = useDirections();
+  const { multi, route, loading: routeLoading, error: routeError, fetchRoute, selectMode, selectAlternative, clear: clearRoute } = useDirections();
   const [routeDestName, setRouteDestName] = useState<string | null>(null);
   const nav = useTurnByTurnNav();
+  const { isOnline, wasEverOnline } = useNetworkStatus();
 
   useEffect(() => {
     let cancelled = false;
@@ -82,6 +87,19 @@ export default function MapScreen() {
   useEffect(() => {
     console.log('[Places] loading=', placesLoading, 'error=', placesError, 'count=', geojson?.features.length ?? 0);
   }, [placesLoading, placesError, geojson]);
+
+  // Kick off tile pack download the first time we have a network connection.
+  // We check the pack status first so we never redundantly re-download.
+  useEffect(() => {
+    if (!isOnline) return;
+    getUBPackStatus().then((status) => {
+      if (status !== 'complete' && status !== 'downloading') {
+        // Download silently in the background; OfflineBanner shows progress.
+        ensureUBOfflinePack();
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOnline]);
 
   const visibleGeojson = useMemo<FeatureCollection<Point, PlaceMapFeature>>(() => {
     const empty: FeatureCollection<Point, PlaceMapFeature> = { type: 'FeatureCollection', features: [] };
@@ -150,6 +168,21 @@ export default function MapScreen() {
     [flyTo, fetchDetail],
   );
 
+  // External screens (e.g. SavedPlacesScreen) navigate here with a focus
+  // place. Fly the camera and open the detail card whenever a new focus
+  // arrives. Re-runs when focusPlaceId changes — repeat-tapping the same
+  // place won't re-trigger, but switching to a different one will.
+  const focusPlaceId = route.params?.focusPlaceId;
+  const focusLng     = route.params?.focusLng;
+  const focusLat     = route.params?.focusLat;
+  useEffect(() => {
+    if (!focusPlaceId) return;
+    if (focusLng != null && focusLat != null) flyTo(focusLng, focusLat, 17);
+    fetchDetail(focusPlaceId);
+    // Clear the param so re-navigating to the same place still re-focuses.
+    navigation.setParams({ focusPlaceId: undefined, focusLng: undefined, focusLat: undefined });
+  }, [focusPlaceId, focusLng, focusLat, flyTo, fetchDetail, navigation]);
+
   const fitBoundsToRoute = useCallback((sw: [number, number], ne: [number, number]) => {
     cameraRef.current?.fitBounds(ne, sw, [120, 60, 220, 60], 800);
   }, []);
@@ -163,6 +196,24 @@ export default function MapScreen() {
     clear();
     await fetchRoute(userLocation, [target.lng, target.lat]);
   }, [userLocation, fetchRoute, clear]);
+
+  const handleRouteRequest = useCallback(async (from: RouteWaypoint, to: RouteWaypoint) => {
+    const fromCoord: [number, number] | null =
+      from.type === 'current' ? userLocation : [from.lng, from.lat];
+    const toCoord: [number, number] | null =
+      to.type === 'current' ? userLocation : [to.lng, to.lat];
+
+    if (!fromCoord || !toCoord) {
+      setMapError('Таны байршил тодорхойгүй байна. Байршлын зөвшөөрлийг шалгана уу.');
+      return;
+    }
+
+    setSearchOpen(false);
+    setRouteDestName(to.name);
+    clear();
+    clearRoute();
+    await fetchRoute(fromCoord, toCoord);
+  }, [userLocation, fetchRoute, clear, clearRoute]);
 
   const handleCloseRoute = useCallback(() => {
     clearRoute();
@@ -244,19 +295,27 @@ export default function MapScreen() {
           id="basemap"
           existing
           config={{
-            showPointOfInterestLabels: 'false' as any,
-            showTransitLabels: 'false' as any,
-            showPlaceLabels: 'false' as any,
+            showPointOfInterestLabels: false as any,
+            showTransitLabels: false as any,
+            showPlaceLabels: false as any,
           }}
         />
 
         {/* Register one icon image per category. Each renders the React component
-            once to a bitmap that the SymbolLayer references by name. */}
+            once to a bitmap that the SymbolLayer references by name.
+            Outer white circle (56px) creates the ring; inner icon (42px) sits centred. */}
         <MapboxGL.Images>
           {ALL_CATEGORY_KEYS.map((key) => (
             <MapboxGL.Image key={key} name={iconNameFor(key)}>
-              <View style={{ width: 48, height: 48 }}>
-                <CategoryIcon category={key === 'fallback' ? null : key} size={48} />
+              <View style={{
+                width: 56, height: 56,
+                borderRadius: 28,
+                backgroundColor: 'white',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}>
+                <CategoryIcon category={key === 'fallback' ? null : key} size={42} />
               </View>
             </MapboxGL.Image>
           ))}
@@ -275,7 +334,7 @@ export default function MapScreen() {
               id="place-symbols"
               style={{
                 iconImage: ICON_IMAGE,
-                iconSize: ['interpolate', ['linear'], ['zoom'], 12, 0.32, 16, 0.55, 20, 0.85] as any,
+                iconSize: ['interpolate', ['linear'], ['zoom'], 12, 0.22, 16, 0.38, 20, 0.60] as any,
                 iconAllowOverlap: false,
                 iconIgnorePlacement: false,
                 iconAnchor: 'center',
@@ -360,6 +419,24 @@ export default function MapScreen() {
           />
         )}
 
+        {/* Alternative driving routes — rendered FIRST (underneath) at low opacity
+            so the active route always paints over them.  Each one is its own
+            ShapeSource so we can stack them deterministically. */}
+        {route?.mode === 'driving' && route.alternatives?.map((altRoute, idx) => (
+          <MapboxGL.ShapeSource key={`route-alt-${idx}`} id={`route-alt-${idx}`} shape={altRoute.segments}>
+            <MapboxGL.LineLayer
+              id={`route-alt-${idx}-line`}
+              style={{
+                lineColor: '#94A3B8',  // muted gray
+                lineWidth: 5,
+                lineCap: 'round',
+                lineJoin: 'round',
+                lineOpacity: 0.55,
+              }}
+            />
+          </MapboxGL.ShapeSource>
+        ))}
+
         {route && (
           <MapboxGL.ShapeSource id="route" shape={route.segments}>
             {/* White casing under the route for contrast */}
@@ -395,11 +472,12 @@ export default function MapScreen() {
         )}
       </MapboxGL.MapView>
 
+      {/* Offline/download banner — always on top */}
+      <OfflineBanner isOnline={isOnline} />
+
       {/* Search bar — hidden while navigating */}
       {nav.mode === 'idle' && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-          <SearchBar onPress={() => setSearchOpen(true)} onProfilePress={() => navigation.navigate('Profile')} />
-        </View>
+        <SearchBar onPress={() => setSearchOpen(true)} onProfilePress={() => navigation.navigate('Profile')} />
       )}
 
       {mapError && (
@@ -431,6 +509,7 @@ export default function MapScreen() {
           onClose={handleCloseRoute}
           onStart={handleStartNavigation}
           onSelectMode={selectMode}
+          onSelectAlternative={selectAlternative}
         />
       )}
 
@@ -458,8 +537,10 @@ export default function MapScreen() {
       <SearchScreen
         visible={searchOpen}
         geojson={geojson}
+        userLocation={userLocation}
         onClose={() => setSearchOpen(false)}
         onSelect={handleSearchSelect}
+        onRouteRequest={handleRouteRequest}
       />
     </View>
   );

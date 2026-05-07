@@ -21,7 +21,7 @@ import type { Place } from '../../types/place';
 type Props = { navigation: NativeStackNavigationProp<AppStackParamList, 'SavedPlaces'> };
 
 export default function SavedPlacesScreen({ navigation }: Props) {
-  const { places, loading, remove, reload } = useSavedPlaces();
+  const { places, loading, error, remove, reload } = useSavedPlaces();
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => { reload(); });
@@ -43,6 +43,20 @@ export default function SavedPlacesScreen({ navigation }: Props) {
         <View style={s.center}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
+      ) : error ? (
+        <View style={s.center}>
+          <View style={s.emptyIcon}>
+            <Ionicons name="cloud-offline-outline" size={32} color={colors.textMuted} />
+          </View>
+          <Text style={s.emptyTitle}>Алдаа гарлаа</Text>
+          <Text style={s.emptyDesc}>{error}</Text>
+          <Pressable
+            onPress={() => reload()}
+            style={({ pressed }) => [s.retryBtn, pressed && { opacity: 0.7 }]}
+          >
+            <Text style={s.retryBtnText}>Дахин оролдох</Text>
+          </Pressable>
+        </View>
       ) : places.length === 0 ? (
         <View style={s.center}>
           <View style={s.emptyIcon}>
@@ -60,7 +74,11 @@ export default function SavedPlacesScreen({ navigation }: Props) {
               key={place.place_id}
               place={place}
               onRemove={() => remove(place.place_id)}
-              onPress={() => navigation.navigate('Map')}
+              onPress={() => navigation.navigate('Map', {
+                focusPlaceId: place.place_id,
+                focusLng:     place.lng,
+                focusLat:     place.lat,
+              })}
             />
           ))}
           <Text style={s.footerText}>{places.length} газар хадгалсан</Text>
@@ -165,4 +183,14 @@ const s = StyleSheet.create({
   cardAddr: { color: colors.textSec, fontSize: 11, marginTop: 1 },
   removeBtn: { padding: 4 },
   footerText: { color: colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 8 },
+  retryBtn: {
+    marginTop: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  retryBtnText: { color: colors.text, fontSize: 13, fontWeight: '600' },
 });

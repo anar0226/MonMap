@@ -5,6 +5,7 @@ export interface SlotAvailability {
   slot: string;
   booked: number;
   available: boolean;
+  remaining: number;
 }
 
 export function useBooking() {
@@ -38,11 +39,15 @@ export function useBooking() {
         coversBySlot[row.time_slot] = (coversBySlot[row.time_slot] ?? 0) + (row.party_size ?? 1);
       }
 
-      setSlots(timeSlots.map(slot => ({
-        slot,
-        booked: coversBySlot[slot] ?? 0,
-        available: (coversBySlot[slot] ?? 0) < slotCapacity,
-      })));
+      setSlots(timeSlots.map(slot => {
+        const booked = coversBySlot[slot] ?? 0;
+        return {
+          slot,
+          booked,
+          available: booked < slotCapacity,
+          remaining: Math.max(0, slotCapacity - booked),
+        };
+      }));
     } catch (e: any) {
       setError(e?.message ?? 'Could not load availability');
     } finally {
@@ -63,11 +68,35 @@ export function useBooking() {
     setSubmitted(false);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const userId = session?.user?.id ?? null;
+      const userId = session?.user?.id;
+      if (!userId) {
+        setError('Захиалга үүсгэхийн тулд нэвтэрнэ үү');
+        return false;
+      }
+
+      // Cheap client-side bounds. The DB enforces these too — these just
+      // give a friendlier error than a Postgres check_violation.
+      if (params.partySize < 1 || params.partySize > 50) {
+        setError('Хүний тоо 1-50 байх ёстой');
+        return false;
+      }
+      const today = todayDateString();
+      if (params.date < today) {
+        setError('Захиалгын огноо өнөөдрөөс хойш байх ёстой');
+        return false;
+      }
+
+      // Validate against fetched slot capacity
+      const slotData = slots.find(s => s.slot === params.timeSlot);
+      if (slotData && params.partySize > slotData.remaining) {
+        setError(`Энэ цагт ${slotData.remaining} хүний сул суудал байна.`);
+        return false;
+      }
 
       const { data, error: err } = await supabase
         .from('bookings')
         .insert({
+          user_id: userId,
           place_id: params.placeId,
           booked_date: params.date,
           time_slot: params.timeSlot,
@@ -75,7 +104,6 @@ export function useBooking() {
           guest_name: params.guestName,
           guest_phone: params.guestPhone || null,
           status: 'pending',
-          ...(userId ? { user_id: userId } : {}),
         })
         .select('id')
         .single();
@@ -92,12 +120,17 @@ export function useBooking() {
       setSubmitted(true);
       return true;
     } catch (e: any) {
-      setError(e?.message ?? 'Could not submit booking');
+      const msg = e?.message ?? 'Could not submit booking';
+      if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
+        setError('Та энэ цагт аль хэдийн захиалга хийсэн байна.');
+      } else {
+        setError('Захиалга үүсгэхэд алдаа гарлаа. Дахин оролдоно уу.');
+      }
       return false;
     } finally {
       setSubmitting(false);
     }
-  }, []);
+  }, [slots]);
 
   const resetSubmitted = useCallback(() => setSubmitted(false), []);
 

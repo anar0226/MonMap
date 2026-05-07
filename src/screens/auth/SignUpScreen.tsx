@@ -13,17 +13,31 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as WebBrowser from 'expo-web-browser';
+import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../../lib/supabase';
 import { colors, gradientPrimary } from '../../theme';
 import type { AuthStackParamList } from '../../navigation';
+import HCaptchaModal from '../../components/HCaptchaModal';
+
+WebBrowser.maybeCompleteAuthSession();
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'SignUp'> };
 
 function passwordStrength(pw: string): 0 | 1 | 2 | 3 {
   if (!pw) return 0;
-  if (pw.length < 6) return 1;
-  if (pw.length < 10) return 2;
-  return 3;
+  if (pw.length < 8) return 1;
+  
+  let classes = 0;
+  if (/[a-z]/.test(pw)) classes++;
+  if (/[A-Z]/.test(pw)) classes++;
+  if (/[0-9]/.test(pw)) classes++;
+  if (/[^a-zA-Z0-9]/.test(pw)) classes++;
+
+  if (classes < 2) return 1; // Only lowercase or only numbers
+  if (classes >= 3 && pw.length >= 8) return 3; // Strong: 3+ classes and 8+ chars
+  if (classes === 2 && pw.length >= 12) return 3; // Strong: 2 classes but 12+ chars
+  return 2; // Medium
 }
 
 const strengthColors = ['transparent', colors.danger, colors.warning, colors.success];
@@ -40,14 +54,51 @@ export default function SignUpScreen({ navigation }: Props) {
   const [focused, setFocused] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [captchaOpen, setCaptchaOpen] = useState(false);
 
   const strength = passwordStrength(password);
   const pwMatch = confirm.length > 0 && confirm === password;
   const pwMismatch = confirm.length > 0 && confirm !== password;
 
+  async function handleFacebookSignUp() {
+    setLoading(true);
+    setError('');
+    const redirectUri = makeRedirectUri();
+    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: { redirectTo: redirectUri, skipBrowserRedirect: true },
+    });
+    if (oauthError || !data.url) {
+      setError('Фэйсбүүкээр нэвтрэхэд алдаа гарлаа');
+      setLoading(false);
+      return;
+    }
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
+    if (result.type === 'success') {
+      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
+      if (sessionError) setError('Нэвтрэхэд алдаа гарлаа');
+    }
+    setLoading(false);
+  }
+
   async function handleSignUp() {
-    if (!name || !email || !password || !confirm) {
+    const trimmedName  = name.trim();
+    const trimmedEmail = email.trim();
+
+    if (!trimmedName || !trimmedEmail || !password || !confirm) {
       setError('Бүх талбарыг бөглөнө үү');
+      return;
+    }
+    // RFC-5322-lite: catches the common typos without false-rejecting valid
+    // unicode local-parts. Server still has the final say.
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail)) {
+      setError('Зөв и-мэйл хаяг оруулна уу');
+      return;
+    }
+    // Supabase's default minimum is 6, but that's brute-forceable.
+    // Match what the strength meter already advertises as "Сул" → "Дунд".
+    if (password.length < 8) {
+      setError('Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой');
       return;
     }
     if (password !== confirm) {
@@ -58,21 +109,30 @@ export default function SignUpScreen({ navigation }: Props) {
       setError('Үйлчилгээний нөхцөлтэй зөвшөөрнө үү');
       return;
     }
-    setLoading(true);
     setError('');
+    setCaptchaOpen(true);
+  }
+
+  async function onCaptchaSolved(captchaToken: string) {
+    setCaptchaOpen(false);
+    const trimmedName  = name.trim();
+    const trimmedEmail = email.trim();
+    setLoading(true);
     const { error: authError } = await supabase.auth.signUp({
-      email: email.trim(),
+      email: trimmedEmail,
       password,
-      options: { data: { full_name: name.trim() } },
+      options: { data: { full_name: trimmedName }, captchaToken },
     });
     setLoading(false);
     if (authError) {
-      setError(authError.message);
+      const msg = authError.message;
+      if (msg.includes('already registered')) setError('Имэйл бүртгэлтэй байна');
+      else setError('Бүртгүүлэхэд алдаа гарлаа');
     } else {
       navigation.navigate('VerifyOtp', {
         method: 'email',
-        identifier: email.trim(),
-        fullName: name.trim(),
+        identifier: trimmedEmail,
+        fullName: trimmedName,
       });
     }
   }
@@ -218,6 +278,23 @@ export default function SignUpScreen({ navigation }: Props) {
               </LinearGradient>
             </Pressable>
 
+            {/* Divider */}
+            <View style={s.divider}>
+              <View style={s.dividerLine} />
+              <Text style={s.dividerText}>эсвэл</Text>
+              <View style={s.dividerLine} />
+            </View>
+
+            {/* Social signup row */}
+            <View style={s.socialRow}>
+              <Pressable style={s.socialBtn} onPress={handleFacebookSignUp} disabled={loading}>
+                <Ionicons name="logo-facebook" size={18} color="#1877F2" />
+              </Pressable>
+              <Pressable style={s.socialBtn} onPress={() => navigation.navigate('PhoneLogin')} disabled={loading}>
+                <Ionicons name="call-outline" size={18} color={colors.text} />
+              </Pressable>
+            </View>
+
             {/* Login link */}
             <View style={s.loginRow}>
               <Text style={s.loginText}>Бүртгэлтэй хаяг байгаа юу? </Text>
@@ -228,6 +305,11 @@ export default function SignUpScreen({ navigation }: Props) {
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <HCaptchaModal
+        visible={captchaOpen}
+        onSolved={onCaptchaSolved}
+        onCancel={() => setCaptchaOpen(false)}
+      />
     </View>
   );
 }
@@ -240,10 +322,12 @@ const s = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
   backBtn: { marginRight: 12 },
   brandTile: {
-    width: 34, height: 34, borderRadius: 10,
+    width: 44, height: 44, borderRadius: 13,
     alignItems: 'center', justifyContent: 'center',
+    shadowColor: colors.primary, shadowOpacity: 0.33, shadowRadius: 20, shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
-  brandLetter: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  brandLetter: { color: '#fff', fontWeight: '700', fontSize: 19, letterSpacing: -0.3 },
   appName: { color: colors.textMuted, fontSize: 9, fontWeight: '600', letterSpacing: 1.5 },
   pageTitle: { color: colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.4 },
 
@@ -290,4 +374,16 @@ const s = StyleSheet.create({
   loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 14 },
   loginText: { color: colors.textSec, fontSize: 12.5 },
   loginLink: { color: colors.primary, fontSize: 12.5, fontWeight: '600' },
+
+  divider: { flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 16, gap: 10 },
+  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+  dividerText: { color: colors.textMuted, fontSize: 11, fontWeight: '500' },
+
+  socialRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+  socialBtn: {
+    flex: 1, height: 44, borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: colors.border,
+    alignItems: 'center', justifyContent: 'center',
+  },
 });

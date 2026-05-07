@@ -10,14 +10,12 @@ CREATE TABLE IF NOT EXISTS public.user_push_tokens (
 ALTER TABLE public.user_push_tokens ENABLE ROW LEVEL SECURITY;
 
 -- Users can only read/write their own token.
+-- Service-role (edge functions) bypasses RLS automatically and so does NOT
+-- need its own policy here — adding a permissive SELECT policy would leak
+-- every Expo push token to the anon role, since `USING (true)` applies to
+-- every connection that goes through PostgREST.
 CREATE POLICY "user_push_tokens_self"
   ON public.user_push_tokens
   FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
-
--- Service role (edge functions) can read all tokens.
-CREATE POLICY "user_push_tokens_service_read"
-  ON public.user_push_tokens
-  FOR SELECT
-  USING (true);

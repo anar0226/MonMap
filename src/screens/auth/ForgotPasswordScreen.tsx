@@ -7,6 +7,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
 import { colors, gradientPrimary } from '../../theme';
 import type { AuthStackParamList } from '../../navigation';
+import HCaptchaModal from '../../components/HCaptchaModal';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'> };
 
@@ -17,15 +18,25 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
   const [sent, setSent] = useState(false);
   const [sentEmail, setSentEmail] = useState('');
   const [error, setError] = useState('');
+  const [captchaOpen, setCaptchaOpen] = useState(false);
 
   async function handleSend() {
     if (!email) { setError('Имэйл хаягаа оруулна уу'); return; }
-    setLoading(true);
     setError('');
-    const { error: authError } = await supabase.auth.resetPasswordForEmail(email.trim());
+    setCaptchaOpen(true);
+  }
+
+  async function onCaptchaSolved(captchaToken: string) {
+    setCaptchaOpen(false);
+    setLoading(true);
+    const trimmed = email.trim();
+    const { error: authError } = await supabase.auth.resetPasswordForEmail(
+      trimmed,
+      { captchaToken },
+    );
     setLoading(false);
     if (authError) { setError(authError.message); return; }
-    setSentEmail(email.trim());
+    setSentEmail(trimmed);
     setSent(true);
   }
 
@@ -41,6 +52,11 @@ export default function ForgotPasswordScreen({ navigation }: Props) {
           ? <SentState sentEmail={sentEmail} onResend={() => { setSent(false); setEmail(''); setSentEmail(''); }} onBack={() => navigation.goBack()} />
           : <InputState email={email} setEmail={setEmail} emailFocused={emailFocused} setEmailFocused={setEmailFocused} loading={loading} error={error} onSend={handleSend} />}
       </SafeAreaView>
+      <HCaptchaModal
+        visible={captchaOpen}
+        onSolved={onCaptchaSolved}
+        onCancel={() => setCaptchaOpen(false)}
+      />
     </View>
   );
 }

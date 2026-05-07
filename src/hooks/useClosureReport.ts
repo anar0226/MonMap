@@ -18,10 +18,16 @@ export function useClosureReport(placeId: string) {
   const reportClosure = useCallback(async (): Promise<boolean> => {
     setSubmitting(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return false;
+
       const { error } = await supabase
         .from('place_closure_reports')
-        .insert({ place_id: placeId });
-      if (error) throw error;
+        .insert({ place_id: placeId, user_id: userId });
+      // Unique-violation = user already reported this place. Treat as success
+      // so the UI flips to "reported" instead of erroring loudly.
+      if (error && error.code !== '23505') throw error;
       const raw = await AsyncStorage.getItem(STORAGE_KEY).catch(() => null);
       const ids: string[] = raw ? JSON.parse(raw) : [];
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([...ids, placeId]));

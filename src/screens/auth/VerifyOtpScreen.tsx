@@ -15,6 +15,7 @@ import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-naviga
 import { supabase } from '../../lib/supabase';
 import { colors, gradientPrimary } from '../../theme';
 import type { AuthStackParamList } from '../../navigation';
+import HCaptchaModal from '../../components/HCaptchaModal';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'VerifyOtp'>;
 
@@ -27,6 +28,7 @@ export default function VerifyOtpScreen({ navigation, route }: Props) {
   const [resending, setResending] = useState(false);
   const [error, setError] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(60);
+  const [captchaOpen, setCaptchaOpen] = useState(false);
   const inputs = useRef<Array<TextInput | null>>([]);
 
   useEffect(() => {
@@ -87,14 +89,19 @@ export default function VerifyOtpScreen({ navigation, route }: Props) {
     setLoading(false);
   }
 
-  async function resend() {
+  function resend() {
     if (secondsLeft > 0) return;
-    setResending(true);
     setError('');
+    setCaptchaOpen(true);
+  }
+
+  async function onCaptchaSolved(captchaToken: string) {
+    setCaptchaOpen(false);
+    setResending(true);
     const { error: rErr } = await supabase.auth.resend(
       method === 'email'
-        ? { type: 'signup', email: identifier }
-        : { type: 'sms', phone: identifier },
+        ? { type: 'signup', email: identifier, options: { captchaToken } }
+        : { type: 'sms', phone: identifier, options: { captchaToken } },
     );
     setResending(false);
     if (rErr) setError(rErr.message);
@@ -165,6 +172,11 @@ export default function VerifyOtpScreen({ navigation, route }: Props) {
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      <HCaptchaModal
+        visible={captchaOpen}
+        onSolved={onCaptchaSolved}
+        onCancel={() => setCaptchaOpen(false)}
+      />
     </View>
   );
 }

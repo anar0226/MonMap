@@ -93,27 +93,25 @@ export function useBooking() {
         return false;
       }
 
-      const { data, error: err } = await supabase
-        .from('bookings')
-        .insert({
-          user_id: userId,
-          place_id: params.placeId,
-          booked_date: params.date,
-          time_slot: params.timeSlot,
-          party_size: params.partySize,
-          guest_name: params.guestName,
-          guest_phone: params.guestPhone || null,
-          status: 'pending',
-        })
-        .select('id')
-        .single();
+      // Atomic capacity check + insert via RPC. The previous direct INSERT
+      // had no slot-capacity enforcement — two concurrent users could each
+      // book the same remaining covers. See migration
+      // 20260518000001_create_booking_atomic.sql.
+      const { data: bookingId, error: err } = await supabase.rpc('create_booking', {
+        p_place_id:    params.placeId,
+        p_booked_date: params.date,
+        p_time_slot:   params.timeSlot,
+        p_party_size:  params.partySize,
+        p_guest_name:  params.guestName,
+        p_guest_phone: params.guestPhone || null,
+      });
       if (err) throw err;
 
       // Fire-and-forget: notify the business owner of a new booking request.
       // Don't await — a Twilio failure must never block the UX.
-      if (data?.id) {
+      if (bookingId) {
         supabase.functions
-          .invoke('notify-booking', { body: { bookingId: data.id } })
+          .invoke('notify-booking', { body: { bookingId } })
           .catch((e) => console.warn('notify-booking:', e));
       }
 
@@ -121,7 +119,9 @@ export function useBooking() {
       return true;
     } catch (e: any) {
       const msg = e?.message ?? 'Could not submit booking';
-      if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
+      if (msg.includes('slot_full')) {
+        setError('Уучлаарай, энэ цаг захиалгаар дүүрсэн байна.');
+      } else if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
         setError('Та энэ цагт аль хэдийн захиалга хийсэн байна.');
       } else {
         setError('Захиалга үүсгэхэд алдаа гарлаа. Дахин оролдоно уу.');
@@ -185,6 +185,11 @@ export function generateTimeSlots(openHour = 10, closeHour = 20, lastSeatingMinu
   return slots;
 }
 
+// Returns today's date in Asia/Ulaanbaatar (UTC+8, no DST) as YYYY-MM-DD.
+// toISOString() returns UTC, which between 16:00–24:00 UTC is the previous
+// calendar day in Mongolia — the previous code let users submit bookings
+// stamped with yesterday's date and the server trigger accepted them.
 export function todayDateString(): string {
-  return new Date().toISOString().split('T')[0];
+  const mnt = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  return mnt.toISOString().split('T')[0];
 }

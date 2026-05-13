@@ -212,15 +212,77 @@ function _mapBooking(b) {
   };
 }
 
-async function getBookings(placeId) {
+// Supabase config.toml caps PostgREST at max_rows=1000. The previous
+// unbounded getBookings() ordered by booked_date ASC — once a place crossed
+// ~1000 lifetime bookings it returned the 1000 *oldest* rows, silently
+// dropping recent bookings from every portal page.
+//
+// Every caller now goes through a purpose-bounded helper. The common pattern:
+// always include pending bookings (so the status counter stays accurate even
+// when the pending row's date falls outside the window) plus the date slice
+// the caller actually renders.
+
+async function _fetchBookingsBounded({ placeId, sinceDate, untilDate, limit = 1000 }) {
+  let q = _sb.from('bookings').select('*').eq('place_id', placeId);
+  if (sinceDate) q = q.gte('booked_date', sinceDate);
+  if (untilDate) q = q.lte('booked_date', untilDate);
+  q = q.order('booked_date', { ascending: true })
+       .order('time_slot',   { ascending: true })
+       .limit(limit);
+  const { data, error } = await q;
+  if (error) { console.error('getBookings(window):', error); return []; }
+  return data || [];
+}
+
+async function _fetchPendingBookings(placeId) {
   const { data, error } = await _sb
-    .from('bookings')
-    .select('*')
-    .eq('place_id', placeId)
+    .from('bookings').select('*')
+    .eq('place_id', placeId).eq('status', 'pending')
     .order('booked_date', { ascending: true })
-    .order('time_slot',   { ascending: true });
-  if (error) { console.error('getBookings:', error); return []; }
-  return (data || []).map(_mapBooking);
+    .limit(500);
+  if (error) { console.error('getBookings(pending):', error); return []; }
+  return data || [];
+}
+
+function _mergeBookings(...lists) {
+  const seen = new Set();
+  const out  = [];
+  for (const list of lists) {
+    for (const row of list) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      out.push(row);
+    }
+  }
+  out.sort((a, b) => (a.booked_date + a.time_slot).localeCompare(b.booked_date + b.time_slot));
+  return out.map(_mapBooking);
+}
+
+// Dashboard: last 7 days + next 7 days + all pending. Enough for today's
+// stats, the week chart, and the recent table.
+async function getDashboardBookings(placeId) {
+  const sevenAgo   = new Date(); sevenAgo.setDate(sevenAgo.getDate() - 7);
+  const sevenAhead = new Date(); sevenAhead.setDate(sevenAhead.getDate() + 7);
+  const since = `${sevenAgo.getFullYear()}-${_pad(sevenAgo.getMonth()+1)}-${_pad(sevenAgo.getDate())}`;
+  const until = `${sevenAhead.getFullYear()}-${_pad(sevenAhead.getMonth()+1)}-${_pad(sevenAhead.getDate())}`;
+  const [windowRows, pending] = await Promise.all([
+    _fetchBookingsBounded({ placeId, sinceDate: since, untilDate: until, limit: 500 }),
+    _fetchPendingBookings(placeId),
+  ]);
+  return _mergeBookings(windowRows, pending);
+}
+
+// Bookings page: the calendar month currently visible + all pending.
+// Caller refetches on month navigation.
+async function getMonthBookings(placeId, year, month /* 0-indexed */) {
+  const since = `${year}-${_pad(month + 1)}-01`;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const until = `${year}-${_pad(month + 1)}-${_pad(lastDay)}`;
+  const [windowRows, pending] = await Promise.all([
+    _fetchBookingsBounded({ placeId, sinceDate: since, untilDate: until, limit: 1000 }),
+    _fetchPendingBookings(placeId),
+  ]);
+  return _mergeBookings(windowRows, pending);
 }
 
 async function updateBookingStatus(id, status) {

@@ -306,8 +306,17 @@
     document.getElementById('calGrid').innerHTML = html;
   }
 
-  function prevMonth() { calDate.setMonth(calDate.getMonth() - 1); renderCalendar(); }
-  function nextMonth() { calDate.setMonth(calDate.getMonth() + 1); renderCalendar(); }
+  // Month nav reloads bookings — _bookings only carries the visible month's
+  // rows plus all-pending, so navigating without a refetch leaves the
+  // calendar dots stale.
+  async function reloadMonth() {
+    if (!_biz) return;
+    _bookings = await getMonthBookings(_biz.id, calDate.getFullYear(), calDate.getMonth());
+    renderCalendar();
+    renderList();
+  }
+  function prevMonth() { calDate.setMonth(calDate.getMonth() - 1); reloadMonth(); }
+  function nextMonth() { calDate.setMonth(calDate.getMonth() + 1); reloadMonth(); }
   function selectDate(str) { selectedDate = str; renderCalendar(); renderList(); }
 
   // ── List ──
@@ -371,7 +380,7 @@
     if (!b) return;
     const err = await confirmAndNotify(id);
     if (err) { showToast('error', 'Алдаа', err.message); return; }
-    _bookings = await getBookings(_biz.id);
+    _bookings = await getMonthBookings(_biz.id, calDate.getFullYear(), calDate.getMonth());
     renderCalendar(); renderList();
     showToast('success', 'Баталгаажуулагдлаа', `${b.client}-д мэдэгдэл явуулагдлаа.`);
   }
@@ -386,7 +395,7 @@
     if (b) {
       const err = await updateBookingStatus(b.id, 'canceled');
       if (!err) {
-        _bookings = await getBookings(_biz.id);
+        _bookings = await getMonthBookings(_biz.id, calDate.getFullYear(), calDate.getMonth());
         renderCalendar(); renderList();
         showToast('warning', 'Цуцлагдлаа', `${b.client}-ийн захиалга цуцлагдлаа.`);
       } else showToast('error', 'Алдаа', err.message);
@@ -436,7 +445,7 @@
     }
     const err = await addPortalBooking(_biz.id, _user.id, { client, phone, service, date, time, duration, note });
     if (err) { showToast('error', 'Алдаа', err.message); return; }
-    _bookings = await getBookings(_biz.id);
+    _bookings = await getMonthBookings(_biz.id, calDate.getFullYear(), calDate.getMonth());
     selectedDate = date;
     renderCalendar(); renderList(); toggleAddForm();
     showToast('success', 'Захиалга нэмэгдлээ', `${client}-ийн захиалга амжилттай нэмэгдлээ.`);
@@ -465,7 +474,7 @@
 
     if (!_biz) return;
 
-    _bookings = await getBookings(_biz.id);
+    _bookings = await getMonthBookings(_biz.id, calDate.getFullYear(), calDate.getMonth());
     renderCalendar();
     renderList();
 

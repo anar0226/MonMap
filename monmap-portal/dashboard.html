@@ -417,7 +417,7 @@
 
   async function render() {
     if (!_biz) return;
-    _bookings = await getBookings(_biz.id);
+    _bookings = await getDashboardBookings(_biz.id);
     renderStats();
     renderTodaySchedule();
     renderWeekChart();

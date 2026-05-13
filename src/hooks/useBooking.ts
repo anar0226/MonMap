@@ -118,6 +118,7 @@ export function useBooking() {
         return false;
       }
 
+<<<<<<< HEAD
       // Atomic capacity check + insert. See migration
       // 20260518000001_create_booking_atomic.sql — the previous direct
       // INSERT had no slot-capacity enforcement, so two concurrent users
@@ -304,9 +305,9 @@ export function generateTimeSlots(
 }
 
 // Returns today's date in Asia/Ulaanbaatar (UTC+8, no DST) as YYYY-MM-DD.
-// Using toISOString() returned UTC, which between 16:00-24:00 UTC was the
+// Using toISOString() returns UTC, which between 16:00–24:00 UTC is the
 // previous calendar day in Mongolia — so date-equality checks against
-// booked_date silently rejected/accepted the wrong day.
+// booked_date must use this function, not CURRENT_DATE in the DB.
 export function todayDateString(): string {
   const mnt = new Date(Date.now() + 8 * 60 * 60 * 1000);
   return mnt.toISOString().split('T')[0];

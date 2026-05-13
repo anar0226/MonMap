@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co; img-src 'self' data: blob: https:; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Харилцагчид — МонМэп Бизнес Портал</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* ── KPI strip ── */
+    .cust-kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .cust-kpi {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      padding: 14px 16px;
+    }
+    .cust-kpi-label {
+      font-size: 0.6875rem; font-weight: 700; color: var(--gray-400);
+      letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .cust-kpi-value {
+      font-size: 1.375rem; font-weight: 700; color: var(--gray-900);
+      letter-spacing: -.02em; line-height: 1;
+    }
+    .cust-kpi-delta {
+      font-size: 0.6875rem; font-weight: 600; padding: 2px 6px;
+      border-radius: 5px; margin-top: 6px; display: inline-block;
+    }
+    .cust-kpi-delta.up   { color: #059669; background: #ECFDF5; }
+    .cust-kpi-delta.down { color: #DC2626; background: #FEF2F2; }
+    .cust-kpi-delta.neu  { color: var(--gray-500); background: var(--gray-100); }
+
+    /* ── Toolbar ── */
+    .cust-toolbar {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .cust-search {
+      position: relative; flex: 1; min-width: 200px; max-width: 340px;
+    }
+    .cust-search input {
+      width: 100%; padding: 8px 12px 8px 34px;
+      border: 1px solid var(--gray-200); border-radius: 8px;
+      font-size: 0.8125rem; font-family: inherit;
+      background: var(--white); color: var(--gray-800);
+      outline: none; transition: border-color .15s;
+    }
+    .cust-search input:focus { border-color: var(--primary); }
+    .cust-search .search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      font-size: 0.875rem; color: var(--gray-400); pointer-events: none;
+    }
+    .filter-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 7px 12px; background: var(--white);
+      border: 1px solid var(--gray-200); border-radius: 8px;
+      font-size: 0.78125rem; font-weight: 500; color: var(--gray-700);
+      cursor: pointer; font-family: inherit; white-space: nowrap;
+      transition: all .12s;
+    }
+    .filter-btn:hover { background: var(--gray-50); border-color: var(--gray-300); }
+    .filter-btn.active { background: var(--primary-light); border-color: var(--primary); color: var(--primary); }
+    .cust-toolbar-right { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+
+    /* ── Customer table ── */
+    .cust-table-wrap { overflow-x: auto; }
+    .cust-table {
+      width: 100%; border-collapse: collapse;
+    }
+    .cust-table th {
+      padding: 10px 14px; text-align: left;
+      font-size: 0.6875rem; font-weight: 700;
+      color: var(--gray-400); letter-spacing: .06em; text-transform: uppercase;
+      border-bottom: 1px solid var(--gray-200);
+      white-space: nowrap;
+    }
+    .cust-table td {
+      padding: 13px 14px; font-size: 0.8125rem;
+      border-bottom: 1px solid var(--gray-100);
+      vertical-align: middle;
+    }
+    .cust-table tbody tr:last-child td { border-bottom: none; }
+    .cust-table tbody tr { transition: background .1s; cursor: pointer; }
+    .cust-table tbody tr:hover { background: var(--gray-50); }
+    .cust-table th.cell-r, .cust-table td.cell-r { text-align: right; }
+
+    /* ── Customer avatar ── */
+    .cust-avatar {
+      width: 34px; height: 34px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8125rem; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+    }
+    .cust-name-cell { display: flex; align-items: center; gap: 10px; }
+    .cust-name-info { display: flex; flex-direction: column; }
+    .cust-name-primary { font-weight: 600; color: var(--gray-900); }
+    .cust-name-secondary { font-size: 0.71875rem; color: var(--gray-400); margin-top: 1px; }
+
+    /* ── Segment badge ── */
+    .seg-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 12px;
+      font-size: 0.6875rem; font-weight: 600; white-space: nowrap;
+    }
+    .seg-vip      { background: #FEF3C7; color: #92400E; }
+    .seg-loyal    { background: #ECFDF5; color: #065F46; }
+    .seg-regular  { background: #EFF6FF; color: #1E40AF; }
+    .seg-new      { background: #F5F3FF; color: #5B21B6; }
+    .seg-atrisk   { background: #FEF2F2; color: #991B1B; }
+    .seg-inactive { background: var(--gray-100); color: var(--gray-500); }
+
+    /* ── Stars ── */
+    .star-row { color: #F59E0B; font-size: 0.75rem; }
+    .star-empty { color: var(--gray-200); }
+
+    /* ── Detail modal ── */
+    .cust-modal-header {
+      display: flex; align-items: center; gap: 14px;
+      padding-bottom: 16px; border-bottom: 1px solid var(--gray-100);
+      margin-bottom: 16px;
+    }
+    .cust-modal-avatar {
+      width: 52px; height: 52px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.25rem; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .cust-modal-name { font-size: 1.0625rem; font-weight: 700; color: var(--gray-900); }
+    .cust-modal-phone { font-size: 0.8125rem; color: var(--gray-500); margin-top: 2px; }
+    .cust-stat-strip {
+      display: grid; grid-template-columns: repeat(3, 1fr);
+      gap: 1px; background: var(--gray-100);
+      border-radius: 10px; overflow: hidden; margin-bottom: 16px;
+    }
+    .cust-stat-cell {
+      background: var(--white); padding: 12px 16px; text-align: center;
+    }
+    .cust-stat-cell-val { font-size: 1.125rem; font-weight: 700; color: var(--gray-900); }
+    .cust-stat-cell-lbl { font-size: 0.65625rem; color: var(--gray-400); margin-top: 3px; text-transform: uppercase; font-weight: 600; letter-spacing: .04em; }
+    .hist-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0; border-bottom: 1px solid var(--gray-100);
+    }
+    .hist-row:last-child { border-bottom: none; }
+    .hist-date { font-size: 0.71875rem; color: var(--gray-400); min-width: 72px; }
+    .hist-service { font-size: 0.8125rem; font-weight: 500; flex: 1; }
+    .hist-time { font-size: 0.71875rem; color: var(--gray-400); }
+
+    /* ── Empty / loading ── */
+    .cust-loading {
+      display: flex; align-items: center; justify-content: center;
+      padding: 48px; color: var(--gray-400); gap: 10px;
+    }
+    .cust-result-info {
+      font-size: 0.75rem; color: var(--gray-400);
+    }
+
+    /* ── Pagination ── */
+    .cust-pagination {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 20px; border-top: 1px solid var(--gray-100);
+      flex-wrap: wrap; gap: 10px;
+    }
+    .page-btns { display: flex; gap: 4px; }
+    .page-btn {
+      width: 32px; height: 32px; border-radius: 6px;
+      border: 1px solid var(--gray-200); background: var(--white);
+      font-size: 0.8125rem; font-weight: 500; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--gray-700); font-family: inherit; transition: all .1s;
+    }
+    .page-btn:hover:not(:disabled) { background: var(--gray-50); }
+    .page-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .page-btn:disabled { opacity: .4; cursor: default; }
+  </style>
+</head>
+<body>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="index.html" class="sidebar-logo" aria-label="MONMAP">
+        <div class="logo-icon" aria-hidden="true"></div>
+        MONMAP
+      </a>
+    </div>
+    <div class="sidebar-business">
+      <div class="business-pill">
+        <div class="business-avatar" id="sbAvatar">М</div>
+        <div class="business-info">
+          <div class="business-name" id="sbBizName">...</div>
+          <div class="business-type" id="sbBizType">МонМэп Бизнес</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Үндсэн</span>
+      <a href="dashboard.html"><span class="nav-icon" data-icon="home"></span> Самбар</a>
+      <a href="bookings.html">
+        <span class="nav-icon" data-icon="calendar"></span> Захиалга
+        <span class="nav-badge" id="pendingBadge" style="display:none">0</span>
+      </a>
+      <span class="nav-section-label">Удирдлага</span>
+      <a href="profile.html"><span class="nav-icon" data-icon="store"></span> Бизнесийн мэдээлэл</a>
+      <a href="services.html"><span class="nav-icon" data-icon="services"></span> Үйлчилгээ & Цаг</a>
+      <a href="reports.html"><span class="nav-icon" data-icon="chart"></span> Тайлан</a>
+      <a href="customers.html" class="active"><span class="nav-icon" data-icon="users"></span> Харилцагчид</a>
+      <span class="nav-section-label">Тохиргоо</span>
+      <a href="notifications.html">
+        <span class="nav-icon" data-icon="bell"></span> Мэдэгдэл
+        <span class="nav-badge" id="notifBadge" style="display:none;">0</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="profile.html"><span class="nav-icon" data-icon="user"></span> Профайл</a>
+      <button type="button" class="nav-link" onclick="logout()"><span class="nav-icon" data-icon="logout"></span> Гарах</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Цэс">☰</button>
+        <span class="page-title">Харилцагчид</span>
+      </div>
+      <div class="top-bar-right">
+        <button class="btn btn-outline btn-sm" onclick="exportCsv()">↓ CSV татах</button>
+        <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл"><span data-icon="bell" aria-hidden="true"></span><span class="notification-dot"></span></button>
+        <div class="top-bar-avatar" id="topAvatar">М</div>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- KPI strip -->
+      <div class="cust-kpi-grid" id="kpiGrid">
+        <div class="cust-kpi">
+          <div class="cust-kpi-label">Нийт харилцагч</div>
+          <div class="cust-kpi-value" id="kpiTotal">—</div>
+          <span class="cust-kpi-delta neu" id="kpiTotalDelta">...</span>
+        </div>
+        <div class="cust-kpi">
+          <div class="cust-kpi-label">Шинэ (энэ сар)</div>
+          <div class="cust-kpi-value" id="kpiNew">—</div>
+          <span class="cust-kpi-delta up" id="kpiNewDelta">↑ Сүүлийн 30 хоног</span>
+        </div>
+        <div class="cust-kpi">
+          <div class="cust-kpi-label">Буцаж ирэгчид</div>
+          <div class="cust-kpi-value" id="kpiReturning">—</div>
+          <span class="cust-kpi-delta up" id="kpiRetDelta">Давтан захиалагчид</span>
+        </div>
+        <div class="cust-kpi">
+          <div class="cust-kpi-label">Дундаж захиалга</div>
+          <div class="cust-kpi-value" id="kpiAvgVisits">—</div>
+          <span class="cust-kpi-delta neu">Нэг харилцагчид</span>
+        </div>
+        <div class="cust-kpi">
+          <div class="cust-kpi-label">Хамгийн идэвхтэй</div>
+          <div class="cust-kpi-value" id="kpiTopName" style="font-size:0.9375rem">—</div>
+          <span class="cust-kpi-delta neu" id="kpiTopCount">...</span>
+        </div>
+      </div>
+
+      <!-- Customer table card -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">👥 Харилцагчдын жагсаалт</span>
+          <span class="cust-result-info" id="resultInfo"></span>
+        </div>
+
+        <!-- Toolbar -->
+        <div style="padding: 0 20px 12px;">
+          <div class="cust-toolbar">
+            <div class="cust-search">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="searchInput" placeholder="Нэр эсвэл утасны дугаар..." oninput="onSearch()" />
+            </div>
+            <button class="filter-btn active" data-seg="all" onclick="setSegFilter('all', this)">Бүгд</button>
+            <button class="filter-btn" data-seg="vip" onclick="setSegFilter('vip', this)">⭐ VIP</button>
+            <button class="filter-btn" data-seg="loyal" onclick="setSegFilter('loyal', this)">💚 Байнгын</button>
+            <button class="filter-btn" data-seg="new" onclick="setSegFilter('new', this)">🆕 Шинэ</button>
+            <button class="filter-btn" data-seg="atrisk" onclick="setSegFilter('atrisk', this)">⚠️ Эргэхгүй</button>
+            <div class="cust-toolbar-right">
+              <select class="filter-btn" id="sortSelect" onchange="render()" style="padding-right:24px;appearance:none;">
+                <option value="visits_desc">Захиалга ↓</option>
+                <option value="visits_asc">Захиалга ↑</option>
+                <option value="last_desc">Сүүлийн огноо ↓</option>
+                <option value="last_asc">Сүүлийн огноо ↑</option>
+                <option value="name_asc">Нэр A→Я</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Table -->
+        <div class="cust-table-wrap">
+          <table class="cust-table">
+            <thead>
+              <tr>
+                <th>Харилцагч</th>
+                <th class="cell-r">Захиалга</th>
+                <th>Сүүлийн огноо</th>
+                <th>Дуртай үйлчилгээ</th>
+                <th>Төрөл</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="custTableBody">
+              <tr><td colspan="6" class="cust-loading">⏳ Ачааллаж байна...</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="cust-pagination" id="pagination" style="display:none">
+          <span class="cust-result-info" id="pageInfo"></span>
+          <div class="page-btns" id="pageBtns"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Customer detail modal -->
+<div class="modal-overlay" id="custModal">
+  <div class="modal" style="max-width:520px;width:100%;">
+    <div class="modal-header">
+      <span class="modal-title">Харилцагчийн мэдээлэл</span>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body" id="custModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">Хаах</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js" integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae" crossorigin="anonymous"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/icons.js"></script>
+<script>
+const AVATAR_COLORS = ['#0053A3','#EC4899','#10B981','#6366F1','#F59E0B','#EF4444','#8B5CF6','#14B8A6','#F97316','#06B6D4'];
+const PAGE_SIZE = 20;
+
+let _customers    = [];  // aggregated customer records
+let _filtered     = [];  // after search + segment filter
+let _currentPage  = 1;
+let _segFilter    = 'all';
+let _searchQuery  = '';
+let _biz          = null; // populated by init(); used by openModal for the lazy history fetch
+
+// ── Derive customer list from get_place_customers RPC rows ────────
+// The RPC (migration 20260518000003) aggregates server-side, so we no
+// longer scan every booking client-side and we no longer trip the 1000-row
+// PostgREST cap. Segment classification stays on the client — it's a pure
+// function of visits + dates and changing it doesn't require a migration.
+function buildCustomers(rows) {
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now); thirtyDaysAgo.setDate(now.getDate() - 30);
+  const ninetyDaysAgo = new Date(now); ninetyDaysAgo.setDate(now.getDate() - 90);
+
+  return rows.map(r => {
+    const firstDate = new Date(r.first_date + 'T00:00:00');
+    const lastDate  = new Date(r.last_date  + 'T00:00:00');
+    const visits    = r.visits;
+
+    const isNew    = firstDate >= thirtyDaysAgo && visits < 3;
+    const isAtRisk = lastDate  <  ninetyDaysAgo && visits >= 3;
+    const isVip    = visits >= 10;
+    const isLoyal  = visits >= 5 && !isVip;
+    const isReg    = visits >= 3 && !isLoyal && !isVip;
+
+    let segment;
+    if (isAtRisk)      segment = 'atrisk';
+    else if (isVip)    segment = 'vip';
+    else if (isLoyal)  segment = 'loyal';
+    else if (isNew)    segment = 'new';
+    else if (isReg)    segment = 'regular';
+    else               segment = 'inactive';
+
+    return {
+      key:        r.customer_key,
+      name:       r.name,
+      phone:      r.phone,
+      visits,
+      firstDate,
+      lastDate,
+      topService: r.top_service || '—',
+      segment,
+    };
+  });
+}
+
+// Modal opens lazily — we fetch the per-customer booking history on demand
+// instead of carrying every booking row in memory. Cached per session so a
+// repeat open is instant.
+const _customerHistoryCache = new Map();
+async function fetchCustomerHistory(placeId, customer) {
+  const cacheKey = `${placeId}|${customer.key}`;
+  if (_customerHistoryCache.has(cacheKey)) return _customerHistoryCache.get(cacheKey);
+
+  // Match the server-side keying: phone wins over name. If neither matches,
+  // we end up with an empty filter (the .or string would be invalid), so
+  // short-circuit there.
+  let q = _sb.from('bookings').select('*').eq('place_id', placeId)
+    .order('booked_date', { ascending: false })
+    .order('time_slot',   { ascending: false })
+    .limit(20);
+  if (customer.phone) {
+    q = q.eq('guest_phone', customer.phone);
+  } else if (customer.name && customer.name !== 'Харилцагч') {
+    q = q.eq('guest_name', customer.name);
+  } else {
+    return [];
+  }
+
+  const { data, error } = await q;
+  if (error) { console.warn('fetchCustomerHistory:', error); return []; }
+  const mapped = (data || []).map(_mapBooking);
+  _customerHistoryCache.set(cacheKey, mapped);
+  return mapped;
+}
+
+// ── Segment display ────────────────────────────────────────────────
+const SEG_META = {
+  vip:      { label: '⭐ VIP',      cls: 'seg-vip'      },
+  loyal:    { label: '💚 Байнгын',  cls: 'seg-loyal'    },
+  regular:  { label: '🔵 Тогтмол',  cls: 'seg-regular'  },
+  new:      { label: '🆕 Шинэ',     cls: 'seg-new'      },
+  atrisk:   { label: '⚠️ Эргэхгүй', cls: 'seg-atrisk'  },
+  inactive: { label: '⬜ Идэвхгүй', cls: 'seg-inactive' },
+};
+
+function segBadge(seg) {
+  const m = SEG_META[seg] || SEG_META.inactive;
+  return `<span class="seg-badge ${m.cls}">${escapeHtml(m.label)}</span>`;
+}
+
+// ── Avatar color from name ─────────────────────────────────────────
+function avatarColor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffffffff;
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+// ── KPI render ────────────────────────────────────────────────────
+function renderKpis() {
+  const total     = _customers.length;
+  const returning = _customers.filter(c => c.visits > 1).length;
+  const now       = new Date();
+  const thirtyAgo = new Date(now); thirtyAgo.setDate(now.getDate() - 30);
+  const newThisMonth = _customers.filter(c => c.firstDate >= thirtyAgo).length;
+  const avgVisits = total ? (_customers.reduce((a, c) => a + c.visits, 0) / total).toFixed(1) : '—';
+  const top       = [..._customers].sort((a, b) => b.visits - a.visits)[0];
+
+  document.getElementById('kpiTotal').textContent     = total;
+  document.getElementById('kpiTotalDelta').textContent = `Нийт ${total} хүн`;
+  document.getElementById('kpiNew').textContent        = newThisMonth;
+  document.getElementById('kpiReturning').textContent  = returning;
+  document.getElementById('kpiRetDelta').textContent   = `${total ? Math.round((returning/total)*100) : 0}% буцаж ирсэн`;
+  document.getElementById('kpiAvgVisits').textContent  = avgVisits + ' удаа';
+  if (top) {
+    document.getElementById('kpiTopName').textContent  = top.name;
+    document.getElementById('kpiTopCount').textContent = `${top.visits} захиалга`;
+  }
+}
+
+// ── Filter + sort pipeline ────────────────────────────────────────
+function applyFilters() {
+  const q    = _searchQuery.toLowerCase();
+  const sort = document.getElementById('sortSelect').value;
+
+  _filtered = _customers.filter(c => {
+    if (_segFilter !== 'all' && c.segment !== _segFilter) return false;
+    if (q) {
+      const nameMatch  = c.name.toLowerCase().includes(q);
+      const phoneMatch = c.phone && c.phone.includes(q);
+      if (!nameMatch && !phoneMatch) return false;
+    }
+    return true;
+  });
+
+  // Sort
+  _filtered.sort((a, b) => {
+    switch (sort) {
+      case 'visits_desc': return b.visits - a.visits;
+      case 'visits_asc':  return a.visits - b.visits;
+      case 'last_desc':   return b.lastDate - a.lastDate;
+      case 'last_asc':    return a.lastDate - b.lastDate;
+      case 'name_asc':    return a.name.localeCompare(b.name, 'mn');
+      default:            return b.visits - a.visits;
+    }
+  });
+}
+
+// ── Table render ─────────────────────────────────────────────────
+function render() {
+  applyFilters();
+  _currentPage = 1;
+  renderPage();
+}
+
+function renderPage() {
+  const start  = (_currentPage - 1) * PAGE_SIZE;
+  const page   = _filtered.slice(start, start + PAGE_SIZE);
+  const total  = _filtered.length;
+
+  // Result info
+  document.getElementById('resultInfo').textContent = total ? `${total} харилцагч олдлоо` : '';
+
+  const tbody = document.getElementById('custTableBody');
+  if (!page.length) {
+    tbody.innerHTML = `<tr><td colspan="6">
+      <div class="empty-state" style="padding:40px 0;">
+        <div class="empty-icon">👤</div>
+        <h4>Харилцагч олдсонгүй</h4>
+        <p>Хайлтын нөхцөлөө өөрчлөж үзнэ үү.</p>
+      </div>
+    </td></tr>`;
+  } else {
+    tbody.innerHTML = page.map(c => {
+      const color   = avatarColor(c.name);
+      const initials = c.name.slice(0, 2).toUpperCase();
+      const lastStr  = relativeDate(c.lastDate.toISOString().slice(0, 10));
+      return `<tr onclick="openModal('${escapeHtml(c.key)}')">
+        <td>
+          <div class="cust-name-cell">
+            <div class="cust-avatar" style="background:${color}">${escapeHtml(initials)}</div>
+            <div class="cust-name-info">
+              <span class="cust-name-primary">${escapeHtml(c.name)}</span>
+              <span class="cust-name-secondary">${escapeHtml(c.phone || '—')}</span>
+            </div>
+          </div>
+        </td>
+        <td class="cell-r" style="font-weight:700;">${c.visits}</td>
+        <td style="color:var(--gray-600)">${escapeHtml(lastStr)}</td>
+        <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.topService)}</td>
+        <td>${segBadge(c.segment)}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();openModal('${escapeHtml(c.key)}')">Дэлгэрэнгүй</button>
+        </td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Pagination
+  renderPagination(total);
+}
+
+function renderPagination(total) {
+  const pages = Math.ceil(total / PAGE_SIZE);
+  const pag   = document.getElementById('pagination');
+  if (pages <= 1) { pag.style.display = 'none'; return; }
+  pag.style.display = 'flex';
+
+  const start = (_currentPage - 1) * PAGE_SIZE + 1;
+  const end   = Math.min(_currentPage * PAGE_SIZE, total);
+  document.getElementById('pageInfo').textContent = `${start}–${end} / ${total}`;
+
+  let btns = `<button class="page-btn" onclick="goPage(${_currentPage - 1})" ${_currentPage === 1 ? 'disabled' : ''}>‹</button>`;
+  for (let p = 1; p <= pages; p++) {
+    if (pages > 7 && Math.abs(p - _currentPage) > 2 && p !== 1 && p !== pages) {
+      if (p === 2 || p === pages - 1) btns += `<button class="page-btn" disabled>…</button>`;
+      continue;
+    }
+    btns += `<button class="page-btn ${p === _currentPage ? 'active' : ''}" onclick="goPage(${p})">${p}</button>`;
+  }
+  btns += `<button class="page-btn" onclick="goPage(${_currentPage + 1})" ${_currentPage === pages ? 'disabled' : ''}>›</button>`;
+  document.getElementById('pageBtns').innerHTML = btns;
+}
+
+function goPage(p) {
+  const pages = Math.ceil(_filtered.length / PAGE_SIZE);
+  if (p < 1 || p > pages) return;
+  _currentPage = p;
+  renderPage();
+  document.querySelector('.main-content').scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ── Search / filter handlers ───────────────────────────────────────
+function onSearch() {
+  _searchQuery = document.getElementById('searchInput').value;
+  render();
+}
+
+function setSegFilter(seg, btn) {
+  _segFilter = seg;
+  document.querySelectorAll('.filter-btn[data-seg]').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  render();
+}
+
+// ── Customer detail modal ─────────────────────────────────────────
+async function openModal(key) {
+  const c = _customers.find(x => x.key === key);
+  if (!c) return;
+
+  const color   = avatarColor(c.name);
+  const initials = c.name.slice(0, 2).toUpperCase();
+  const firstStr = formatDate(c.firstDate.toISOString().slice(0, 10));
+
+  const segM = SEG_META[c.segment] || SEG_META.inactive;
+
+  // Render the shell synchronously so the modal opens instantly; fill
+  // history once it lands (or fails). _biz is the page-local cached owner
+  // record from requireAuth().
+  const renderShell = (historyHtml) => {
+    document.getElementById('custModalBody').innerHTML = `
+    <div class="cust-modal-header">
+      <div class="cust-modal-avatar" style="background:${color}">${escapeHtml(initials)}</div>
+      <div style="flex:1">
+        <div class="cust-modal-name">${escapeHtml(c.name)}</div>
+        <div class="cust-modal-phone">${escapeHtml(c.phone || 'Утас бүртгэгдээгүй')}</div>
+        <div style="margin-top:6px">${segBadge(c.segment)}</div>
+      </div>
+    </div>
+    <div class="cust-stat-strip">
+      <div class="cust-stat-cell">
+        <div class="cust-stat-cell-val">${c.visits}</div>
+        <div class="cust-stat-cell-lbl">Нийт захиалга</div>
+      </div>
+      <div class="cust-stat-cell">
+        <div class="cust-stat-cell-val">${escapeHtml(c.topService.length > 12 ? c.topService.slice(0, 12) + '…' : c.topService)}</div>
+        <div class="cust-stat-cell-lbl">Дуртай үйлчилгээ</div>
+      </div>
+      <div class="cust-stat-cell">
+        <div class="cust-stat-cell-val" style="font-size:.875rem">${escapeHtml(firstStr.replace(' он, ', '/').replace('-ны өдөр', ''))}</div>
+        <div class="cust-stat-cell-lbl">Анхны захиалга</div>
+      </div>
+    </div>
+    <div style="font-size:0.75rem;font-weight:700;color:var(--gray-400);letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;">
+      Захиалгын түүх
+    </div>
+    <div id="custHistoryBody" style="max-height:260px;overflow-y:auto;">
+      ${historyHtml || '<div class="empty-state" style="padding:24px 0"><div class="empty-icon">⏳</div><p>Уншиж байна…</p></div>'}
+    </div>
+  `;
+  };
+
+  renderShell('');
+  document.getElementById('custModal').classList.add('open');
+
+  // Lazy-load the per-customer booking history. _biz is the requireAuth()
+  // cache populated in the page init at the bottom of this file.
+  const placeId = _biz && _biz.id;
+  if (!placeId) return;
+  const history = await fetchCustomerHistory(placeId, c);
+  const historyHtml = history.length
+    ? history.map(b => `<div class="hist-row">
+        <span class="hist-date">${escapeHtml(formatDate(b.date).replace(' он, ', ' / ').replace('-ны өдөр', ''))}</span>
+        <span class="hist-service">${escapeHtml(b.service || '—')}</span>
+        <span class="hist-time">${escapeHtml(b.time)}</span>
+        ${statusBadge(b.status)}
+      </div>`).join('')
+    : '<div class="empty-state" style="padding:24px 0"><div class="empty-icon">📭</div><p>Захиалга байхгүй</p></div>';
+  const body = document.getElementById('custHistoryBody');
+  if (body) body.innerHTML = historyHtml;
+}
+
+function closeModal() {
+  document.getElementById('custModal').classList.remove('open');
+}
+
+document.getElementById('custModal').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+
+// ── CSV export ────────────────────────────────────────────────────
+function exportCsv() {
+  if (!_filtered.length) { showToast('info', 'Өгөгдөл байхгүй', 'Экспортлох харилцагч байхгүй байна.'); return; }
+  const rows = [['Нэр','Утас','Захиалга','Сүүлийн огноо','Дуртай үйлчилгээ','Төрөл']];
+  _filtered.forEach(c => rows.push([
+    c.name, c.phone || '', c.visits,
+    c.lastDate.toISOString().slice(0, 10),
+    c.topService,
+    SEG_META[c.segment]?.label || c.segment,
+  ]));
+  const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), { href: url, download: 'customers.csv' });
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ── Init ─────────────────────────────────────────────────────────
+(async function init() {
+  const auth = await requireAuth();
+  if (!auth) return;
+
+  const { user, biz } = auth;
+  _biz = biz;
+  const bizName = (biz && biz.name) || 'МонМэп Бизнес';
+  const init0   = bizName[0].toUpperCase();
+  document.getElementById('sbBizName').textContent = bizName;
+  document.getElementById('sbBizType').textContent = (biz && biz.type) || 'Бизнес';
+  document.getElementById('sbAvatar').textContent  = init0;
+  document.getElementById('topAvatar').textContent = (user.email || 'М')[0].toUpperCase();
+
+  initMobileSidebar();
+
+  if (!biz) {
+    document.getElementById('custTableBody').innerHTML = `<tr><td colspan="6">
+      <div class="empty-state" style="padding:48px 0;">
+        <div class="empty-icon">🏪</div>
+        <h4>Бизнес бүртгэгдээгүй байна</h4>
+        <p><a href="register.html">Бизнесээ бүртгүүлэх →</a></p>
+      </div>
+    </td></tr>`;
+    return;
+  }
+
+  // Load pending badge
+  try {
+    const { count } = await _sb.from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('place_id', biz.id).eq('status', 'pending');
+    const badge = document.getElementById('pendingBadge');
+    if (count > 0) { badge.textContent = count; badge.style.display = 'inline-flex'; }
+  } catch (_) {}
+
+  // Load aggregated customers via the server-side RPC. Pulling raw bookings
+  // tripped PostgREST's 1000-row cap once a place crossed ~1000 lifetime
+  // bookings, silently dropping recent customers from the list.
+  const { data: rows, error: rpcErr } = await _sb.rpc('get_place_customers', {
+    p_place_id: biz.id,
+    p_limit:    1000,
+    p_offset:   0,
+  });
+  if (rpcErr) {
+    console.error('get_place_customers:', rpcErr);
+    showToast('error', 'Алдаа', 'Харилцагчдын мэдээллийг ачаалж чадсангүй.');
+    return;
+  }
+  _customers = buildCustomers(rows || []);
+
+  renderKpis();
+  render();
+})();
+</script>
+</body>
+</html>

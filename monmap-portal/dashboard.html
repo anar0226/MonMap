@@ -49,18 +49,18 @@
   <!-- Sidebar -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <a href="index.html" class="sidebar-logo">
-        <div class="logo-icon">📍</div>
-        Мон<span class="accent">Мэп</span>
+      <a href="index.html" class="sidebar-logo" aria-label="MONMAP">
+        <div class="logo-icon" aria-hidden="true"></div>
+        MONMAP
       </a>
     </div>
 
     <div class="sidebar-business">
       <div class="business-pill">
-        <div class="business-avatar" id="sbAvatar">Э</div>
+        <div class="business-avatar" id="sbAvatar">М</div>
         <div class="business-info">
-          <div class="business-name" id="sbBizName">Эрдэнэт салон</div>
-          <div class="business-type" id="sbBizType">Үсчин / Салон</div>
+          <div class="business-name" id="sbBizName">МонМэп Бизнес</div>
+          <div class="business-type" id="sbBizType">—</div>
         </div>
       </div>
     </div>
@@ -68,36 +68,37 @@
     <nav class="sidebar-nav">
       <span class="nav-section-label">Үндсэн</span>
       <a href="dashboard.html" class="active">
-        <span class="nav-icon">🏠</span> Самбар
+        <span class="nav-icon" data-icon="home"></span> Самбар
       </a>
       <a href="bookings.html">
-        <span class="nav-icon">📅</span> Захиалга
+        <span class="nav-icon" data-icon="calendar"></span> Захиалга
         <span class="nav-badge" id="pendingBadge">0</span>
       </a>
 
       <span class="nav-section-label">Удирдлага</span>
       <a href="profile.html">
-        <span class="nav-icon">🏪</span> Бизнесийн мэдээлэл
+        <span class="nav-icon" data-icon="store"></span> Бизнесийн мэдээлэл
       </a>
-      <a href="#" onclick="showServicesModal();return false;">
-        <span class="nav-icon">⚙️</span> Үйлчилгээ & Цаг
+      <a href="services.html">
+        <span class="nav-icon" data-icon="services"></span> Үйлчилгээ & Цаг
       </a>
-      <a href="#">
-        <span class="nav-icon">📊</span> Тайлан
+      <a href="reports.html">
+        <span class="nav-icon" data-icon="chart"></span> Тайлан
       </a>
-      <a href="#">
-        <span class="nav-icon">👥</span> Харилцагчид
+      <a href="customers.html">
+        <span class="nav-icon" data-icon="users"></span> Харилцагчид
       </a>
 
       <span class="nav-section-label">Тохиргоо</span>
-      <a href="#">
-        <span class="nav-icon">🔔</span> Мэдэгдэл
+      <a href="notifications.html">
+        <span class="nav-icon" data-icon="bell"></span> Мэдэгдэл
+        <span class="nav-badge" id="notifBadge" style="display:none;">0</span>
       </a>
     </nav>
 
     <div class="sidebar-footer">
-      <a href="profile.html"><span class="nav-icon">👤</span> Профайл</a>
-      <a href="login.html" onclick="logout(event)"><span class="nav-icon">🚪</span> Гарах</a>
+      <a href="profile.html"><span class="nav-icon" data-icon="user"></span> Профайл</a>
+      <button type="button" class="nav-link" onclick="logout()"><span class="nav-icon" data-icon="logout"></span> Гарах</button>
     </div>
   </aside>
 
@@ -109,8 +110,12 @@
         <span class="page-title">Самбар</span>
       </div>
       <div class="top-bar-right">
+        <button class="theme-toggle" id="themeToggle" aria-label="Дэлгэцийн горим" title="Гэрэлтэй / Харанхуй горим">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+        </button>
         <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл" onclick="showToast('info','Шинэ мэдэгдэл','2 захиалга баталгаажуулахыг хүлээж байна.')">
-          🔔
+          <span data-icon="bell" aria-hidden="true"></span>
           <span class="notification-dot"></span>
         </button>
         <div class="top-bar-avatar" id="topAvatar" title="Профайл">Б</div>
@@ -130,7 +135,11 @@
 
       <!-- Stats -->
       <div class="stats-grid" id="statsGrid">
-        <!-- filled by JS -->
+        <!-- Skeleton placeholders shown until JS replaces them with real KPI cards. -->
+        <div class="skel-stat"><span class="skel skel-line-sm"></span><span class="skel skel-title"></span><span class="skel skel-text"></span></div>
+        <div class="skel-stat"><span class="skel skel-line-sm"></span><span class="skel skel-title"></span><span class="skel skel-text"></span></div>
+        <div class="skel-stat"><span class="skel skel-line-sm"></span><span class="skel skel-title"></span><span class="skel skel-text"></span></div>
+        <div class="skel-stat"><span class="skel skel-line-sm"></span><span class="skel skel-title"></span><span class="skel skel-text"></span></div>
       </div>
 
       <!-- Two column -->
@@ -143,7 +152,10 @@
             <a href="bookings.html" class="btn btn-outline btn-sm">Бүгдийг харах</a>
           </div>
           <div class="card-body" id="todaySchedule" style="padding:8px 24px;">
-            <!-- filled by JS -->
+            <!-- Skeleton rows for the first paint; JS replaces this block. -->
+            <div class="skel-row"><span class="skel skel-circle" style="width:36px;height:36px;flex-shrink:0;"></span><div style="flex:1"><span class="skel skel-line-lg"></span><span class="skel skel-line-sm"></span></div></div>
+            <div class="skel-row"><span class="skel skel-circle" style="width:36px;height:36px;flex-shrink:0;"></span><div style="flex:1"><span class="skel skel-line-lg"></span><span class="skel skel-line-sm"></span></div></div>
+            <div class="skel-row"><span class="skel skel-circle" style="width:36px;height:36px;flex-shrink:0;"></span><div style="flex:1"><span class="skel skel-line-lg"></span><span class="skel skel-line-sm"></span></div></div>
           </div>
         </div>
 
@@ -234,6 +246,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js" integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae" crossorigin="anonymous"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
+<script src="js/icons.js"></script>
 <script>
   let _biz = null;
   let _user = null;
@@ -300,17 +313,20 @@
       el.innerHTML = '<div class="empty-state" style="padding:32px 0;"><div class="empty-icon">📭</div><h4>Өнөөдөр захиалга алга</h4><p>Шинэ захиалга ирвэл энд харагдана.</p></div>';
       return;
     }
+    // All `b.*` values originate from guest-controlled mobile-app input.
+    // Every interpolation that lands inside innerHTML must be escaped to
+    // prevent stored XSS via guest_name / service / note in the bookings table.
     el.innerHTML = todayB.map(b => `
       <div class="schedule-item">
-        <div class="schedule-time">${b.time}</div>
-        <div class="schedule-dot ${b.status}"></div>
+        <div class="schedule-time">${escapeHtml(b.time)}</div>
+        <div class="schedule-dot ${escapeHtml(b.status)}"></div>
         <div class="schedule-info">
-          <div class="schedule-name">${b.client}</div>
-          <div class="schedule-service">${b.service} • ${b.duration} мин</div>
+          <div class="schedule-name">${escapeHtml(b.client)}</div>
+          <div class="schedule-service">${escapeHtml(b.service)} • ${escapeHtml(b.duration)} мин</div>
         </div>
         <div class="schedule-actions">
           ${statusBadge(b.status)}
-          ${b.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="quickConfirm('${b.id}')">✓</button>` : ''}
+          ${b.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="quickConfirm('${escapeHtml(b.id)}')">✓</button>` : ''}
         </div>
       </div>
     `).join('');
@@ -340,18 +356,18 @@
     document.getElementById('recentTableBody').innerHTML = recent.map(b => `
       <tr>
         <td>
-          <div style="font-weight:600;">${b.client}</div>
-          <div style="font-size:0.8125rem;color:var(--gray-500);">${b.phone}</div>
+          <div style="font-weight:600;">${escapeHtml(b.client)}</div>
+          <div style="font-size:0.8125rem;color:var(--gray-500);">${escapeHtml(b.phone)}</div>
         </td>
-        <td>${b.service}</td>
+        <td>${escapeHtml(b.service)}</td>
         <td>
-          <div style="font-weight:600;">${relativeDate(b.date)}</div>
-          <div style="font-size:0.8125rem;color:var(--gray-500);">${b.time} • ${b.duration} мин</div>
+          <div style="font-weight:600;">${escapeHtml(relativeDate(b.date))}</div>
+          <div style="font-size:0.8125rem;color:var(--gray-500);">${escapeHtml(b.time)} • ${escapeHtml(b.duration)} мин</div>
         </td>
         <td>${statusBadge(b.status)}</td>
         <td>
-          <button class="btn btn-ghost btn-sm" onclick="openBookingModal('${b.id}')">Харах</button>
-          ${b.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="quickConfirm('${b.id}')">✓ Батлах</button>` : ''}
+          <button class="btn btn-ghost btn-sm" onclick="openBookingModal('${escapeHtml(b.id)}')">Харах</button>
+          ${b.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="quickConfirm('${escapeHtml(b.id)}')">✓ Батлах</button>` : ''}
         </td>
       </tr>
     `).join('');
@@ -367,16 +383,17 @@
   }
 
   function bookingDetailHtml(b) {
+    // Mirror bookings.html — every `b.*` interpolation gets escapeHtml'd.
     return `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Харилцагч</div><div class="font-semibold">${b.client}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Утас</div><div class="font-semibold">${b.phone || '—'}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Үйлчилгээ</div><div class="font-semibold">${b.service}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Хугацаа</div><div class="font-semibold">${b.duration} минут</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Огноо</div><div class="font-semibold">${formatDate(b.date)}</div></div>
-        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Цаг</div><div class="font-semibold">${b.time}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Харилцагч</div><div class="font-semibold">${escapeHtml(b.client)}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Утас</div><div class="font-semibold">${escapeHtml(b.phone) || '—'}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Үйлчилгээ</div><div class="font-semibold">${escapeHtml(b.service)}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Хугацаа</div><div class="font-semibold">${escapeHtml(b.duration)} минут</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Огноо</div><div class="font-semibold">${escapeHtml(formatDate(b.date))}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Цаг</div><div class="font-semibold">${escapeHtml(b.time)}</div></div>
         <div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Төлөв</div>${statusBadge(b.status)}</div>
-        ${b.note ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Тэмдэглэл</div><div>${b.note}</div></div>` : ''}
+        ${b.note ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Тэмдэглэл</div><div>${escapeHtml(b.note)}</div></div>` : ''}
       </div>`;
   }
 
@@ -417,7 +434,7 @@
 
   async function render() {
     if (!_biz) return;
-    _bookings = await getBookings(_biz.id);
+    _bookings = await getDashboardBookings(_biz.id);
     renderStats();
     renderTodaySchedule();
     renderWeekChart();
@@ -446,6 +463,9 @@
     }
 
     initMobileSidebar();
+    wireThemeToggle('#themeToggle');
+    loadNotifBadge();
+    startNotifBadgePolling();
 
     if (!_biz) {
       document.getElementById('statsGrid').innerHTML = '<div class="empty-state" style="padding:32px;grid-column:1/-1;"><div class="empty-icon">🏪</div><h4>Бизнес бүртгэгдээгүй байна</h4><p><a href="register.html">Бизнесээ бүртгүүлэх →</a></p></div>';

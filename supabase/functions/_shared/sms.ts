@@ -59,8 +59,13 @@ export function pickSender(toPhone: string): string {
 
 /**
  * Send an SMS via Twilio.  Picks the right sender automatically and
- * normalizes the destination phone to E.164 first.  Errors are logged but
- * never thrown — callers don't have to wrap in try/catch.
+ * normalizes the destination phone to E.164 first.
+ *
+ * Throws on actual delivery failure (Twilio API returned non-2xx).  Callers
+ * catch the rejection and log it to notification_attempts so operators have
+ * dashboard visibility into Twilio outages.  Pre-flight config issues
+ * (missing creds, no usable sender) are *not* throws — those are a deployment
+ * problem, not a per-message failure, and would otherwise spam the audit log.
  */
 export async function sendSMS(to: string, body: string): Promise<void> {
   if (!TWILIO_ACCOUNT_SID || !TWILIO_AUTH_TOKEN) {
@@ -86,5 +91,6 @@ export async function sendSMS(to: string, body: string): Promise<void> {
   if (!res.ok) {
     const txt = await res.text()
     console.error(`Twilio error sending to ${normalizedTo} from ${from}:`, txt)
+    throw new Error(`twilio ${res.status}: ${txt}`)
   }
 }

@@ -182,13 +182,6 @@ async function searchPlaces(query) {
   return data || [];
 }
 
-async function claimPlace(userId, placeId) {
-  const { error } = await _sb
-    .from('business_owners')
-    .upsert({ user_id: userId, place_id: placeId }, { onConflict: 'user_id,place_id' });
-  return error;
-}
-
 // ── Booking helpers ──
 // Reads the first-class service / duration_minutes / note columns added in
 // migration 20260513000001. Older rows that pre-date that migration return
@@ -198,29 +191,99 @@ function _mapBooking(b) {
   const statusNorm = s === 'cancelled' ? 'canceled' : s;
   const partySize = Math.max(1, parseInt(b.party_size, 10) || 1);
   return {
-    id:        b.id,
-    client:    b.guest_name  || 'Харилцагч',
-    phone:     b.guest_phone || '',
+    id:            b.id,
+    client:        b.guest_name   || 'Харилцагч',
+    phone:         b.guest_phone  || '',
     partySize,
-    partyText: `${partySize} хүн`,
-    date:      b.booked_date,
-    time:      b.time_slot,
-    status:    statusNorm,
-    service:   b.service || '',
-    duration:  Math.max(1, parseInt(b.duration_minutes, 10) || 60),
-    note:      b.note || '',
+    partyText:     `${partySize} хүн`,
+    date:          b.booked_date,
+    time:          b.time_slot,
+    status:        statusNorm,
+    service:       b.service      || '',
+    duration:      Math.max(1, parseInt(b.duration_minutes, 10) || 60),
+    note:          b.note         || '',
+    depositAmount: b.deposit_amount ?? null,
+    paymentId:     b.payment_id   ?? null,
   };
 }
 
-async function getBookings(placeId) {
+// Supabase config.toml caps PostgREST at max_rows=1000. The previous
+// unbounded query ordered by booked_date ASC, so once a place crossed ~1000
+// lifetime bookings it returned the 1000 *oldest* rows — recent bookings
+// silently disappeared from the dashboard. Every caller now goes through a
+// purpose-bounded helper that loads only the rows it actually renders.
+//
+// Common shape: always include any pending bookings (so the "хүлээгдэж буй"
+// counter stays accurate even when the row's date falls outside the window)
+// plus the date-bounded slice the caller needs.
+async function _fetchBookingsBounded({ placeId, sinceDate, untilDate, limit = 1000 }) {
+  let q = _sb.from('bookings').select('*').eq('place_id', placeId);
+  if (sinceDate) q = q.gte('booked_date', sinceDate);
+  if (untilDate) q = q.lte('booked_date', untilDate);
+  q = q.order('booked_date', { ascending: true })
+       .order('time_slot',   { ascending: true })
+       .limit(limit);
+  const { data, error } = await q;
+  if (error) { console.error('getBookings(window):', error); return []; }
+  return data || [];
+}
+
+// All pending bookings for a place, regardless of date. Cheap because most
+// places carry a handful of pending rows at any moment.
+async function _fetchPendingBookings(placeId) {
   const { data, error } = await _sb
-    .from('bookings')
-    .select('*')
-    .eq('place_id', placeId)
+    .from('bookings').select('*')
+    .eq('place_id', placeId).eq('status', 'pending')
     .order('booked_date', { ascending: true })
-    .order('time_slot',   { ascending: true });
-  if (error) { console.error('getBookings:', error); return []; }
-  return (data || []).map(_mapBooking);
+    .limit(500);
+  if (error) { console.error('getBookings(pending):', error); return []; }
+  return data || [];
+}
+
+function _mergeBookings(...lists) {
+  const seen = new Set();
+  const out  = [];
+  for (const list of lists) {
+    for (const row of list) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      out.push(row);
+    }
+  }
+  out.sort((a, b) => (a.booked_date + a.time_slot).localeCompare(b.booked_date + b.time_slot));
+  return out.map(_mapBooking);
+}
+
+// Dashboard view: recent activity (last 7 days through next 7 days) plus
+// any pending booking. Enough to compute today's stats, the week chart,
+// and the "recent" table — and bounded so a long-running business doesn't
+// silently fall off the 1000-row cliff.
+async function getDashboardBookings(placeId) {
+  const today  = todayStr();
+  const sevenAgo  = new Date(); sevenAgo.setDate(sevenAgo.getDate() - 7);
+  const sevenAhead = new Date(); sevenAhead.setDate(sevenAhead.getDate() + 7);
+  const since = `${sevenAgo.getFullYear()}-${_pad(sevenAgo.getMonth()+1)}-${_pad(sevenAgo.getDate())}`;
+  const until = `${sevenAhead.getFullYear()}-${_pad(sevenAhead.getMonth()+1)}-${_pad(sevenAhead.getDate())}`;
+  void today;
+  const [windowRows, pending] = await Promise.all([
+    _fetchBookingsBounded({ placeId, sinceDate: since, untilDate: until, limit: 500 }),
+    _fetchPendingBookings(placeId),
+  ]);
+  return _mergeBookings(windowRows, pending);
+}
+
+// Bookings page view: the month currently visible in the calendar plus all
+// pending bookings (so the pending chip remains accurate across months).
+// Caller refetches on month change.
+async function getMonthBookings(placeId, year, month /* 0-indexed */) {
+  const since = `${year}-${_pad(month + 1)}-01`;
+  const lastDay = new Date(year, month + 1, 0).getDate();
+  const until = `${year}-${_pad(month + 1)}-${_pad(lastDay)}`;
+  const [windowRows, pending] = await Promise.all([
+    _fetchBookingsBounded({ placeId, sinceDate: since, untilDate: until, limit: 1000 }),
+    _fetchPendingBookings(placeId),
+  ]);
+  return _mergeBookings(windowRows, pending);
 }
 
 async function updateBookingStatus(id, status) {
@@ -237,10 +300,60 @@ async function confirmAndNotify(id) {
   return null;
 }
 
+// Best-effort recovery for guests whose notify-guest dispatch never landed.
+// notify-guest stamps bookings.guest_notified_at only when at least one
+// channel (SMS or push) acknowledged. If Twilio was down, the function 500'd,
+// or the portal lost its connection mid-call, that timestamp stays NULL and
+// the guest is left wondering whether their booking was actually confirmed.
+//
+// On bookings-page load we sweep the place's recent confirmed/cancelled rows
+// and re-invoke notify-guest for any with a NULL stamp. We cap the lookback at
+// 24h because anything older has likely already been resolved out-of-band, and
+// we cap concurrent re-invokes at 5 to avoid hammering the function on first
+// load after a long Twilio outage.
+async function retryStuckGuestNotify(placeId) {
+  if (!placeId) return;
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await _sb
+      .from('bookings')
+      .select('id')
+      .eq('place_id', placeId)
+      .in('status', ['confirmed', 'cancelled'])
+      .is('guest_notified_at', null)
+      .gte('created_at', since)
+      .limit(5);
+    if (error || !data || !data.length) return;
+    // Sequential, not Promise.all, so a slow function doesn't pile up calls.
+    for (const row of data) {
+      const { error: fnErr } = await _sb.functions.invoke('notify-guest', { body: { bookingId: row.id } });
+      if (fnErr) console.warn('notify-guest retry:', fnErr);
+    }
+  } catch (e) {
+    console.warn('retryStuckGuestNotify:', e);
+  }
+}
+
 // Declines a booking and notifies the guest with the "cancelled" branch.
 // Note: DB CHECK constraint requires the British spelling 'cancelled' (double-l).
 // Older portal builds wrote 'canceled' which the DB silently rejected.
-async function cancelAndNotify(id, reason) {
+//
+// If the booking has a QPay deposit (paymentId set), we route through the
+// cancel-booking edge function which handles the time-based refund policy.
+// Pass reason='no_show' to keep the deposit regardless of timing.
+async function cancelAndNotify(id, reason, { depositAmount, paymentId } = {}) {
+  if (depositAmount != null && paymentId) {
+    // Edge function handles status update + optional QPay refund + notify-booking
+    const { error } = await _sb.functions.invoke('cancel-booking', {
+      body: { bookingId: id, reason: reason || 'user_cancel' },
+    });
+    if (error) return error;
+    // Also notify guest of cancellation
+    const { error: fnErr } = await _sb.functions.invoke('notify-guest', { body: { bookingId: id, reason } });
+    if (fnErr) console.warn('notify-guest:', fnErr);
+    return null;
+  }
+  // Standard free booking — direct DB update
   const err = await updateBookingStatus(id, 'cancelled');
   if (err) return err;
   const { error: fnErr } = await _sb.functions.invoke('notify-guest', { body: { bookingId: id, reason } });
@@ -317,13 +430,95 @@ function initMobileSidebar() {
 }
 
 // ── Shared logout ──
+// Works for both <button onclick="logout()"> (no event) and legacy
+// <a onclick="logout(event)"> callers. We use `.finally()` so the local
+// session state is cleared and the redirect runs even when signOut() throws
+// (network drop, CSP block on the auth endpoint, etc.) — otherwise a failed
+// signOut would leave the user authenticated locally with no UI feedback.
 function logout(e) {
-  e.preventDefault();
-  _sb.auth.signOut().then(() => {
+  if (e && typeof e.preventDefault === 'function') e.preventDefault();
+  const cleanup = () => {
     localStorage.removeItem('mm_biz');
     localStorage.removeItem('mm_pending_reg');
     localStorage.removeItem('mm_push_dismissed');
     localStorage.removeItem('mm_last_active');
     window.location.href = 'login.html';
+  };
+  try {
+    const p = _sb.auth.signOut();
+    if (p && typeof p.finally === 'function') p.finally(cleanup);
+    else cleanup();
+  } catch (_) {
+    cleanup();
+  }
+}
+
+// ── Notification badge ──
+// Calls the failed_notifications_count_for_owner RPC (added in migration
+// 20260517000002) and updates the #notifBadge element if present on the page.
+// Failures are silent — a missing RPC or auth glitch should never break the
+// surrounding page. Call this opportunistically from any authenticated page.
+async function loadNotifBadge() {
+  const el = document.getElementById('notifBadge');
+  if (!el) return;
+  try {
+    const { data, error } = await _sb.rpc('failed_notifications_count_for_owner');
+    if (error) return;
+    const n = Number(data ?? 0);
+    if (n > 0) {
+      el.textContent = String(n);
+      el.style.display = 'inline-flex';
+    } else {
+      el.style.display = 'none';
+    }
+  } catch (_) {
+    // No-op; the badge stays hidden and the user can still navigate to
+    // notifications.html to see the truth.
+  }
+}
+
+// Poll the badge on a 60s cadence so an owner who leaves the dashboard open
+// sees fresh failure counts without refreshing. We pause polling when the
+// tab is hidden (visibilitychange) to avoid burning Supabase RPC quota for
+// nothing, and resume immediately when the tab comes back. Only one timer
+// runs per page — calling startNotifBadgePolling again is a no-op.
+let _notifBadgeTimer = null;
+function startNotifBadgePolling(intervalMs = 60_000) {
+  if (_notifBadgeTimer) return;
+  const tick = () => { if (!document.hidden) loadNotifBadge(); };
+  _notifBadgeTimer = setInterval(tick, intervalMs);
+
+  // Refresh immediately whenever the user un-hides the tab. Without this,
+  // returning to a backgrounded tab would show stale data until the next
+  // 60s mark.
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) loadNotifBadge();
   });
 }
+
+// ── Theme (dark mode) ──
+// We apply the saved theme *synchronously* on script load to avoid a flash of
+// the wrong palette. The CSS overrides only token variables, so no per-page
+// dark CSS is needed. Call applyTheme(...) to switch, toggleTheme() to flip,
+// or wireThemeToggle('#myBtn') to bind a button.
+const THEME_KEY = 'mm_theme';
+function applyTheme(theme) {
+  const t = theme === 'dark' ? 'dark' : 'light';
+  if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else              document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem(THEME_KEY, t); } catch (_) {}
+}
+function currentTheme() {
+  try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; }
+  catch (_) { return 'light'; }
+}
+function toggleTheme() {
+  applyTheme(currentTheme() === 'dark' ? 'light' : 'dark');
+}
+function wireThemeToggle(selector) {
+  const el = typeof selector === 'string' ? document.querySelector(selector) : selector;
+  if (!el) return;
+  el.addEventListener('click', toggleTheme);
+}
+// Apply on load — runs once when utils.js is parsed, before page render code.
+applyTheme(currentTheme());

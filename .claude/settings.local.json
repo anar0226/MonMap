@@ -21,7 +21,9 @@
       "mcp__b1eebbc1-e9fb-4880-b01f-820f60379d1c__execute_sql",
       "mcp__b1eebbc1-e9fb-4880-b01f-820f60379d1c__apply_migration",
       "Bash(node --input-type=module -e ' *)",
-      "Bash(find C:\\\\\\\\Users\\\\\\\\anar0\\\\\\\\Downloads\\\\\\\\MonMap\\\\\\\\src\\\\\\\\hooks -name \"*.ts\" -o -name \"*.tsx\")"
+      "Bash(find C:\\\\\\\\Users\\\\\\\\anar0\\\\\\\\Downloads\\\\\\\\MonMap\\\\\\\\src\\\\\\\\hooks -name \"*.ts\" -o -name \"*.tsx\")",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(python -c ' *)"
     ]
   }
 }

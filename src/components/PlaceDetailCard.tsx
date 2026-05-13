@@ -26,13 +26,36 @@ import {
   BOOKABLE_CATEGORIES,
 } from '../constants/categories';
 import { useReviews, computeRatingBars, computeAverageRating, type Review } from '../hooks/useReviews';
-import { useBooking, generateTimeSlots, parseTodayHours, todayDateString } from '../hooks/useBooking';
+import { useBooking, generateTimeSlots, parseTodayHours, todayDateString, type PaymentIntentData } from '../hooks/useBooking';
+import PaymentModal from './PaymentModal';
 import { useClosureReport } from '../hooks/useClosureReport';
 import { useConfirmOpen } from '../hooks/useConfirmOpen';
 import { useSavedPlaces } from '../hooks/useSavedPlaces';
 import { getOpenStatus, isStaleStatus, type OpenStatus } from '../utils/openStatus';
 import { useSupabase } from '../context/SupabaseContext';
 import { formatMnAddress } from '../lib/mnAddress';
+
+/**
+ * Last-seating buffer (minutes) for the booking time-slot generator,
+ * picked by primary_category until places.slot_duration_minutes exists in
+ * the schema. Conservative defaults — better to lose one borderline slot
+ * than oversell one that ends after closing time.
+ *
+ * Categories taken from constants/categories.ts (slug strings).
+ */
+function bookingBufferForCategory(category: string | null | undefined): number {
+  switch (category) {
+    case 'salon':         return 45;   // haircut: 30–45 min
+    case 'restaurant':    return 60;   // table turn ~60 min
+    case 'clinic':        return 30;   // appointment: 15–30 min
+    case 'gym':           return 60;   // class: 60 min
+    case 'spa':           return 90;   // massage: 60–90 min
+    case 'training':      return 60;   // class: 60 min
+    case 'auto_repair':   return 90;   // service drop-off
+    case 'photo_studio':  return 90;   // session: 60–90 min
+    default:              return 60;   // safe middle ground
+  }
+}
 
 /**
  * Build the best-available address string for a place: prefer structured
@@ -322,8 +345,23 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     (place.booking_open_hour != null && place.booking_close_hour != null)
       ? { openHour: place.booking_open_hour, closeHour: place.booking_close_hour }
       : parseTodayHours(place.regular_opening_hours?.weekday_descriptions);
-  const timeSlots = generateTimeSlots(hours?.openHour ?? 10, hours?.closeHour ?? 20, 60);
-  const { slots, loadingSlots, submitting, error, submitted, fetchSlots, submitBooking, resetSubmitted } = useBooking();
+  // Last-seating buffer = typical service duration for this category. A
+  // 30-min cut shouldn't be blocked from booking 30 min before close, and
+  // a 90-min spa shouldn't be sold a slot that ends after close. Until
+  // places.slot_duration_minutes lands, derive from primary_category.
+  const slotDurationMinutes = bookingBufferForCategory(place.primary_category);
+  const timeSlots = generateTimeSlots(
+    hours?.openHour ?? 10,
+    hours?.closeHour ?? 20,
+    slotDurationMinutes,
+  );
+  const {
+    slots, loadingSlots,
+    submitting, initiatingPayment,
+    paymentIntent, clearPaymentIntent,
+    error, submitted,
+    fetchSlots, submitBooking, initiatePaymentBooking, resetSubmitted,
+  } = useBooking();
   const { session } = useSupabase();
   const defaultName = session?.user?.user_metadata?.full_name ?? session?.user?.email?.split('@')[0] ?? '';
   const [selectedSlotIdx, setSelectedSlotIdx] = useState(0);
@@ -331,6 +369,8 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
   const [guestName, setGuestName] = useState(defaultName);
   const [guestPhone, setGuestPhone] = useState('');
   const [showForm, setShowForm] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentSucceeded, setPaymentSucceeded] = useState(false);
   const partySizes: Array<string | number> = [1, 2, 3, 4, '5+'];
 
   useEffect(() => {
@@ -350,12 +390,30 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     }
     const slot = slots[selectedSlotIdx];
     if (!slot?.available) return;
+
+    const needsDeposit = place.deposit_amount != null && place.deposit_amount > 0;
+
+    if (needsDeposit) {
+      // Payment flow: create QPay invoice + slot hold, then show PaymentModal
+      const intent = await initiatePaymentBooking({
+        placeId:    place.place_id,
+        date:       today,
+        timeSlot:   slot.slot,
+        partySize,
+        guestName:  guestName.trim(),
+        guestPhone: guestPhone.trim() || undefined,
+      });
+      if (intent) setShowPaymentModal(true);
+      return;
+    }
+
+    // Standard free booking flow (unchanged)
     const ok = await submitBooking({
-      placeId: place.place_id,
-      date: today,
-      timeSlot: slot.slot,
+      placeId:    place.place_id,
+      date:       today,
+      timeSlot:   slot.slot,
       partySize,
-      guestName: guestName.trim(),
+      guestName:  guestName.trim(),
       guestPhone: guestPhone.trim(),
     });
 
@@ -388,7 +446,7 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     );
   }
 
-  if (submitted) {
+  if (submitted || paymentSucceeded) {
     return (
       <View style={s.emptyState}>
         <View style={[s.emptyIcon, { backgroundColor: 'rgba(251,184,36,0.15)' }]}>
@@ -410,7 +468,7 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
         </Text>
         <TouchableOpacity
           style={[s.ctaSecondary, { marginTop: 16, alignSelf: 'stretch' }]}
-          onPress={() => { resetSubmitted(); setShowForm(false); fetchSlots(place.place_id, today, timeSlots, slotCapacity); }}
+          onPress={() => { resetSubmitted(); setPaymentSucceeded(false); setShowForm(false); fetchSlots(place.place_id, today, timeSlots, slotCapacity); }}
           activeOpacity={0.8}
         >
           <Text style={s.ctaSecondaryText}>Буцах</Text>
@@ -431,8 +489,54 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
 
   const retryFetchSlots = () => fetchSlots(place.place_id, today, timeSlots, slotCapacity);
 
+  // For deposit-required places, unauthenticated users can't pay — show login prompt
+  if (place.deposit_amount != null && !session) {
+    return (
+      <View style={s.emptyState}>
+        <View style={s.emptyIcon}>
+          <Ionicons name="card-outline" size={22} color={C.amber} />
+        </View>
+        <Text style={s.emptyTitle}>Нэвтэрнэ үү</Text>
+        <Text style={s.emptyDesc}>
+          Энэ газар захиалга хийхэд баталгааны төлбөр шаардлагатай.{'\n'}
+          Төлбөр хийхийн тулд нэвтэрнэ үү.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View style={{ gap: 16 }}>
+      {place.deposit_amount != null && place.deposit_amount > 0 && (
+        <View style={s.depositBanner}>
+          <Ionicons name="card-outline" size={14} color={C.amber} />
+          <Text style={s.depositBannerText}>
+            Захиалгын баталгааны төлбөр: ₮{place.deposit_amount.toLocaleString()}
+          </Text>
+        </View>
+      )}
+
+      {paymentIntent && (
+        <PaymentModal
+          visible={showPaymentModal}
+          paymentIntent={paymentIntent}
+          onSuccess={(_bookingId) => {
+            setShowPaymentModal(false);
+            clearPaymentIntent();
+            setShowForm(false);
+            setPaymentSucceeded(true);
+          }}
+          onExpired={() => {
+            setShowPaymentModal(false);
+            clearPaymentIntent();
+            fetchSlots(place.place_id, today, timeSlots, slotCapacity);
+          }}
+          onCancel={() => {
+            setShowPaymentModal(false);
+          }}
+        />
+      )}
+
       {error && (
         <View style={{ alignItems: 'center', gap: 6 }}>
           <Text style={{ color: C.red, fontSize: 12, textAlign: 'center' }}>{error}</Text>
@@ -525,14 +629,16 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
             onChangeText={setGuestPhone}
           />
           <TouchableOpacity
-            style={[s.ctaPrimary, (!selectedSlot?.available || submitting) && { opacity: 0.5 }]}
+            style={[s.ctaPrimary, (!selectedSlot?.available || submitting || initiatingPayment) && { opacity: 0.5 }]}
             activeOpacity={0.85}
-            disabled={!selectedSlot?.available || submitting}
+            disabled={!selectedSlot?.available || submitting || initiatingPayment}
             onPress={handleConfirm}
           >
-            {submitting
+            {(submitting || initiatingPayment)
               ? <ActivityIndicator size="small" color="#fff" />
-              : <Text style={s.ctaPrimaryText}>Захиалгыг баталгаажуулах</Text>
+              : <Text style={s.ctaPrimaryText}>
+                  {place.deposit_amount != null ? 'Төлбөр хийх' : 'Захиалгыг баталгаажуулах'}
+                </Text>
             }
           </TouchableOpacity>
           <TouchableOpacity style={s.ctaSecondary} activeOpacity={0.85} onPress={() => setShowForm(false)}>
@@ -1100,6 +1206,23 @@ const s = StyleSheet.create({
     letterSpacing: 1,
   },
 
+  depositBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(251,184,36,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(251,184,36,0.25)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  depositBannerText: {
+    flex: 1,
+    fontSize: 12,
+    color: C.amber,
+    fontWeight: '600',
+  },
   nextSlotBanner: {
     flexDirection: 'row',
     alignItems: 'center',

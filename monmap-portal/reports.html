@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; base-uri 'self'; form-action 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Тайлан — МонМэп Бизнес Портал</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* ── KPI grid ── */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+    .kpi-card {
+      background: var(--white); border: 1px solid var(--gray-200);
+      border-radius: 12px; padding: 14px 16px;
+    }
+    .kpi-label {
+      font-size: 0.6875rem; font-weight: 700; color: var(--gray-400);
+      letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .kpi-row {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+    }
+    .kpi-value {
+      font-size: 1.25rem; font-weight: 700; color: var(--gray-900);
+      letter-spacing: -.02em; line-height: 1.1; white-space: nowrap;
+    }
+    .kpi-delta {
+      font-size: 0.6875rem; font-weight: 600; padding: 2px 7px;
+      border-radius: 5px; white-space: nowrap;
+    }
+    .kpi-delta.up   { color: #059669; background: #ECFDF5; }
+    .kpi-delta.down { color: #DC2626; background: #FEF2F2; }
+
+    /* ── Date range bar ── */
+    .date-bar { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .date-btn {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 12px; background: var(--white);
+      border: 1px solid var(--gray-200); border-radius: 8px;
+      font-size: 0.78125rem; font-weight: 500; color: var(--gray-800);
+      cursor: pointer; font-family: inherit;
+    }
+    .date-btn:hover { background: var(--gray-50); }
+    .date-btn .caret { color: var(--gray-400); font-size: 0.6875rem; }
+
+    /* ── Tab strip ── */
+    .rpt-tab-strip {
+      display: flex; gap: 0; border-bottom: 1px solid var(--gray-200); margin-bottom: 18px;
+    }
+    .rpt-tab-btn {
+      padding: 11px 16px; background: transparent; border: none;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      font-size: 0.8125rem; font-weight: 500; color: var(--gray-400);
+      cursor: pointer; font-family: inherit; transition: color .12s;
+    }
+    .rpt-tab-btn.active { font-weight: 600; color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* ── Report grid ── */
+    .rpt-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+    .rpt-card {
+      background: var(--white); border: 1px solid var(--gray-200);
+      border-radius: 12px; padding: 18px;
+    }
+    .rpt-card.span-full { grid-column: 1 / -1; }
+    .rpt-card-head {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      margin-bottom: 14px;
+    }
+    .rpt-card-title { font-size: 0.875rem; font-weight: 600; color: var(--gray-900); }
+    .rpt-card-sub { font-size: 0.71875rem; color: var(--gray-400); margin-top: 2px; }
+
+    /* ── Legend ── */
+    .legend { display: flex; gap: 14px; font-size: 0.6875rem; color: var(--gray-400); flex-wrap: wrap; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-line { width: 10px; height: 2px; border-radius: 1px; }
+    .legend-dash { width: 10px; height: 0; border-top: 2px dashed; }
+
+    /* ── Bar / progress rows ── */
+    .prog-row { margin-bottom: 12px; }
+    .prog-row:last-child { margin-bottom: 0; }
+    .prog-header { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.75rem; }
+    .prog-label { font-weight: 500; color: var(--gray-800); }
+    .prog-val { color: var(--gray-400); }
+    .prog-track { height: 6px; border-radius: 3px; background: var(--gray-100); overflow: hidden; }
+    .prog-fill { height: 100%; border-radius: 3px; }
+
+    /* ── Data table ── */
+    .rpt-table-head {
+      display: grid; padding: 8px 0;
+      border-bottom: 1px solid var(--gray-200);
+      font-size: 0.65625rem; font-weight: 700; color: var(--gray-400);
+      letter-spacing: .06em; text-transform: uppercase; gap: 12px;
+    }
+    .rpt-table-row {
+      display: grid; padding: 11px 0;
+      border-bottom: 1px solid var(--gray-100);
+      align-items: center; font-size: 0.78125rem; gap: 12px;
+    }
+    .rpt-table-row:last-child { border-bottom: none; }
+    .cell-r { text-align: right; }
+    .cell-brand { text-align: right; font-weight: 600; color: var(--primary); }
+
+    /* ── Avatar ── */
+    .mini-avatar {
+      width: 28px; height: 28px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.6875rem; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .sm-avatar {
+      width: 26px; height: 26px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.65625rem; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+
+    /* ── Funnel / status strips ── */
+    .status-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr);
+    }
+    .status-cell {
+      padding: 14px 18px; border-right: 1px solid var(--gray-200);
+    }
+    .status-cell:last-child { border-right: none; }
+    .status-cell-label {
+      font-size: 0.6875rem; font-weight: 700; color: var(--gray-400);
+      letter-spacing: .06em; text-transform: uppercase; margin-bottom: 6px;
+    }
+    .status-num { font-size: 1.375rem; font-weight: 700; color: var(--gray-900); letter-spacing: -.02em; }
+    .status-pct { font-size: 0.75rem; font-weight: 600; margin-left: 6px; }
+
+    /* ── Util bar ── */
+    .util-bar { display: flex; align-items: center; gap: 8px; }
+    .util-track { flex: 1; height: 5px; border-radius: 3px; background: var(--gray-100); overflow: hidden; }
+    .util-fill { height: 100%; border-radius: 3px; }
+    .util-pct { font-size: 0.71875rem; font-weight: 600; color: var(--gray-900); min-width: 32px; text-align: right; }
+
+    /* ── Reviews ── */
+    .review-row {
+      display: flex; gap: 14px; padding: 12px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .review-row:last-child { border-bottom: none; }
+    .review-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--gray-100); color: var(--gray-800);
+      font-size: 0.75rem; font-weight: 600;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .review-meta { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; flex-wrap: wrap; }
+    .review-name { font-size: 0.78125rem; font-weight: 600; }
+    .review-stars { font-size: 0.75rem; color: #F59E0B; }
+    .review-svc { font-size: 0.6875rem; color: var(--gray-400); }
+    .review-when { font-size: 0.6875rem; color: var(--gray-400); margin-left: auto; }
+    .review-text { font-size: 0.78125rem; color: var(--gray-800); line-height: 1.5; }
+
+    /* ── Empty state ── */
+    .rpt-tab-panel { display: none; }
+    .rpt-tab-panel.active { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="index.html" class="sidebar-logo" aria-label="MONMAP">
+        <div class="logo-icon" aria-hidden="true"></div>
+        MONMAP
+      </a>
+    </div>
+    <div class="sidebar-business">
+      <div class="business-pill">
+        <div class="business-avatar" id="sbAvatar">М</div>
+        <div class="business-info">
+          <div class="business-name" id="sbBizName">...</div>
+          <div class="business-type" id="sbBizType">МонМэп Бизнес</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Үндсэн</span>
+      <a href="dashboard.html"><span class="nav-icon" data-icon="home"></span> Самбар</a>
+      <a href="bookings.html"><span class="nav-icon" data-icon="calendar"></span> Захиалга <span class="nav-badge" id="pendingBadge" style="display:none">0</span></a>
+      <span class="nav-section-label">Удирдлага</span>
+      <a href="profile.html"><span class="nav-icon" data-icon="store"></span> Бизнесийн мэдээлэл</a>
+      <a href="services.html"><span class="nav-icon" data-icon="services"></span> Үйлчилгээ & Цаг</a>
+      <a href="reports.html" class="active"><span class="nav-icon" data-icon="chart"></span> Тайлан</a>
+      <a href="customers.html"><span class="nav-icon" data-icon="users"></span> Харилцагчид</a>
+      <span class="nav-section-label">Тохиргоо</span>
+      <a href="notifications.html">
+        <span class="nav-icon" data-icon="bell"></span> Мэдэгдэл
+        <span class="nav-badge" id="notifBadge" style="display:none;">0</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="profile.html"><span class="nav-icon" data-icon="user"></span> Профайл</a>
+      <button type="button" class="nav-link" onclick="logout()"><span class="nav-icon" data-icon="logout"></span> Гарах</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Цэс">☰</button>
+        <span class="page-title">Тайлан</span>
+      </div>
+      <div class="top-bar-right">
+        <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл"><span data-icon="bell" aria-hidden="true"></span><span class="notification-dot"></span></button>
+        <div class="top-bar-avatar" id="topAvatar">М</div>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- Date range bar -->
+      <div class="date-bar">
+        <button class="date-btn" id="dateRangeBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          <span id="dateRangeLabel">Энэ сар</span>
+          <span class="caret">▾</span>
+        </button>
+        <button class="date-btn" id="compareBtn" style="color:var(--gray-400);">
+          <span style="font-size:0.8125rem;line-height:1">↔</span>
+          Өмнөх үетэй харьцуулах
+        </button>
+        <div style="flex:1"></div>
+        <button class="date-btn" onclick="exportData()">↓ Татах</button>
+      </div>
+
+      <!-- KPI cards -->
+      <div class="kpi-grid" id="kpiGrid">
+        <!-- filled by JS -->
+      </div>
+
+      <!-- Report tabs -->
+      <div class="rpt-tab-strip">
+        <button class="rpt-tab-btn active" data-tab="revenue"   onclick="switchRptTab('revenue')">Орлого</button>
+        <button class="rpt-tab-btn"         data-tab="bookings"  onclick="switchRptTab('bookings')">Захиалга</button>
+        <button class="rpt-tab-btn"         data-tab="staff"     onclick="switchRptTab('staff')">Ажилтан</button>
+        <button class="rpt-tab-btn"         data-tab="customers" onclick="switchRptTab('customers')">Харилцагч</button>
+        <button class="rpt-tab-btn"         data-tab="marketing" onclick="switchRptTab('marketing')">Маркетинг</button>
+      </div>
+
+      <div class="rpt-tab-panel active" id="rpt-tab-revenue"></div>
+      <div class="rpt-tab-panel"        id="rpt-tab-bookings"></div>
+      <div class="rpt-tab-panel"        id="rpt-tab-staff"></div>
+      <div class="rpt-tab-panel"        id="rpt-tab-customers"></div>
+      <div class="rpt-tab-panel"        id="rpt-tab-marketing"></div>
+
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js" integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae" crossorigin="anonymous"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/icons.js"></script>
+<script>
+// ── State ─────────────────────────────────────────────────────────
+let _placeId = null;
+let _bizId   = null;
+let _rptData = null;  // loaded real data
+
+const AVATAR_COLORS = ['#0053A3','#EC4899','#10B981','#6366F1','#F59E0B','#EF4444','#8B5CF6','#14B8A6'];
+const PRIMARY = '#1a56db';
+
+// ── Helpers ───────────────────────────────────────────────────────
+function fmtMoney(n) {
+  if (n >= 1e6) return (n/1e6).toFixed(1) + ' сая₮';
+  if (n >= 1e3) return Math.round(n/1e3) + ' мян₮';
+  return n + '₮';
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── SVG chart helpers ─────────────────────────────────────────────
+function buildSparkSvg(data, color, w=120, h=36) {
+  const max = Math.max(...data), min = Math.min(...data);
+  const span = max - min || 1;
+  const pts = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - ((d - min) / span) * h * 0.85 - h * 0.1;
+    return x + ',' + y;
+  }).join(' ');
+  const area = '0,' + h + ' ' + pts + ' ' + w + ',' + h;
+  return `<svg width="${w}" height="${h}" style="display:block">
+    <polygon points="${area}" fill="${color}" fill-opacity="0.08"/>
+    <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+function buildLineChart(series, labels, h=240, formatY=null) {
+  const allVals = series.flatMap(s => s.data);
+  const max = Math.max(...allVals) * 1.1 || 1;
+  const W=760, padL=44, padR=8, padT=8, padB=26;
+  const innerW = W-padL-padR, innerH = h-padT-padB;
+  const xN = labels.length;
+  const yTicks = 4;
+
+  const xy = (i, v) => [
+    padL + (i / (xN - 1)) * innerW,
+    padT + innerH - (v / max) * innerH,
+  ];
+
+  let svg = `<svg viewBox="0 0 ${W} ${h}" width="100%" style="display:block">`;
+
+  // y grid + labels
+  for (let i = 0; i <= yTicks; i++) {
+    const y = padT + (i / yTicks) * innerH;
+    const v = max * (1 - i / yTicks);
+    const label = formatY ? formatY(v) : Math.round(v).toLocaleString('mn-MN');
+    svg += `<line x1="${padL}" y1="${y}" x2="${W-padR}" y2="${y}" stroke="#F3F4F6" stroke-width="1"/>`;
+    svg += `<text x="${padL-8}" y="${y+4}" font-size="10" fill="#94a3b8" text-anchor="end">${label}</text>`;
+  }
+  // x labels
+  labels.forEach((lab, i) => {
+    const show = xN <= 12 || i % Math.ceil(xN / 8) === 0;
+    if (!show) return;
+    const [x] = xy(i, 0);
+    svg += `<text x="${x}" y="${h-6}" font-size="10" fill="#94a3b8" text-anchor="middle">${lab}</text>`;
+  });
+  // series
+  series.forEach((s, si) => {
+    const pts = s.data.map((v, i) => xy(i, v).join(',')).join(' ');
+    const [x0] = xy(0, 0); const [xN1] = xy(s.data.length-1, 0);
+    const area = `${x0},${padT+innerH} ${pts} ${xN1},${padT+innerH}`;
+    if (si === 0) svg += `<polygon points="${area}" fill="${s.color}" fill-opacity="0.1"/>`;
+    const dash = s.dashed ? ' stroke-dasharray="4 4"' : '';
+    svg += `<polyline points="${pts}" fill="none" stroke="${s.color}" stroke-width="${si===0?2:1.5}" stroke-linecap="round" stroke-linejoin="round"${dash}/>`;
+    if (si === 0) {
+      s.data.forEach((v, i) => {
+        const [x, y] = xy(i, v);
+        svg += `<circle cx="${x}" cy="${y}" r="2.5" fill="#fff" stroke="${s.color}" stroke-width="1.5"/>`;
+      });
+    }
+  });
+  svg += '</svg>';
+  return svg;
+}
+
+function legendHtml(items) {
+  return '<div class="legend">' + items.map(it => {
+    const lineEl = it.dashed
+      ? `<span class="legend-dash" style="border-color:${it.color};width:10px"></span>`
+      : `<span class="legend-line" style="background:${it.color}"></span>`;
+    return `<span class="legend-item">${lineEl}<span>${it.label}</span></span>`;
+  }).join('') + '</div>';
+}
+
+function cardHtml({ title, sub='', right='', children, spanFull=false }) {
+  return `<section class="rpt-card${spanFull?' span-full':''}">
+    <div class="rpt-card-head">
+      <div>
+        <div class="rpt-card-title">${title}</div>
+        ${sub ? `<div class="rpt-card-sub">${sub}</div>` : ''}
+      </div>
+      ${right}
+    </div>
+    ${children}
+  </section>`;
+}
+
+function progRowHtml(label, valLabel, pct, color) {
+  return `<div class="prog-row">
+    <div class="prog-header"><span class="prog-label">${escHtml(label)}</span><span class="prog-val">${escHtml(String(valLabel))}</span></div>
+    <div class="prog-track"><div class="prog-fill" style="width:${pct}%;background:${color}"></div></div>
+  </div>`;
+}
+
+// ── Mock data (design-matched) ─────────────────────────────────────
+const MOCK = {
+  revLabels:  ['1','3','5','7','9','11','13','15','17','19','21','23','25','27','29','31'],
+  revData:    [380,420,350,510,480,540,460,590,620,580,670,640,720,690,740,780].map(x=>x*1000),
+  revPrev:    [340,380,320,460,420,480,410,510,540,510,580,560,620,600,640,660].map(x=>x*1000),
+  bkgLabels:  ['1','3','5','7','9','11','13','15','17','19','21','23','25','27','29','31'],
+  bkgTotal:   [12,14,11,16,15,18,14,19,20,18,22,21,24,22,25,26],
+  bkgNoshow:  [1,1,1,2,1,1,1,2,1,1,1,1,1,2,1,1],
+  staffLabels:['Дав','Мяг','Лха','Пүр','Баа','Бям','Ням'],
+  custLabels: ['1','3','5','7','9','11','13','15','17','19','21','23','25','27','29','31'],
+  custFresh:  [2,3,4,3,5,6,5,7,4,8,6,9,7,10,8,12],
+  custRet:    [10,12,11,15,14,16,14,18,19,17,20,19,22,21,23,24],
+  mktLabels:  ['1','3','5','7','9','11','13','15','17','19','21','23','25','27','29','31'],
+  mktImpr:    [240,280,220,320,360,340,380,410,390,440,470,460,510,490,540,580],
+  mktVisits:  [42,50,38,58,64,60,68,74,71,80,86,84,92,88,98,105],
+  mktBooks:   [12,14,11,16,15,18,14,19,20,18,22,21,24,22,25,26],
+  kpis: [
+    { label:'Орлого',        value:'14.8 сая₮', delta:12.4, color:PRIMARY,   spark:[3.2,3.8,3.5,4.1,4.6,4.2,5.0,4.8,5.3,5.6,5.9,6.2] },
+    { label:'Захиалга',      value:'312',        delta:8.1,  color:PRIMARY,   spark:[18,22,19,24,26,23,28,27,29,31,33,35] },
+    { label:'Шинэ харилцагч',value:'64',         delta:22.6, color:'#10B981', spark:[3,4,5,4,6,7,8,6,9,10,11,12] },
+    { label:'Ирээгүй',       value:'3.8%',       delta:-1.2, color:'#F59E0B', spark:[6,5,6,4,5,4,3,4,3,4,3,3] },
+    { label:'Дундаж үнэлгээ',value:'4.7 / 5',   delta:0.3,  color:'#EC4899', spark:[4.4,4.5,4.5,4.6,4.5,4.6,4.7,4.6,4.7,4.7,4.7,4.8] },
+  ],
+  services: [
+    { name:'Эмэгтэй үс засалт', color:'#0053A3', bookings:28, price:45000 },
+    { name:'Балаяж',             color:'#EC4899', bookings:20, price:120000 },
+    { name:'Үсний будалт',       color:'#10B981', bookings:18, price:85000 },
+    { name:'Гель маникюр',       color:'#6366F1', bookings:32, price:35000 },
+    { name:'Хумсны урлал',       color:'#F59E0B', bookings:22, price:28000 },
+    { name:'Эрэгтэй үс засалт',  color:'#8B5CF6', bookings:15, price:25000 },
+  ],
+  staff: [
+    { id:'s1', name:'Билгүүн Д.', role:'Үсний мэргэжилтэн', initials:'БД', color:'#0053A3', svcs:['s1','s2','s3'] },
+    { id:'s2', name:'Туяа Г.',    role:'Колорист',            initials:'ТГ', color:'#EC4899', svcs:['s2','s3'] },
+    { id:'s3', name:'Энхцэцэг Н.',role:'Маникюр мастер',     initials:'ЭН', color:'#10B981', svcs:['s4','s5'] },
+    { id:'s4', name:'Солонго Б.', role:'Стилист',             initials:'СБ', color:'#6366F1', svcs:['s1','s6'] },
+  ],
+};
+
+// ── Init ──────────────────────────────────────────────────────────
+(async () => {
+  const auth = await requireAuth();
+  if (!auth) return;
+  const { biz } = auth;
+
+  if (biz) {
+    _placeId = biz.id;
+    document.getElementById('sbBizName').textContent = biz.name;
+    document.getElementById('sbBizType').textContent  = biz.type || 'МонМэп Бизнес';
+    const init = (biz.name || 'М')[0].toUpperCase();
+    document.getElementById('sbAvatar').textContent  = init;
+    document.getElementById('topAvatar').textContent = init;
+  }
+
+  if (!biz) { renderNoBizState(); return; }
+
+  // Pending badge
+  const { count: pendingCount } = await _sb.from('bookings')
+    .select('id', { count:'exact', head:true })
+    .eq('place_id', _placeId).eq('status', 'pending');
+  const badge = document.getElementById('pendingBadge');
+  if (pendingCount > 0) { badge.textContent = pendingCount; badge.style.display = 'inline-flex'; }
+
+  // Load real booking data for the current month (correct column names)
+  const now = new Date();
+  const y = now.getFullYear(), mo = now.getMonth();
+  const from = `${y}-${String(mo + 1).padStart(2, '0')}-01`;
+  const to   = new Date(y, mo + 1, 0).toISOString().split('T')[0];
+
+  const { data: bookings } = await _sb.from('bookings')
+    .select('booked_date, status, service')
+    .eq('place_id', _placeId)
+    .gte('booked_date', from)
+    .lte('booked_date', to);
+
+  if (bookings && bookings.length > 0) _rptData = bookings;
+
+  // Update date bar label to current month
+  const MONTHS_MN = ['1-р сар','2-р сар','3-р сар','4-р сар','5-р сар','6-р сар',
+                     '7-р сар','8-р сар','9-р сар','10-р сар','11-р сар','12-р сар'];
+  const daysInMonth = new Date(y, mo + 1, 0).getDate();
+  document.getElementById('dateRangeLabel').textContent =
+    `01 — ${daysInMonth} ${MONTHS_MN[mo]}, ${y}`;
+
+  renderKpis();
+  renderTab('revenue');
+})();
+
+// Empty state shown when the signed-in user has no business registered yet.
+// Mirrors customers.html / bookings.html so the CTA copy stays consistent.
+function renderNoBizState() {
+  const dateBar  = document.querySelector('.date-bar');
+  const tabStrip = document.querySelector('.rpt-tab-strip');
+  if (dateBar)  dateBar.style.display  = 'none';
+  if (tabStrip) tabStrip.style.display = 'none';
+
+  ['rpt-tab-revenue','rpt-tab-bookings','rpt-tab-staff','rpt-tab-customers','rpt-tab-marketing']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.classList.remove('active'); el.innerHTML = ''; el.style.display = 'none'; }
+    });
+
+  document.getElementById('kpiGrid').innerHTML = `
+    <div style="grid-column:1/-1;background:var(--white);border:1px solid var(--gray-200);border-radius:12px;padding:56px 24px;text-align:center;">
+      <div class="empty-icon" data-icon="store" style="margin:0 auto 14px;width:48px;height:48px;color:var(--gray-400);"></div>
+      <h3 style="margin:0 0 8px;font-size:1.0625rem;font-weight:700;color:var(--gray-900);">Бизнес бүртгэгдээгүй байна</h3>
+      <p style="margin:8px auto 16px;font-size:0.875rem;color:var(--gray-500);max-width:440px;line-height:1.55;">
+        Тайлан үзэхийн тулд эхлээд бизнесээ бүртгүүлнэ үү.
+      </p>
+      <a href="register.html" class="btn btn-primary btn-sm">Бизнес бүртгүүлэх →</a>
+    </div>
+  `;
+  if (window.MMIcons) window.MMIcons.apply(document.getElementById('kpiGrid'));
+}
+
+// Hide every report-driven UI element and show a single honest empty state.
+// Called when the user has a business but the real-data render path is not yet built.
+function renderEmptyState() {
+  const dateBar  = document.querySelector('.date-bar');
+  const tabStrip = document.querySelector('.rpt-tab-strip');
+  if (dateBar)  dateBar.style.display  = 'none';
+  if (tabStrip) tabStrip.style.display = 'none';
+
+  ['rpt-tab-revenue','rpt-tab-bookings','rpt-tab-staff','rpt-tab-customers','rpt-tab-marketing']
+    .forEach(id => {
+      const el = document.getElementById(id);
+      if (el) { el.classList.remove('active'); el.innerHTML = ''; el.style.display = 'none'; }
+    });
+
+  document.getElementById('kpiGrid').innerHTML = `
+    <div style="grid-column:1/-1;background:var(--white);border:1px solid var(--gray-200);border-radius:12px;padding:56px 24px;text-align:center;">
+      <div style="font-size:2.75rem;margin-bottom:14px;">📊</div>
+      <h3 style="margin:0 0 8px;font-size:1.0625rem;font-weight:700;color:var(--gray-900);">Тайлан тун удахгүй нэмэгдэнэ</h3>
+      <p style="margin:8px auto 0;font-size:0.875rem;color:var(--gray-500);max-width:440px;line-height:1.55;">
+        Орлого, захиалга, харилцагчийн дэлгэрэнгүй тайланг бэлтгэж байна.
+        Тайлан үүсгэхийн тулд эхлээд
+        <a href="bookings.html" style="font-weight:600;">захиалга</a>
+        хүлээн авна уу.
+      </p>
+    </div>
+  `;
+}
+
+// ── KPI cards ─────────────────────────────────────────────────────
+function renderKpis() {
+  let kpis = [...MOCK.kpis];
+  if (_rptData && _rptData.length > 0) {
+    const total  = _rptData.length;
+    const noshow = _rptData.filter(b => b.status === 'noshow').length;
+    kpis[1] = { ...kpis[1], value: String(total) };
+    if (total > 0) {
+      kpis[3] = { ...kpis[3], value: ((noshow / total) * 100).toFixed(1) + '%' };
+    }
+  }
+
+  document.getElementById('kpiGrid').innerHTML = kpis.map(k => {
+    const up = k.delta >= 0;
+    return `<div class="kpi-card">
+      <div class="kpi-label">${escHtml(k.label)}</div>
+      <div class="kpi-row">
+        <div class="kpi-value">${escHtml(k.value)}</div>
+        <span class="kpi-delta ${up?'up':'down'}">${up?'↑':'↓'} ${Math.abs(k.delta)}%</span>
+      </div>
+      ${buildSparkSvg(k.spark, k.color)}
+    </div>`;
+  }).join('');
+}
+
+// ── Tab switching ─────────────────────────────────────────────────
+function switchRptTab(id) {
+  document.querySelectorAll('.rpt-tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  document.querySelectorAll('.rpt-tab-panel').forEach(p => p.classList.toggle('active', p.id === 'rpt-tab-' + id));
+  renderTab(id);
+}
+
+const _rendered = {};
+function renderTab(id) {
+  if (_rendered[id]) return;
+  _rendered[id] = true;
+  switch (id) {
+    case 'revenue':   renderRevenue();   break;
+    case 'bookings':  renderBookings();  break;
+    case 'staff':     renderStaff();     break;
+    case 'customers': renderCustomers(); break;
+    case 'marketing': renderMarketing(); break;
+  }
+}
+
+// ── Revenue tab ───────────────────────────────────────────────────
+function renderRevenue() {
+  const MONTHS = ['1-р','2-р','3-р','4-р','5-р','6-р','7-р','8-р','9-р','10-р','11-р','12-р'];
+  const curMonth = MONTHS[new Date().getMonth()];
+  const totalRev = MOCK.services.reduce((a, s) => a + s.bookings * 4 * s.price, 0);
+
+  const byServiceHtml = MOCK.services.map(s => {
+    const rev = s.bookings * 4 * s.price;
+    const pct = (rev / totalRev) * 100;
+    return progRowHtml(s.name, fmtMoney(rev), pct, s.color);
+  }).join('');
+
+  const staffTableRows = MOCK.staff.map(p => {
+    const bookings = 28 + p.id.charCodeAt(1) % 10;
+    const revenue  = bookings * 62000;
+    const avg      = Math.round(revenue / bookings);
+    const pct      = (revenue / 14800000) * 100;
+    return `<div class="rpt-table-row" style="grid-template-columns:1.6fr 0.7fr 1fr 0.9fr 1.4fr">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="mini-avatar" style="background:${p.color}">${escHtml(p.initials)}</div>
+        <div>
+          <div style="font-size:.78125rem;font-weight:500">${escHtml(p.name)}</div>
+          <div style="font-size:.65625rem;color:var(--gray-400)">${escHtml(p.role)}</div>
+        </div>
+      </div>
+      <div class="cell-r">${bookings}</div>
+      <div class="cell-r" style="font-weight:600">${fmtMoney(revenue)}</div>
+      <div class="cell-r" style="color:var(--gray-400)">${fmtMoney(avg)}</div>
+      <div class="util-bar">
+        <div class="util-track"><div class="util-fill" style="width:${pct.toFixed(0)}%;background:${p.color}"></div></div>
+        <span class="util-pct">${pct.toFixed(0)}%</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('rpt-tab-revenue').innerHTML = `<div class="rpt-grid">
+    ${cardHtml({
+      title: `Орлого ${curMonth} сард`,
+      sub: 'Өдрөөр',
+      right: legendHtml([
+        { color: PRIMARY,    label: 'Энэ сар' },
+        { color: '#9CA3AF',  label: 'Өмнөх сар', dashed: true },
+      ]),
+      children: buildLineChart(
+        [{ color: PRIMARY, data: MOCK.revData }, { color: '#9CA3AF', data: MOCK.revPrev, dashed: true }],
+        MOCK.revLabels,
+        240,
+        v => v >= 1e6 ? (v/1e6).toFixed(1)+'м' : (v/1e3).toFixed(0)+'к'
+      ),
+    })}
+    ${cardHtml({
+      title: 'Үйлчилгээгээр',
+      sub: 'Орлогын эзлэх хувь',
+      children: byServiceHtml,
+    })}
+    ${cardHtml({
+      title: 'Орлого ажилтнаар',
+      spanFull: true,
+      children: `
+        <div class="rpt-table-head" style="grid-template-columns:1.6fr 0.7fr 1fr 0.9fr 1.4fr">
+          <span>Ажилтан</span>
+          <span class="cell-r">Захиалга</span>
+          <span class="cell-r">Орлого</span>
+          <span class="cell-r">Дундаж</span>
+          <span>Хувь</span>
+        </div>
+        ${staffTableRows}
+      `,
+    })}
+  </div>`;
+}
+
+// ── Bookings tab ──────────────────────────────────────────────────
+function renderBookings() {
+  const srcRows = [
+    { src: 'МонМэп апп',   n: 187, pct: 60, color: PRIMARY },
+    { src: 'Веб хайлт',    n: 62,  pct: 20, color: '#10B981' },
+    { src: 'Сошиал медиа', n: 41,  pct: 13, color: '#EC4899' },
+    { src: 'Шууд лавлах',  n: 22,  pct: 7,  color: '#F59E0B' },
+  ].map(r => progRowHtml(r.src, `${r.n} · ${r.pct}%`, r.pct, r.color)).join('');
+
+  // Use real data for status counts when available
+  let statuses;
+  if (_rptData && _rptData.length > 0) {
+    const confirmed = _rptData.filter(b => b.status === 'confirmed' || b.status === 'completed').length;
+    const cancelled = _rptData.filter(b => b.status === 'cancelled').length;
+    const noshow    = _rptData.filter(b => b.status === 'noshow').length;
+    const pending   = _rptData.filter(b => b.status === 'pending').length;
+    const denom     = confirmed + cancelled + noshow || 1;
+    statuses = [
+      { label:'Баталгаажсан',  n: confirmed, pct: Math.round(confirmed / denom * 100), color:'#10B981' },
+      { label:'Цуцалсан',      n: cancelled, pct: Math.round(cancelled  / denom * 100), color:'#9CA3AF' },
+      { label:'Ирээгүй',       n: noshow,    pct: Math.round(noshow     / denom * 100), color:'#F59E0B' },
+      { label:'Хүлээгдэж буй', n: pending,   pct: '—', color: PRIMARY },
+    ];
+  } else {
+    statuses = [
+      { label:'Баталгаажсан', n:274, pct:88,  color:'#10B981' },
+      { label:'Цуцалсан',     n:26,  pct:8,   color:'#9CA3AF' },
+      { label:'Ирээгүй',      n:12,  pct:4,   color:'#F59E0B' },
+      { label:'Хүлээгдэж буй',n:18,  pct:'—', color:PRIMARY   },
+    ];
+  }
+
+  document.getElementById('rpt-tab-bookings').innerHTML = `<div class="rpt-grid">
+    ${cardHtml({
+      title: 'Захиалга өдрөөр',
+      right: legendHtml([
+        { color: PRIMARY,    label: 'Захиалга' },
+        { color: '#F59E0B',  label: 'Ирээгүй'  },
+      ]),
+      children: buildLineChart(
+        [{ color: PRIMARY, data: MOCK.bkgTotal }, { color: '#F59E0B', data: MOCK.bkgNoshow }],
+        MOCK.bkgLabels
+      ),
+    })}
+    ${cardHtml({
+      title: 'Эх үүсвэр',
+      sub: 'Захиалга хаанаас орж ирсэн',
+      children: srcRows,
+    })}
+    ${cardHtml({
+      spanFull: true,
+      title: 'Захиалгын төлөв',
+      children: `<div class="status-grid">
+        ${statuses.map((r, i) => `<div class="status-cell" style="${i===3?'border-right:none':''}">
+          <div class="status-cell-label">${escHtml(r.label)}</div>
+          <div>
+            <span class="status-num">${r.n}</span>
+            <span class="status-pct" style="color:${r.color}">${typeof r.pct==='number' ? r.pct+'%' : r.pct}</span>
+          </div>
+        </div>`).join('')}
+      </div>`,
+    })}
+  </div>`;
+}
+
+// ── Staff tab ─────────────────────────────────────────────────────
+function renderStaff() {
+  const staffSeries = MOCK.staff.map((p, i) => ({
+    color: p.color,
+    data: [6,5,7,8,6,4,2].map(v => v + (i % 3)),
+  }));
+
+  const ratingRows = MOCK.staff.map(p => {
+    const rating = (4.5 + (p.id.charCodeAt(1) % 5) / 10).toFixed(1);
+    const count  = Math.floor(20 + p.id.charCodeAt(1) % 30);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--gray-100)">
+      <div class="mini-avatar" style="background:${p.color}">${escHtml(p.initials)}</div>
+      <div style="flex:1;font-size:.78125rem;font-weight:500">${escHtml(p.name)}</div>
+      <div style="display:flex;align-items:center;gap:4px">
+        <span style="color:#F59E0B;font-size:.8125rem">★</span>
+        <span style="font-size:.8125rem;font-weight:600">${rating}</span>
+        <span style="font-size:.65625rem;color:var(--gray-400)">(${count})</span>
+      </div>
+    </div>`;
+  }).join('');
+
+  const utilRows = MOCK.staff.map((p, i) => {
+    const booked = 28 + i * 4, avail = 40;
+    const util   = Math.round((booked / avail) * 100);
+    const cancel = ((i + 1) * 1.2).toFixed(1);
+    return `<div class="rpt-table-row" style="grid-template-columns:1.6fr 0.8fr 0.8fr 1.6fr 0.7fr">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="sm-avatar" style="background:${p.color}">${escHtml(p.initials)}</div>
+        <span style="font-weight:500">${escHtml(p.name)}</span>
+      </div>
+      <div class="cell-r">${booked} ц</div>
+      <div class="cell-r" style="color:var(--gray-400)">${avail} ц</div>
+      <div class="util-bar">
+        <div class="util-track"><div class="util-fill" style="width:${util}%;background:${p.color}"></div></div>
+        <span class="util-pct">${util}%</span>
+      </div>
+      <div class="cell-r" style="color:${parseFloat(cancel)>3?'#DC2626':'var(--gray-400)'}">${cancel}%</div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('rpt-tab-staff').innerHTML = `<div class="rpt-grid">
+    ${cardHtml({
+      title: 'Ажилтны ачаалал · 7 хоногоор',
+      sub: 'Өдөрт хийсэн захиалга',
+      children: buildLineChart(staffSeries, MOCK.staffLabels) +
+        `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-100)">
+          ${legendHtml(MOCK.staff.map(p => ({ color: p.color, label: p.name })))}
+        </div>`,
+    })}
+    ${cardHtml({
+      title: 'Дундаж үнэлгээ',
+      children: ratingRows,
+    })}
+    ${cardHtml({
+      spanFull: true,
+      title: 'Ашиглалт · Захиалагдсан / Боломжтой цаг',
+      children: `
+        <div class="rpt-table-head" style="grid-template-columns:1.6fr 0.8fr 0.8fr 1.6fr 0.7fr">
+          <span>Ажилтан</span>
+          <span class="cell-r">Захиалгат</span>
+          <span class="cell-r">Боломжтой</span>
+          <span>Ашиглалт</span>
+          <span class="cell-r">Цуцлалт</span>
+        </div>
+        ${utilRows}
+      `,
+    })}
+  </div>`;
+}
+
+// ── Customers tab ─────────────────────────────────────────────────
+function renderCustomers() {
+  const starRows = [5,4,3,2,1].map(stars => {
+    const counts = [184, 28, 6, 2, 1];
+    const n   = counts[5 - stars];
+    const pct = (n / 221) * 100;
+    const bg  = stars >= 4 ? '#10B981' : stars === 3 ? '#F59E0B' : '#EF4444';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:7px 0">
+      <span style="font-size:.75rem;font-weight:600;width:36px">${stars} ★</span>
+      <div class="prog-track" style="height:8px;flex:1;border-radius:4px">
+        <div class="prog-fill" style="width:${pct}%;background:${bg};height:100%;border-radius:4px"></div>
+      </div>
+      <span style="font-size:.71875rem;color:var(--gray-400);min-width:32px;text-align:right">${n}</span>
+    </div>`;
+  }).join('');
+
+  const reviews = [
+    { who:'Энхжаргал Б.', stars:5, when:'2 цагийн өмнө', svc:'Гель маникюр',      text:'Билгүүн маш сайхан үйлчилгээ үзүүллээ. Дахин очно!' },
+    { who:'Мөнхзул Д.',   stars:5, when:'1 өдрийн өмнө', svc:'Балаяж',            text:'Туяа гайхалтай ажил хийдэг. Өнгө яг хүссэн шиг гарсан.' },
+    { who:'Сараа Г.',     stars:4, when:'2 өдрийн өмнө', svc:'Эмэгтэй үс засалт', text:'Цаг сайн барьдаг, газар цэвэрхэн.' },
+  ];
+
+  const reviewHtml = reviews.map((r, i) => `<div class="review-row">
+    <div class="review-avatar">${r.who[0]}</div>
+    <div style="flex:1">
+      <div class="review-meta">
+        <span class="review-name">${escHtml(r.who)}</span>
+        <span class="review-stars">${'★'.repeat(r.stars)}<span style="color:#E5E7EB">${'★'.repeat(5-r.stars)}</span></span>
+        <span class="review-svc">· ${escHtml(r.svc)}</span>
+        <span class="review-when">${escHtml(r.when)}</span>
+      </div>
+      <div class="review-text">${escHtml(r.text)}</div>
+    </div>
+  </div>`).join('');
+
+  document.getElementById('rpt-tab-customers').innerHTML = `<div class="rpt-grid">
+    ${cardHtml({
+      title: 'Шинэ ба буцаж ирсэн харилцагч',
+      right: legendHtml([
+        { color: PRIMARY,    label: 'Буцаж ирсэн' },
+        { color: '#10B981',  label: 'Шинэ'         },
+      ]),
+      children: buildLineChart(
+        [{ color: PRIMARY, data: MOCK.custRet }, { color: '#10B981', data: MOCK.custFresh }],
+        MOCK.custLabels
+      ),
+    })}
+    ${cardHtml({
+      title: 'Үнэлгээний задаргаа',
+      children: starRows +
+        `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--gray-100);display:flex;justify-content:space-between">
+          <span style="font-size:.75rem;color:var(--gray-400)">Нийт 221 үнэлгээ</span>
+          <span style="font-size:.75rem;font-weight:600">4.7 ★ дундаж</span>
+        </div>`,
+    })}
+    ${cardHtml({
+      spanFull: true,
+      title: 'Сүүлийн сэтгэгдлүүд',
+      children: reviewHtml,
+    })}
+  </div>`;
+}
+
+// ── Marketing tab ─────────────────────────────────────────────────
+function renderMarketing() {
+  const funnelRows = [
+    { stage:'МонМэп үзэлт',    n:6840, pct:100,  color:PRIMARY    },
+    { stage:'Профайл нээсэн',  n:1364, pct:19.9, color:'#60A5FA'  },
+    { stage:'Үйлчилгээ үзсэн', n:712,  pct:10.4, color:'#34D399'  },
+    { stage:'Захиалга хийсэн', n:312,  pct:4.6,  color:'#10B981'  },
+  ].map(r => `<div class="prog-row">
+    <div class="prog-header">
+      <span class="prog-label">${escHtml(r.stage)}</span>
+      <span class="prog-val"><strong>${r.n.toLocaleString('mn-MN')}</strong> · ${r.pct}%</span>
+    </div>
+    <div class="prog-track" style="height:8px;border-radius:4px">
+      <div class="prog-fill" style="width:${r.pct}%;background:${r.color};height:100%;border-radius:4px"></div>
+    </div>
+  </div>`).join('');
+
+  const kwRows = [
+    { kw:'гоо сайхны салон Улаанбаатар', i:1240, c:186, ctr:15.0, b:38 },
+    { kw:'үсний будалт',                 i:980,  c:142, ctr:14.5, b:28 },
+    { kw:'балаяж',                       i:720,  c:124, ctr:17.2, b:22 },
+    { kw:'гель маникюр',                 i:640,  c:98,  ctr:15.3, b:19 },
+    { kw:'эрэгтэй үс засалт',            i:580,  c:76,  ctr:13.1, b:14 },
+  ].map(r => `<div class="rpt-table-row" style="grid-template-columns:2fr 0.8fr 0.8fr 0.6fr 0.8fr">
+    <span style="font-weight:500">${escHtml(r.kw)}</span>
+    <span class="cell-r">${r.i.toLocaleString('mn-MN')}</span>
+    <span class="cell-r">${r.c}</span>
+    <span class="cell-brand">${r.ctr}%</span>
+    <span class="cell-r" style="font-weight:600">${r.b}</span>
+  </div>`).join('');
+
+  document.getElementById('rpt-tab-marketing').innerHTML = `<div class="rpt-grid">
+    ${cardHtml({
+      title: 'МонМэп апп — Үзэлт → Захиалга',
+      right: legendHtml([
+        { color: PRIMARY,   label: 'Үзэлт'   },
+        { color: '#60A5FA', label: 'Зочин'   },
+        { color: '#10B981', label: 'Захиалга' },
+      ]),
+      children: buildLineChart(
+        [
+          { color: PRIMARY,   data: MOCK.mktImpr  },
+          { color: '#60A5FA', data: MOCK.mktVisits },
+          { color: '#10B981', data: MOCK.mktBooks  },
+        ],
+        MOCK.mktLabels
+      ),
+    })}
+    ${cardHtml({
+      title: 'Хөрвөлтийн юүлүүр',
+      sub: '5-р сар',
+      children: funnelRows,
+    })}
+    ${cardHtml({
+      spanFull: true,
+      title: 'Хайлтын түлхүүр үг',
+      children: `
+        <div class="rpt-table-head" style="grid-template-columns:2fr 0.8fr 0.8fr 0.6fr 0.8fr">
+          <span>Түлхүүр үг</span>
+          <span class="cell-r">Үзэлт</span>
+          <span class="cell-r">Дарсан</span>
+          <span class="cell-r">CTR</span>
+          <span class="cell-r">Захиалга</span>
+        </div>
+        ${kwRows}
+      `,
+    })}
+  </div>`;
+}
+
+// ── Export placeholder ────────────────────────────────────────────
+function exportData() {
+  showToast('info', 'Тун удахгүй', 'Тайлан татах боломж удахгүй нэмэгдэнэ.');
+}
+
+// ── Sidebar mobile ────────────────────────────────────────────────
+document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarBackdrop').classList.toggle('open');
+});
+document.getElementById('sidebarBackdrop').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('open');
+});
+
+// logout() is provided by utils.js — duplicate definition removed.
+</script>
+</body>
+</html>

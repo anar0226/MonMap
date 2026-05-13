@@ -39,4 +39,5 @@ export interface Place {
   building_number: string | null;
   entrance_number: number | null;
   unit_number: string | null;
+  deposit_amount: number | null;
 }

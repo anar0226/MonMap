@@ -23,7 +23,6 @@ export default function SettingsScreen({ navigation }: Props) {
   const [pushNotif, setPushNotif] = useState(true);
   const [promoNotif, setPromoNotif] = useState(true);
   const [orderNotif, setOrderNotif] = useState(true);
-  const [deleting, setDeleting] = useState(false);
 
   // Load persisted toggle state
   useEffect(() => {
@@ -34,7 +33,7 @@ export default function SettingsScreen({ navigation }: Props) {
           if (typeof prefs.push === 'boolean') setPushNotif(prefs.push);
           if (typeof prefs.promo === 'boolean') setPromoNotif(prefs.promo);
           if (typeof prefs.order === 'boolean') setOrderNotif(prefs.order);
-        } catch {}
+        } catch { }
       }
     });
   }, []);
@@ -54,31 +53,13 @@ export default function SettingsScreen({ navigation }: Props) {
     await supabase.auth.signOut();
   }
 
-  async function performDeleteAccount() {
-    if (deleting) return;
-    setDeleting(true);
-    try {
-      const { error } = await supabase.functions.invoke('delete-account', { body: {} });
-      if (error) throw error;
-      // Auth user is gone server-side; sign out clears the local session.
-      await supabase.auth.signOut();
-    } catch (e: any) {
-      setDeleting(false);
-      Alert.alert(
-        'Алдаа',
-        e?.message ?? 'Данс устгахад алдаа гарлаа. Дахин оролдоно уу.',
-      );
-    }
-  }
-
   function confirmDeleteAccount() {
-    if (deleting) return;
     Alert.alert(
-      'Данс устгах',
-      'Та данснаа устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцааж болохгүй.',
+      'Хэрэглэгчийн бүртгэл устгах',
+      'Та бүртгэлээ устгахдаа итгэлтэй байна уу? Энэ үйлдлийг буцааж болохгүй.',
       [
         { text: 'Болих', style: 'cancel' },
-        { text: 'Устгах', style: 'destructive', onPress: performDeleteAccount },
+        { text: 'Устгах', style: 'destructive', onPress: handleSignOut },
       ],
     );
   }
@@ -112,9 +93,9 @@ export default function SettingsScreen({ navigation }: Props) {
       <ScrollView style={s.flex} contentContainerStyle={s.scroll}>
         <SectionLabel label="Мэдэгдэл" />
         <MenuCard>
-          <MenuItem icon="🔔" iconColor={colors.primary} label="Push мэдэгдэл" onTap={() => {}} trailing={<Toggle value={pushNotif} onChanged={(v) => setAndPersist('push', v)} />} />
-          <MenuItem icon="🏷" iconColor={colors.purple} label="Урамшуулал" onTap={() => {}} trailing={<Toggle value={promoNotif} onChanged={(v) => setAndPersist('promo', v)} />} />
-          <MenuItem icon="📄" iconColor={colors.sky} label="Захиалгын мэдэгдэл" onTap={() => {}} trailing={<Toggle value={orderNotif} onChanged={(v) => setAndPersist('order', v)} />} isLast />
+          <MenuItem icon="🔔" iconColor={colors.primary} label="Push мэдэгдэл" onTap={() => { }} trailing={<Toggle value={pushNotif} onChanged={(v) => setAndPersist('push', v)} />} />
+          <MenuItem icon="🏷" iconColor={colors.purple} label="Урамшуулал" onTap={() => { }} trailing={<Toggle value={promoNotif} onChanged={(v) => setAndPersist('promo', v)} />} />
+          <MenuItem icon="📄" iconColor={colors.sky} label="Захиалгын мэдэгдэл" onTap={() => { }} trailing={<Toggle value={orderNotif} onChanged={(v) => setAndPersist('order', v)} />} isLast />
         </MenuCard>
 
         <SectionLabel label="Тусламж" />
@@ -131,7 +112,7 @@ export default function SettingsScreen({ navigation }: Props) {
 
         <MenuCard>
           <MenuItem icon="⏏" iconColor={colors.danger} label="Гарах" onTap={handleSignOut} isDanger />
-          <MenuItem icon="🗑" iconColor={colors.danger} label={deleting ? 'Устгаж байна…' : 'Данс устгах'} subtitle="Энэ үйлдлийг буцааж болохгүй" onTap={confirmDeleteAccount} isDanger isLast />
+          <MenuItem icon="🗑" iconColor={colors.danger} label="Хэрэглэгчийн бүртгэл устгах" subtitle="Энэ үйлдлийг буцааж болохгүй" onTap={confirmDeleteAccount} isDanger isLast />
         </MenuCard>
 
         <Text style={s.version}>MonMap v1.0.0</Text>

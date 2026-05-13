@@ -2,10 +2,12 @@
 <html lang="mn">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.hcaptcha.com https://hcaptcha.com; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.hcaptcha.com https://hcaptcha.com https://api.mapbox.com; worker-src blob:; child-src blob:; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com https://api.mapbox.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com https://api.mapbox.com https://events.mapbox.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Бизнес бүртгүүлэх — МонМэп</title>
   <link rel="stylesheet" href="css/style.css" />
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
   <style>
     .reg-page {
       min-height: 100vh;
@@ -60,6 +62,29 @@
     }
     .step-panel { display: none; }
     .step-panel.active { display: block; }
+    .pin-map {
+      width: 100%;
+      height: 280px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--gray-200);
+      overflow: hidden;
+    }
+    .pin-map-hint {
+      font-size: 0.8125rem;
+      color: var(--gray-500);
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .pin-coords {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.75rem;
+      color: var(--gray-600);
+      background: var(--gray-50);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
   </style>
 </head>
 <body>
@@ -69,9 +94,9 @@
 
     <!-- Header -->
     <div class="text-center mb-32">
-      <a href="index.html" class="nav-logo" style="justify-content:center;margin-bottom:16px;display:flex;">
-        <div class="logo-icon">📍</div>
-        Мон<span class="accent">Мэп</span>
+      <a href="index.html" class="nav-logo" style="justify-content:center;margin-bottom:16px;display:flex;" aria-label="MONMAP">
+        <div class="logo-icon" aria-hidden="true"></div>
+        MONMAP
       </a>
       <h2 style="margin-bottom:6px;">Бизнесээ бүртгүүлэх</h2>
       <p>Ердөө 4 алхамд МонМэп платформд нэгдэн орно уу</p>
@@ -256,6 +281,15 @@
         </div>
 
         <div class="form-group">
+          <label class="form-label">Газрын зурагт байршил <span class="required">*</span></label>
+          <div id="pinMap" class="pin-map"></div>
+          <div class="pin-map-hint">
+            <span>📍 Тэмдэглэгээг чирж бизнесийнхээ яг байршилд тавина уу.</span>
+            <span class="pin-coords" id="pinCoords">47.9184, 106.9177</span>
+          </div>
+        </div>
+
+        <div class="form-group">
           <label class="form-label">Бизнесийн утас <span class="required">*</span></label>
           <input type="tel" class="form-control" id="bizPhone" placeholder="9900-0000" />
           <span class="form-error">Утасны дугаар оруулна уу</span>
@@ -269,12 +303,20 @@
 
         <div class="form-group">
           <label class="form-label">Лого / Зураг оруулах</label>
-          <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
-            <div style="font-size:2.5rem;margin-bottom:10px;">📁</div>
-            <div style="font-size:0.9rem;font-weight:600;color:var(--gray-700);">Файл сонгох эсвэл чирж оруулах</div>
-            <div style="font-size:0.8125rem;color:var(--gray-500);margin-top:6px;">PNG, JPG — 5МБ-аас бага</div>
+          <!-- We deliberately don't accept a file here. The previous version
+               showed an upload zone but never actually persisted the file —
+               the change handler only updated the UI. The file can't ride
+               the OTP-magic-link redirect across browser tabs anyway. The
+               owner will add their logo from the business profile page once
+               their account is confirmed. -->
+          <div class="alert alert-info" style="font-size:0.8125rem;">
+            <span class="alert-icon">ℹ️</span>
+            <div>
+              <strong>Лого зургаа дараа нь нэмээрэй.</strong> Бүртгэл
+              баталгаажсаны дараа Профайл хэсгээс лого, зураг оруулах
+              боломжтой.
+            </div>
           </div>
-          <input type="file" id="fileInput" accept="image/*" hidden />
         </div>
 
         <!-- nav buttons for create mode -->
@@ -356,7 +398,13 @@
           </div>
         </div>
 
-        <div style="display:flex;justify-content:space-between;gap:12px;margin-top:24px;">
+        <!-- hCaptcha — must be solved before submitting -->
+        <div style="margin-top:20px;margin-bottom:4px;">
+          <label class="form-label">Хүний баталгаажуулалт <span class="required">*</span></label>
+          <div id="hcaptcha-widget"></div>
+        </div>
+
+        <div style="display:flex;justify-content:space-between;gap:12px;margin-top:20px;">
           <button class="btn btn-ghost btn-lg" onclick="goStep(3)">← Буцах</button>
           <button class="btn btn-primary btn-lg" id="submitBtn" onclick="submitRegistration()">
             ✓ Бүртгэл илгээх
@@ -373,25 +421,36 @@
   </div>
 </div>
 
-<!-- Success Modal: shown immediately after OTP is sent -->
-<div class="modal-overlay" id="successModal">
+<!-- OTP Modal: shown after email is sent, user enters the 6-digit code -->
+<div class="modal-overlay" id="otpModal">
   <div class="modal">
-    <div class="modal-body" style="text-align:center;padding:48px 32px;">
-      <div style="font-size:4rem;margin-bottom:20px;">📧</div>
-      <h3 style="margin-bottom:10px;">И-мэйлийг шалгана уу</h3>
-      <p style="color:var(--gray-600);line-height:1.7;margin-bottom:28px;">
-        <strong id="sentToEmail"></strong> хаяг руу нэвтрэх холбоос илгээлээ.<br/>
-        Холбоос дээр дарж бүртгэлийг дуусгана уу.
+    <div class="modal-body" style="text-align:center;padding:40px 32px;">
+      <div style="font-size:3.5rem;margin-bottom:16px;">📧</div>
+      <h3 style="margin-bottom:8px;">И-мэйлийг шалгана уу</h3>
+      <p style="color:var(--gray-600);line-height:1.7;margin-bottom:24px;">
+        <strong id="sentToEmail"></strong> хаяг руу 8 оронтой баталгаажуулах код илгээлээ.
       </p>
-      <div style="background:var(--gray-50);border-radius:var(--radius);padding:16px;font-size:0.875rem;color:var(--gray-500);">
-        Хэрэв и-мэйл ирэхгүй бол спам хавтсаа шалгана уу.
+      <div class="form-group" style="text-align:left;margin-bottom:8px;">
+        <label class="form-label">Баталгаажуулах код</label>
+        <input type="text" id="otpInput" class="form-control" placeholder="12345678"
+          maxlength="8" inputmode="numeric" pattern="[0-9]*"
+          style="font-size:1.5rem;letter-spacing:0.3em;text-align:center;" />
       </div>
+      <div id="otpError" style="color:var(--danger,#ef4444);font-size:0.875rem;margin-bottom:12px;display:none;"></div>
+      <button class="btn btn-primary w-full btn-lg" id="otpBtn" onclick="verifyOtp()">
+        Баталгаажуулах
+      </button>
+      <div style="margin-top:16px;font-size:0.8125rem;color:var(--gray-500);">
+        Код ирэхгүй байна уу? <button onclick="resendOtp()" style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:0.8125rem;font-weight:600;">Дахин илгээх</button>
+      </div>
+      <div style="margin-top:10px;font-size:0.8125rem;color:var(--gray-400);">Спам хавтсаа шалгана уу.</div>
     </div>
   </div>
 </div>
 
 <div class="toast-container" id="toastContainer"></div>
 
+<script src="https://js.hcaptcha.com/1/api.js?onload=onHcaptchaLoad&render=explicit" async defer></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js" integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae" crossorigin="anonymous"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
@@ -410,6 +469,11 @@
     document.getElementById('claimSection').style.display  = 'none';
     document.getElementById('createSection').style.display = 'block';
     document.getElementById('claimNavButtons').style.display = 'none';
+    // Map needs the container to be visible to size itself; defer to next frame.
+    requestAnimationFrame(() => {
+      initPinMap();
+      if (pinMap) pinMap.resize();
+    });
   }
   function switchToClaimMode() {
     createMode = false;
@@ -439,12 +503,16 @@
       return;
     }
     box.style.display = 'block';
+    // `places.name` and `formatted_address` come from a public DB table —
+    // treat as untrusted at the render layer. The JSON payload embedded in
+    // the inline onclick gets escapeAttrJson'd so a name with quotes / angle
+    // brackets / ampersands can't break out of the attribute and inject JS.
     box.innerHTML = results.map(p => `
-      <div onclick="selectClaimedPlace(${JSON.stringify(p).replace(/"/g,'&quot;')})"
+      <div onclick="selectClaimedPlace(${escapeAttrJson(p)})"
            style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--gray-100);display:flex;flex-direction:column;gap:2px;transition:background .15s;"
            onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background=''">
-        <div style="font-weight:600;font-size:0.9rem;color:var(--gray-900);">${p.name}</div>
-        <div style="font-size:0.8rem;color:var(--gray-500);">${p.formatted_address || p.primary_category || ''}</div>
+        <div style="font-weight:600;font-size:0.9rem;color:var(--gray-900);">${escapeHtml(p.name)}</div>
+        <div style="font-size:0.8rem;color:var(--gray-500);">${escapeHtml(p.formatted_address || p.primary_category || '')}</div>
       </div>
     `).join('');
   }
@@ -493,8 +561,31 @@
   }
   buildHoursGrid();
 
+  // Render hCaptcha widget inside Step 4 after the API script loads
+  window.onHcaptchaLoad = function () {
+    hcaptcha.render('hcaptcha-widget', { sitekey: window._HCAPTCHA_SITE_KEY });
+  };
+  if (window.hcaptcha) window.onHcaptchaLoad();
+
   // Start Step 2 in claim mode — show claim nav, hide create nav
   switchToClaimMode();
+
+  // Live validation: validate on blur (after the user finishes a field) and
+  // clear the error on input as soon as the value becomes valid. This avoids
+  // surprising users mid-typing while still catching mistakes before submit.
+  Object.keys(FIELD_VALIDATORS).forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const check = () => {
+      const msg = FIELD_VALIDATORS[id](el.value);
+      setError(id, msg || false);
+    };
+    const clearIfValid = () => {
+      if (!FIELD_VALIDATORS[id](el.value)) setError(id, false);
+    };
+    el.addEventListener('blur', check);
+    el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', clearIfValid);
+  });
 
   function toggleDay(key) {
     const checked = document.getElementById('day-' + key).checked;
@@ -521,8 +612,10 @@
   }
   function renderServices() {
     const wrap = document.getElementById('serviceTagsWrap');
+    // Service names are owner-typed but still rendered via innerHTML — escape
+    // to prevent self-XSS that could later leak via the review payload.
     wrap.innerHTML = services.map((s, i) => `
-      <span class="service-tag">${s} <button onclick="removeService(${i})" title="Устгах">✕</button></span>
+      <span class="service-tag">${escapeHtml(s)} <button onclick="removeService(${i})" title="Устгах">✕</button></span>
     `).join('');
   }
 
@@ -547,19 +640,20 @@
   }
 
   function validateStep(step) {
+    const runField = id => {
+      const el  = document.getElementById(id);
+      const msg = FIELD_VALIDATORS[id](el.value);
+      setError(id, msg || false);
+      return !msg;
+    };
     if (step === 1) {
-      const last  = document.getElementById('lastName').value.trim();
-      const first = document.getElementById('firstName').value.trim();
-      const phone = document.getElementById('phone').value.trim();
-      const email = document.getElementById('regEmail').value.trim();
-      const terms = document.getElementById('terms').checked;
-      let ok = true;
       clearErrors('panel-1');
-      if (!last)  { setError('lastName', true); ok = false; }
-      if (!first) { setError('firstName', true); ok = false; }
-      if (!phone || phone.length < 7) { setError('phone', true); ok = false; }
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setError('regEmail', true); ok = false; }
-      if (!terms) { showToast('error', 'Нөхцөл зөвшөөрнө үү', 'Үргэлжлүүлэхийн тулд нөхцөлтэй зөвшөөрнө үү.'); ok = false; }
+      const fields = ['lastName', 'firstName', 'phone', 'regEmail'];
+      let ok = fields.map(runField).every(Boolean);
+      if (!document.getElementById('terms').checked) {
+        showToast('error', 'Нөхцөл зөвшөөрнө үү', 'Үргэлжлүүлэхийн тулд нөхцөлтэй зөвшөөрнө үү.');
+        ok = false;
+      }
       return ok;
     }
     if (step === 2) {
@@ -571,23 +665,53 @@
         }
         return true;
       }
-      // Create mode: validate form fields
-      let ok = true;
       clearErrors('panel-2');
-      if (!document.getElementById('bizName').value.trim()) { setError('bizName', true); ok = false; }
-      if (!document.getElementById('bizType').value) { setError('bizType', true); ok = false; }
-      if (!document.getElementById('district').value) { setError('district', true); ok = false; }
-      if (!document.getElementById('address').value.trim()) { setError('address', true); ok = false; }
-      if (!document.getElementById('bizPhone').value.trim()) { setError('bizPhone', true); ok = false; }
-      return ok;
+      const fields = ['bizName', 'bizType', 'district', 'address', 'bizPhone'];
+      return fields.map(runField).every(Boolean);
     }
     return true;
   }
 
+  // Per-field validators used by both the click-Continue submit path and the
+  // live blur/input listeners attached below. Returning a truthy string means
+  // the field is invalid; the string becomes the form-error span text so we
+  // get a specific message instead of a generic "fix this field".
+  const FIELD_VALIDATORS = {
+    lastName:  v => v.trim() ? '' : 'Овог оруулна уу',
+    firstName: v => v.trim() ? '' : 'Нэр оруулна уу',
+    phone:     v => v.trim().length >= 7 ? '' : 'Дор хаяж 7 оронтой утасны дугаар оруулна уу',
+    regEmail:  v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? '' : 'Зөв и-мэйл хаяг оруулна уу',
+    bizName:   v => v.trim() ? '' : 'Бизнесийн нэр оруулна уу',
+    bizType:   v => v ? '' : 'Бизнесийн төрлийг сонгоно уу',
+    district:  v => v ? '' : 'Дүүрэг сонгоно уу',
+    address:   v => v.trim() ? '' : 'Хаяг оруулна уу',
+    bizPhone:  v => v.trim().length >= 7 ? '' : 'Дор хаяж 7 оронтой утасны дугаар оруулна уу',
+  };
+
   function setError(id, show) {
     const el = document.getElementById(id);
     const group = el.closest('.form-group');
-    if (group) group.classList.toggle('has-error', show);
+    if (!group) return;
+    group.classList.toggle('has-error', !!show);
+    // Update the existing form-error text with the specific message when one
+    // was passed (live validation path). The static fallback copy in HTML is
+    // kept for the bulk-validate-on-submit path that still passes a boolean.
+    if (typeof show === 'string') {
+      const errEl = group.querySelector('.form-error');
+      if (errEl) errEl.textContent = show;
+    }
+    // ARIA: announce validity changes to screen readers and tie input to its message.
+    if (el && el.tagName === 'INPUT' || (el && el.tagName === 'SELECT')) {
+      el.setAttribute('aria-invalid', show ? 'true' : 'false');
+      const errEl = group.querySelector('.form-error');
+      if (errEl && !errEl.id) errEl.id = id + '-error';
+      if (errEl) {
+        errEl.setAttribute('role', 'alert');
+        errEl.setAttribute('aria-live', 'polite');
+        if (show) el.setAttribute('aria-describedby', errEl.id);
+        else el.removeAttribute('aria-describedby');
+      }
+    }
   }
   function clearErrors(panelId) {
     document.getElementById(panelId).querySelectorAll('.form-group').forEach(g => g.classList.remove('has-error'));
@@ -596,8 +720,12 @@
   function buildReview() {
     const ownerName = document.getElementById('lastName').value + ' ' + document.getElementById('firstName').value;
     const email     = document.getElementById('regEmail').value;
+    // `row()` escapes both label and value; services + claimedPlace fields
+    // are also escaped at every interpolation site below. The review block is
+    // rendered with values the user typed (or selected from places) and we
+    // can't trust either source in an innerHTML context.
     const row = (label, val) => val
-      ? `<div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">${label}</div><div class="font-semibold">${val}</div></div>`
+      ? `<div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">${escapeHtml(label)}</div><div class="font-semibold">${escapeHtml(val)}</div></div>`
       : '';
 
     if (!createMode && claimedPlace) {
@@ -607,10 +735,10 @@
           ${row('И-мэйл', email)}
           <div style="grid-column:1/-1;padding:12px;background:var(--primary-light);border-radius:var(--radius);border:1.5px solid var(--primary);">
             <div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:6px;">Нэхэмжлэх бизнес</div>
-            <div style="font-weight:700;font-size:1rem;">${claimedPlace.name}</div>
-            <div style="font-size:0.8125rem;color:var(--gray-500);margin-top:2px;">${claimedPlace.formatted_address || ''}</div>
+            <div style="font-weight:700;font-size:1rem;">${escapeHtml(claimedPlace.name)}</div>
+            <div style="font-size:0.8125rem;color:var(--gray-500);margin-top:2px;">${escapeHtml(claimedPlace.formatted_address || '')}</div>
           </div>
-          ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s=>`<span class="badge badge-primary">${s}</span>`).join('')}</div></div>` : ''}
+          ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s=>`<span class="badge badge-primary">${escapeHtml(s)}</span>`).join('')}</div></div>` : ''}
         </div>
       `;
     } else {
@@ -622,7 +750,7 @@
           ${row('Төрөл', document.getElementById('bizType').value)}
           ${row('Дүүрэг', document.getElementById('district').value)}
           ${row('Хаяг', document.getElementById('address').value)}
-          ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s=>`<span class="badge badge-primary">${s}</span>`).join('')}</div></div>` : ''}
+          ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s=>`<span class="badge badge-primary">${escapeHtml(s)}</span>`).join('')}</div></div>` : ''}
         </div>
       `;
     }
@@ -641,8 +769,51 @@
     'Бусад':                   'other',
   };
 
-  // Default location (Ulaanbaatar centre) — owner can refine later in profile.html
+  // Default location (Ulaanbaatar centre). The pin-placement map (init below)
+  // lets the owner drag the marker to their actual address — pinLat/pinLng are
+  // updated live and submitted with the RPC payload so the POI lands in the
+  // right place from day one (was previously hard-coded to UB centre).
   const UB_LAT = 47.9184, UB_LNG = 106.9177;
+  let pinLat = UB_LAT, pinLng = UB_LNG;
+  let pinMap = null, pinMarker = null;
+
+  function _fmtCoord(v) { return Number(v).toFixed(5); }
+  function _updatePinCoordLabel() {
+    const el = document.getElementById('pinCoords');
+    if (el) el.textContent = `${_fmtCoord(pinLat)}, ${_fmtCoord(pinLng)}`;
+  }
+
+  function initPinMap() {
+    if (pinMap || !window.mapboxgl || !window._MAPBOX_TOKEN) return;
+    const container = document.getElementById('pinMap');
+    if (!container || container.offsetWidth === 0) return; // not visible yet
+    mapboxgl.accessToken = window._MAPBOX_TOKEN;
+    pinMap = new mapboxgl.Map({
+      container,
+      style: 'mapbox://styles/mapbox/streets-v12',
+      center: [pinLng, pinLat],
+      zoom: 12,
+    });
+    pinMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+    pinMap.addControl(new mapboxgl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      trackUserLocation: false,
+      showAccuracyCircle: false,
+    }), 'top-right');
+    pinMarker = new mapboxgl.Marker({ draggable: true, color: '#2563eb' })
+      .setLngLat([pinLng, pinLat])
+      .addTo(pinMap);
+    pinMarker.on('dragend', () => {
+      const { lng, lat } = pinMarker.getLngLat();
+      pinLng = lng; pinLat = lat;
+      _updatePinCoordLabel();
+    });
+    pinMap.on('click', e => {
+      pinLng = e.lngLat.lng; pinLat = e.lngLat.lat;
+      pinMarker.setLngLat([pinLng, pinLat]);
+      _updatePinCoordLabel();
+    });
+  }
 
   // Build a YYYY-MM-DDThh:mm:ss-style ISO string for timestamp columns
   function nowIso() { return new Date().toISOString(); }
@@ -671,19 +842,30 @@
     localStorage.setItem('mm_pending_reg', JSON.stringify({
       email, lastName, firstName, userPhone,
       bizName, bizType, district, khoroo, address, bizPhone, bizDesc, concurrent,
+      lat: createMode ? pinLat : null,
+      lng: createMode ? pinLng : null,
       claimPlaceId: (!createMode && claimedPlace) ? claimedPlace.place_id : null,
       claimBizName: (!createMode && claimedPlace) ? claimedPlace.name : null,
       claimCategory: (!createMode && claimedPlace) ? claimedPlace.primary_category : null,
     }));
 
+    const captchaToken = hcaptcha.getResponse();
+    if (!captchaToken) {
+      showToast('error', 'Captcha шаардлагатай', 'Хүний баталгаажуулалтыг бөглөнө үү.');
+      reset();
+      return;
+    }
+
     const { error } = await _sb.auth.signInWithOtp({
       email,
       options: {
         shouldCreateUser: true,
+        captchaToken,
         data: { full_name: `${lastName} ${firstName}`, phone: userPhone },
         emailRedirectTo: window.location.href,
       },
     });
+    hcaptcha.reset();
 
     if (error) {
       localStorage.removeItem('mm_pending_reg');
@@ -693,51 +875,142 @@
     }
 
     document.getElementById('sentToEmail').textContent = email;
-    document.getElementById('successModal').classList.add('open');
-    // btn stays disabled — user must click the email link to continue
+    document.getElementById('otpModal').classList.add('open');
+    document.getElementById('otpInput').focus();
+    // btn stays disabled until OTP is verified
   }
 
-  async function completeRegistration(userId, d) {
-    // Atomic: the SECURITY DEFINER RPC inserts into places + business_owners
-    // in one transaction. If either fails, neither is written, so a retry
-    // (or opening the magic link from a different browser) is safe.
-    const category    = CATEGORY_MAP[d.bizType] || 'other';
-    const fullAddress = [d.address, d.khoroo, d.district, 'Улаанбаатар'].filter(Boolean).join(', ');
-    const payload = d.claimPlaceId
-      ? { claimPlaceId: d.claimPlaceId }
-      : {
-          name:              d.bizName,
-          category,
-          lat:               UB_LAT,
-          lng:               UB_LNG,
-          formatted_address: fullAddress,
-          short_address:     d.address || null,
-          phone_national:    d.bizPhone || null,
-          slot_capacity:     d.concurrent || 1,
-          raw: {
-            source: 'portal', description: d.bizDesc || null,
-            district: d.district, khoroo: d.khoroo || null,
-          },
-        };
+  async function verifyOtp() {
+    const email = document.getElementById('regEmail').value.trim();
+    const token = document.getElementById('otpInput').value.trim();
+    const errEl = document.getElementById('otpError');
+    const btn   = document.getElementById('otpBtn');
+    errEl.style.display = 'none';
 
-    const { data: placeId, error } = await _sb.rpc(
-      'complete_business_registration', { p_payload: payload }
-    );
-    if (error || !placeId) {
-      showToast('error', 'Бүртгэл дуусгах алдаа',
-        'Дахин оролдоно уу. Асуудал үргэлжилбэл бидэнтэй холбогдоно уу.');
-      console.warn('[monmap-portal] complete_business_registration:', error);
+    if (!/^\d{8}$/.test(token)) {
+      errEl.textContent = '8 оронтой тоо оруулна уу.';
+      errEl.style.display = 'block';
       return;
     }
 
-    const bizName = d.claimBizName || d.bizName || placeId;
-    const bizType = d.claimCategory || d.bizType || 'Бизнес';
-    localStorage.removeItem('mm_pending_reg');
-    localStorage.setItem('mm_biz', JSON.stringify({
-      id: placeId, name: bizName, type: bizType, verified: false,
-    }));
+    btn.disabled = true;
+    btn.textContent = '⏳ Шалгаж байна...';
 
-    window.location.href = 'dashboard.html';
+    const { error } = await _sb.auth.verifyOtp({ email, token, type: 'email' });
+
+    if (error) {
+      errEl.textContent = 'Код буруу эсвэл хугацаа дууссан. Дахин оролдоно уу.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Баталгаажуулах';
+      return;
+    }
+    // onAuthStateChange fires next and calls completeRegistration. If it
+    // doesn't (e.g. listener never wired, RPC hangs on a flaky network), this
+    // watchdog surfaces a clear error instead of leaving the user stranded on
+    // "⏳ Шалгаж байна...". Cleared in completeRegistration on redirect.
+    window._otpWatchdog = setTimeout(() => {
+      errEl.textContent = 'Сүлжээний асуудал байна. Дахин оролдоно уу.';
+      errEl.style.display = 'block';
+      btn.disabled = false;
+      btn.textContent = 'Баталгаажуулах';
+    }, 15000);
+  }
+
+  async function resendOtp() {
+    const email = document.getElementById('regEmail').value.trim();
+    const { error } = await _sb.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true, emailRedirectTo: window.location.href },
+    });
+    if (error) showToast('error', 'Алдаа', error.message);
+    else showToast('success', 'Код илгээгдлээ', 'И-мэйлийг шалгана уу.');
+  }
+
+  // Close the OTP modal and reset every button to its idle state. Called from
+  // every error path in the post-OTP flow so the user is never stranded on
+  // "⏳ Шалгаж байна..." with no way forward.
+  function _resetOtpFlow() {
+    const modal = document.getElementById('otpModal');
+    if (modal) modal.classList.remove('open');
+    const otpBtn = document.getElementById('otpBtn');
+    if (otpBtn) { otpBtn.disabled = false; otpBtn.textContent = 'Баталгаажуулах'; }
+    const submitBtn = document.getElementById('submitBtn');
+    if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '✓ Бүртгэл илгээх'; }
+    if (window.hcaptcha) { try { hcaptcha.reset(); } catch (_) {} }
+  }
+
+  async function completeRegistration(userId, d) {
+    try {
+      // Pre-flight: if this user already has a business_owners row, the OTP
+      // signed them in to an existing account. Don't try to create another
+      // place — just route them to their dashboard with a clear message.
+      const { data: existing } = await _sb
+        .from('business_owners')
+        .select('place_id, claim_status, places(name, primary_category)')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (existing?.place_id) {
+        localStorage.removeItem('mm_pending_reg');
+        localStorage.setItem('mm_biz', JSON.stringify({
+          id:           existing.place_id,
+          name:         (existing.places && existing.places.name) || existing.place_id,
+          type:         (existing.places && existing.places.primary_category) || 'Бизнес',
+          claim_status: existing.claim_status,
+          verified:     existing.claim_status === 'verified',
+        }));
+        showToast('info', 'Та аль хэдийн бүртгэлтэй',
+          'Энэ и-мэйл хаягаар өмнө нь бизнес бүртгүүлсэн байна. Дашбоард руу шилжүүлж байна.');
+        setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
+        return;
+      }
+
+      // Atomic: the SECURITY DEFINER RPC inserts into places + business_owners
+      // in one transaction. If either fails, neither is written, so a retry
+      // (or opening the magic link from a different browser) is safe.
+      const category    = CATEGORY_MAP[d.bizType] || 'other';
+      const fullAddress = [d.address, d.khoroo, d.district, 'Улаанбаатар'].filter(Boolean).join(', ');
+      const payload = d.claimPlaceId
+        ? { claimPlaceId: d.claimPlaceId }
+        : {
+            name:              d.bizName,
+            category,
+            lat:               (typeof d.lat === 'number') ? d.lat : UB_LAT,
+            lng:               (typeof d.lng === 'number') ? d.lng : UB_LNG,
+            formatted_address: fullAddress,
+            short_address:     d.address || null,
+            phone_national:    d.bizPhone || null,
+            slot_capacity:     d.concurrent || 1,
+            raw: {
+              source: 'portal', description: d.bizDesc || null,
+              district: d.district, khoroo: d.khoroo || null,
+            },
+          };
+
+      const { data: placeId, error } = await _sb.rpc(
+        'complete_business_registration', { p_payload: payload }
+      );
+      if (error || !placeId) {
+        console.warn('[monmap-portal] complete_business_registration:', error);
+        _resetOtpFlow();
+        showToast('error', 'Бүртгэл дуусгах алдаа',
+          (error && error.message) || 'Дахин оролдоно уу. Асуудал үргэлжилбэл бидэнтэй холбогдоно уу.');
+        return;
+      }
+
+      const bizName = d.claimBizName || d.bizName || placeId;
+      const bizType = d.claimCategory || d.bizType || 'Бизнес';
+      localStorage.removeItem('mm_pending_reg');
+      localStorage.setItem('mm_biz', JSON.stringify({
+        id: placeId, name: bizName, type: bizType, verified: false,
+      }));
+
+      window.location.href = 'dashboard.html';
+    } catch (e) {
+      console.error('[monmap-portal] completeRegistration threw:', e);
+      _resetOtpFlow();
+      showToast('error', 'Алдаа', e.message || 'Бүртгэл дуусгах үед алдаа гарлаа.');
+    }
   }
 
   // If the magic link was opened in a different browser (no mm_pending_reg)
@@ -745,37 +1018,41 @@
   // route them to the dashboard. Otherwise sign them out with a clear hint
   // to reopen the link in the original browser.
   async function _recoverFromMissingPending(userId) {
-    const { data } = await _sb
-      .from('business_owners')
-      .select('place_id')
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (data?.place_id) {
-      window.location.href = 'dashboard.html';
-      return;
+    try {
+      const { data } = await _sb
+        .from('business_owners')
+        .select('place_id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (data?.place_id) {
+        window.location.href = 'dashboard.html';
+        return;
+      }
+      await _sb.auth.signOut();
+      _resetOtpFlow();
+      showToast('warning', 'Бүртгэл дуусгах боломжгүй',
+        'Магтадтай линкийг бүртгэл эхлүүлсэн хөтчөөрөө нээнэ үү.');
+    } catch (e) {
+      console.error('[monmap-portal] _recoverFromMissingPending threw:', e);
+      _resetOtpFlow();
+      showToast('error', 'Алдаа', e.message || 'Алдаа гарлаа.');
     }
-    await _sb.auth.signOut();
-    showToast('warning', 'Бүртгэл дуусгах боломжгүй',
-      'Магтадтай линкийг бүртгэл эхлүүлсэн хөтчөөрөө нээнэ үү.');
   }
 
   // After the user clicks the magic link they land back here with a fresh session.
   // Complete any pending registration before redirecting to the dashboard.
   _sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN' && session) {
+      if (window._otpWatchdog) { clearTimeout(window._otpWatchdog); window._otpWatchdog = null; }
       const pending = JSON.parse(localStorage.getItem('mm_pending_reg') || 'null');
       if (pending) await completeRegistration(session.user.id, pending);
       else        await _recoverFromMissingPending(session.user.id);
     }
   });
 
-  document.getElementById('fileInput').addEventListener('change', function() {
-    if (this.files && this.files[0]) {
-      const zone = document.getElementById('uploadZone');
-      zone.classList.add('has-file');
-      zone.innerHTML = `<div style="font-size:2rem;margin-bottom:8px;">✅</div><div style="font-size:0.875rem;font-weight:600;color:var(--success);">${this.files[0].name}</div>`;
-    }
-  });
+  // (No file-upload handler here — see the inline note in step-2 where the
+  // upload zone used to live. Logos are uploaded from profile.html after
+  // the account is verified.)
 </script>
 </body>
 </html>

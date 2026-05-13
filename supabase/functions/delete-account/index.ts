@@ -16,14 +16,25 @@ const SUPABASE_URL              = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_ANON_KEY         = Deno.env.get('SUPABASE_ANON_KEY')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
+// CORS headers — the portal is a different origin from the edge function
+// host, so the browser will fire an OPTIONS preflight on every invoke().
+// Without these, the mobile app keeps working (RN bypasses CORS) but the
+// portal's `_sb.functions.invoke('delete-account')` silently fails.
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin':  '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
   })
 
 Deno.serve(async (req) => {
-  if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS })
+  if (req.method !== 'POST')    return json({ error: 'Method not allowed' }, 405)
 
   const authHeader = req.headers.get('Authorization')
   if (!authHeader) return json({ error: 'Missing Authorization header' }, 401)

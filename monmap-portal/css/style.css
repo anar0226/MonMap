@@ -415,7 +415,64 @@ tr:hover td { background: var(--gray-50); }
 }
 .sidebar-nav a:hover { background: rgba(255,255,255,0.07); color: var(--white); }
 .sidebar-nav a.active { background: rgba(26,86,219,0.25); color: #93c5fd; }
-.sidebar-nav a .nav-icon { font-size: 1.1rem; width: 20px; flex-shrink: 0; }
+.sidebar-nav a .nav-icon,
+.sidebar-footer a .nav-icon,
+.sidebar-footer button .nav-icon {
+  font-size: 1.1rem;
+  width: 20px; height: 20px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-nav a .nav-icon svg,
+.sidebar-footer a .nav-icon svg,
+.sidebar-footer button .nav-icon svg { width: 18px; height: 18px; }
+.sidebar-nav .nav-disabled {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  color: var(--gray-600);
+  font-size: 0.9rem;
+  font-weight: 500;
+  margin-bottom: 2px;
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.sidebar-nav .nav-disabled .nav-icon { width: 20px; height: 20px; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
+.sidebar-nav .nav-disabled .nav-icon svg { width: 18px; height: 18px; }
+.sidebar-nav .nav-disabled .soon-pill {
+  margin-left: auto;
+  background: rgba(255,255,255,0.08);
+  color: var(--gray-400);
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.sidebar-footer button.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  color: var(--gray-400);
+  background: transparent;
+  border: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.sidebar-footer button.nav-link:hover { background: rgba(255,255,255,0.07); color: var(--white); }
+.notification-btn svg { width: 18px; height: 18px; stroke: currentColor; }
 .sidebar-nav a .nav-badge {
   margin-left: auto;
   background: var(--danger);
@@ -1118,4 +1175,126 @@ tr:hover td { background: var(--gray-50); }
   transition: all var(--transition);
 }
 .mobile-nav a:hover { background: var(--gray-100); }
+
+/* ── Skeleton loaders ──
+   Use while waiting for Supabase data: drop in a .skel block with the rough
+   shape of the final content. Pages should remove these once data arrives
+   (or just overwrite the container's innerHTML). */
+@keyframes skel-shimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position: calc(200px + 100%) 0; }
+}
+.skel {
+  display: block;
+  background: var(--gray-100);
+  background-image: linear-gradient(
+    90deg,
+    var(--gray-100) 0px,
+    var(--gray-200) 80px,
+    var(--gray-100) 160px
+  );
+  background-size: 200px 100%;
+  background-repeat: no-repeat;
+  border-radius: var(--radius-sm);
+  animation: skel-shimmer 1.4s ease-in-out infinite;
+  color: transparent;
+  user-select: none;
+}
+.skel-text  { height: 0.875rem; width: 100%; margin: 6px 0; }
+.skel-title { height: 1.25rem; width: 60%;  margin: 8px 0; }
+.skel-line-sm { height: 0.75rem;  width: 40%;  margin: 4px 0; }
+.skel-line-lg { height: 1rem;     width: 80%;  margin: 6px 0; }
+.skel-circle { border-radius: 999px; }
+.skel-card {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+}
+.skel-stat {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+.skel-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+.skel-row:last-child { border-bottom: none; }
+.skel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+/* ── Dark mode ──
+   Triggered by adding data-theme="dark" to <html>. The bootstrap snippet in
+   each authenticated page checks localStorage('mm_theme') and writes the
+   attribute before paint to avoid flash. We override the token layer only,
+   so every component (buttons, badges, alerts, forms, tables) inherits the
+   new palette without touching their selectors. */
+:root[data-theme="dark"] {
+  --primary:        #5b8def;
+  --primary-dark:   #3b6fd8;
+  --primary-light:  #1c2740;
+  --secondary:      #d4a73a;
+  --secondary-light:#2a2210;
+  --success:        #34d399;
+  --success-light:  #0f2a1f;
+  --warning:        #fbbf24;
+  --warning-light:  #2a200d;
+  --danger:         #f87171;
+  --danger-light:   #2a1414;
+  --gray-50:        #0d1219;
+  --gray-100:       #151b25;
+  --gray-200:       #1f2733;
+  --gray-300:       #2c3645;
+  --gray-400:       #5a6678;
+  --gray-500:       #8a93a3;
+  --gray-600:       #b0b8c5;
+  --gray-700:       #cdd3dc;
+  --gray-800:       #e3e7ec;
+  --gray-900:       #f5f7fa;
+  --white:          #161c26;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.40), 0 1px 2px rgba(0,0,0,0.30);
+  --shadow:    0 4px 12px rgba(0,0,0,0.45), 0 2px 4px rgba(0,0,0,0.30);
+  --shadow-lg: 0 10px 30px rgba(0,0,0,0.55), 0 4px 8px rgba(0,0,0,0.35);
+  --shadow-xl: 0 20px 50px rgba(0,0,0,0.60);
+  color-scheme: dark;
+}
+:root[data-theme="dark"] body { background: var(--gray-50); color: var(--gray-700); }
+:root[data-theme="dark"] img:not([src*=".svg"]) { filter: brightness(0.92); }
+:root[data-theme="dark"] .skel {
+  background: var(--gray-100);
+  background-image: linear-gradient(
+    90deg,
+    var(--gray-100) 0px,
+    var(--gray-200) 80px,
+    var(--gray-100) 160px
+  );
+}
+
+/* Theme toggle button — drop a <button class="theme-toggle"> in any header. */
+.theme-toggle {
+  width: 36px; height: 36px;
+  border-radius: 999px;
+  background: var(--gray-100);
+  border: 1px solid var(--gray-200);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background var(--transition), transform var(--transition);
+}
+.theme-toggle:hover { background: var(--gray-200); }
+.theme-toggle:active { transform: scale(0.92); }
+.theme-toggle .icon-sun  { display: none; }
+.theme-toggle .icon-moon { display: inline; }
+:root[data-theme="dark"] .theme-toggle .icon-sun  { display: inline; }
+:root[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 .mobile-nav .divider { height: 1px; background: var(--gray-200); margin: 8px 0; }

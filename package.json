@@ -10,7 +10,8 @@
     "scrape": "node scripts/scrape-places.mjs",
     "scrape:dry": "node scripts/scrape-places.mjs --dry-run",
     "upload": "node scripts/upload-to-supabase.mjs",
-    "upload:dry": "node scripts/upload-to-supabase.mjs --dry-run"
+    "upload:dry": "node scripts/upload-to-supabase.mjs --dry-run",
+    "smoke": "node scripts/smoke-test.mjs"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -24,6 +25,7 @@
     "expo-linear-gradient": "~15.0.8",
     "expo-location": "~19.0.8",
     "expo-notifications": "~0.32.17",
+    "expo-secure-store": "~15.0.7",
     "expo-speech": "~14.0.7",
     "expo-status-bar": "~3.0.9",
     "expo-web-browser": "~15.0.11",
@@ -35,7 +37,7 @@
     "react-native-svg": "15.12.1",
     "react-native-url-polyfill": "^3.0.0",
     "react-native-web": "^0.21.0",
-    "react-native-webview": "13.15.0"
+    "react-native-webview": "^13.15.0"
   },
   "devDependencies": {
     "@types/react": "~19.1.0",

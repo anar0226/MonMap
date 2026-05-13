@@ -13,7 +13,31 @@ import { sendSMS } from '../_shared/sms.ts'
 
 const SUPABASE_URL              = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-const SUPPORT_PHONE             = '+976 9414-2121'
+// Support phone is configurable so we never need a code deploy to change it.
+// The default matches the launch-day support line; override in production via
+// `supabase secrets set SUPPORT_PHONE='+976 ...'` if it ever changes.
+const SUPPORT_PHONE             = Deno.env.get('SUPPORT_PHONE') ?? '+976 9414-2121'
+
+// Best-effort audit log. Never let a logging failure cascade to the caller —
+// the SMS/push itself is the durable side-effect; this row is observability.
+async function logAttempt(
+  db: ReturnType<typeof createClient>,
+  bookingId: number | string,
+  channel: 'sms_owner' | 'sms_guest' | 'push_guest',
+  status: 'ok' | 'error',
+  errorText: string | null,
+): Promise<void> {
+  try {
+    await db.from('notification_attempts').insert({
+      booking_id: bookingId,
+      channel,
+      status,
+      error_text: errorText,
+    })
+  } catch (e) {
+    console.error('notification_attempts insert failed:', e)
+  }
+}
 
 // ── Per-status message templates ──────────────────────────────────────────────
 
@@ -67,7 +91,11 @@ async function sendExpoPush(
     headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({ to: token, title, body, data, sound: 'default' }),
   })
-  if (!res.ok) console.error('Expo push error:', await res.text())
+  if (!res.ok) {
+    const text = await res.text()
+    console.error('Expo push error:', text)
+    throw new Error(`expo ${res.status}: ${text}`)
+  }
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -106,7 +134,7 @@ Deno.serve(async (req) => {
       .single()
     const placeName = place?.name ?? 'Газар'
 
-    const jobs: Promise<void>[] = []
+    let anyDelivered = false
 
     // Push to the guest's mobile device, if logged in and a token is on file.
     if (booking.user_id) {
@@ -117,26 +145,41 @@ Deno.serve(async (req) => {
         .maybeSingle()
 
       if (tokenRow?.token) {
-        jobs.push(sendExpoPush(
+        const push = await sendExpoPush(
           tokenRow.token,
           tpl.pushTitle,
           tpl.pushBody(placeName, booking.booked_date, booking.time_slot, booking.party_size),
           { bookingId: String(bookingId), status: booking.status },
-        ))
+        )
+          .then(() => ({ ok: true, err: null as string | null }))
+          .catch((e) => ({ ok: false, err: String(e?.message ?? e) }))
+        anyDelivered = anyDelivered || push.ok
+        await logAttempt(db, bookingId, 'push_guest', push.ok ? 'ok' : 'error', push.err)
       }
     }
 
     // SMS to the phone the guest typed at booking time (if any).
     if (booking.guest_phone) {
-      jobs.push(sendSMS(
+      const sms = await sendSMS(
         booking.guest_phone,
         tpl.smsBody(placeName, booking.booked_date, booking.time_slot, booking.party_size),
-      ))
+      )
+        .then(() => ({ ok: true, err: null as string | null }))
+        .catch((e) => ({ ok: false, err: String(e?.message ?? e) }))
+      anyDelivered = anyDelivered || sms.ok
+      await logAttempt(db, bookingId, 'sms_guest', sms.ok ? 'ok' : 'error', sms.err)
     }
 
-    await Promise.allSettled(jobs)
+    // Stamp guest_notified_at only when at least one channel acknowledged.
+    // The portal queries for confirmed/cancelled bookings with NULL here on
+    // page load and re-invokes us — see js/utils.js retryStuckGuestNotify().
+    if (anyDelivered) {
+      await db.from('bookings')
+        .update({ guest_notified_at: new Date().toISOString() })
+        .eq('id', bookingId)
+    }
 
-    return new Response(JSON.stringify({ ok: true, status: booking.status }), {
+    return new Response(JSON.stringify({ ok: true, status: booking.status, delivered: anyDelivered }), {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (err) {

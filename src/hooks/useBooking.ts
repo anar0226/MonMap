@@ -1,5 +1,21 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
+
+export interface QPayBankLink {
+  name: string;
+  description?: string;
+  logo: string;
+  link: string;
+}
+
+export interface PaymentIntentData {
+  paymentId: string;
+  holdId: string;
+  holdExpiresAt: string;
+  amount: number;
+  qpayQrImage: string;
+  qpayUrls: QPayBankLink[];
+}
 
 export interface SlotAvailability {
   slot: string;
@@ -12,8 +28,17 @@ export function useBooking() {
   const [slots, setSlots] = useState<SlotAvailability[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [initiatingPayment, setInitiatingPayment] = useState(false);
+  const [paymentIntent, setPaymentIntent] = useState<PaymentIntentData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+
+  // Idempotency key for the in-flight payment-intent request. Generated lazily
+  // on first attempt and reused across retries within the same booking flow,
+  // so a network timeout followed by a re-tap doesn't create a duplicate slot
+  // hold + QPay invoice on the server. Cleared when the modal is dismissed
+  // (clearPaymentIntent), so the next "Confirm" press starts fresh.
+  const idempotencyKeyRef = useRef<string | null>(null);
 
   const fetchSlots = useCallback(async (
     placeId: string,
@@ -93,27 +118,25 @@ export function useBooking() {
         return false;
       }
 
-      const { data, error: err } = await supabase
-        .from('bookings')
-        .insert({
-          user_id: userId,
-          place_id: params.placeId,
-          booked_date: params.date,
-          time_slot: params.timeSlot,
-          party_size: params.partySize,
-          guest_name: params.guestName,
-          guest_phone: params.guestPhone || null,
-          status: 'pending',
-        })
-        .select('id')
-        .single();
+      // Atomic capacity check + insert. See migration
+      // 20260518000001_create_booking_atomic.sql — the previous direct
+      // INSERT had no slot-capacity enforcement, so two concurrent users
+      // could each book the same remaining covers.
+      const { data: bookingId, error: err } = await supabase.rpc('create_booking', {
+        p_place_id:     params.placeId,
+        p_booked_date:  params.date,
+        p_time_slot:    params.timeSlot,
+        p_party_size:   params.partySize,
+        p_guest_name:   params.guestName,
+        p_guest_phone:  params.guestPhone || null,
+      });
       if (err) throw err;
 
       // Fire-and-forget: notify the business owner of a new booking request.
       // Don't await — a Twilio failure must never block the UX.
-      if (data?.id) {
+      if (bookingId) {
         supabase.functions
-          .invoke('notify-booking', { body: { bookingId: data.id } })
+          .invoke('notify-booking', { body: { bookingId } })
           .catch((e) => console.warn('notify-booking:', e));
       }
 
@@ -121,7 +144,9 @@ export function useBooking() {
       return true;
     } catch (e: any) {
       const msg = e?.message ?? 'Could not submit booking';
-      if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
+      if (msg.includes('slot_full')) {
+        setError('Уучлаарай, энэ цаг захиалгаар дүүрсэн байна.');
+      } else if (msg.includes('duplicate key') || msg.includes('unique constraint')) {
         setError('Та энэ цагт аль хэдийн захиалга хийсэн байна.');
       } else {
         setError('Захиалга үүсгэхэд алдаа гарлаа. Дахин оролдоно уу.');
@@ -132,9 +157,72 @@ export function useBooking() {
     }
   }, [slots]);
 
+  const initiatePaymentBooking = useCallback(async (params: {
+    placeId: string;
+    date: string;
+    timeSlot: string;
+    partySize: number;
+    guestName: string;
+    guestPhone?: string;
+    service?: string;
+    durationMinutes?: number;
+  }): Promise<PaymentIntentData | null> => {
+    setInitiatingPayment(true);
+    setError(null);
+    try {
+      if (!idempotencyKeyRef.current) {
+        idempotencyKeyRef.current = generateIdempotencyKey();
+      }
+      const { data, error: err } = await supabase.functions.invoke('create-payment-intent', {
+        body: {
+          idempotencyKey:  idempotencyKeyRef.current,
+          placeId:         params.placeId,
+          date:            params.date,
+          timeSlot:        params.timeSlot,
+          partySize:       params.partySize,
+          guestName:       params.guestName,
+          guestPhone:      params.guestPhone ?? null,
+          service:         params.service ?? null,
+          durationMinutes: params.durationMinutes ?? null,
+        },
+      });
+      if (err) throw err;
+      if (data?.error === 'slot_full') {
+        setError(data.message ?? 'Уучлаарай, энэ цаг захиалгаар дүүрсэн байна.');
+        return null;
+      }
+      if (data?.error === 'idempotency_key_stale') {
+        // The prior hold tied to this key has expired. Reset the key so the
+        // next attempt creates a fresh hold + invoice.
+        idempotencyKeyRef.current = null;
+        setError(data.message ?? 'Захиалгын хугацаа дууссан байна. Дахин оролдоно уу.');
+        return null;
+      }
+      const intent = data as PaymentIntentData;
+      setPaymentIntent(intent);
+      return intent;
+    } catch (e: any) {
+      setError('Төлбөрийн мэдээлэл бэлдэхэд алдаа гарлаа. Дахин оролдоно уу.');
+      return null;
+    } finally {
+      setInitiatingPayment(false);
+    }
+  }, []);
+
+  const clearPaymentIntent = useCallback(() => {
+    setPaymentIntent(null);
+    idempotencyKeyRef.current = null;
+  }, []);
+
   const resetSubmitted = useCallback(() => setSubmitted(false), []);
 
-  return { slots, loadingSlots, submitting, error, submitted, fetchSlots, submitBooking, resetSubmitted };
+  return {
+    slots, loadingSlots,
+    submitting, initiatingPayment,
+    paymentIntent, clearPaymentIntent,
+    error, submitted,
+    fetchSlots, submitBooking, initiatePaymentBooking, resetSubmitted,
+  };
 }
 
 // Parses today's open/close hours from Google Places weekday_descriptions.
@@ -175,16 +263,60 @@ export function parseTodayHours(
   return null;
 }
 
-export function generateTimeSlots(openHour = 10, closeHour = 20, lastSeatingMinutesBefore = 60): string[] {
+/**
+ * Generate bookable time slots between openHour and closeHour.
+ *
+ * The bookings table indexes `time_slot` at 30-min granularity, so the
+ * stride is always 30 min — that is a schema invariant, not a tuning knob.
+ *
+ * `slotDurationMinutes` controls the *last-seating buffer*: the latest
+ * slot generated must be able to finish by closeHour. Previously this was
+ * hard-coded to 60, which was wrong for both ends of the spectrum:
+ *   - a barber running 30-min haircuts lost the final two slots for no
+ *     reason (could finish a 30-min cut before close);
+ *   - a spa running 90-min massages could sell a slot that ran past close.
+ *
+ * Pass the typical/maximum service duration as the third arg and the math
+ * works out for both cases.
+ *
+ *   generateTimeSlots(10, 20)        → 60-min buffer (pre-existing default)
+ *   generateTimeSlots(10, 20, 30)    → 30-min buffer (haircut shop)
+ *   generateTimeSlots(10, 20, 90)    → 90-min buffer (spa)
+ */
+export function generateTimeSlots(
+  openHour = 10,
+  closeHour = 20,
+  slotDurationMinutes = 60,
+): string[] {
+  const STRIDE_MINUTES = 30;   // schema invariant — see top-of-function note
   const slots: string[] = [];
-  const cutoffMins = closeHour * 60 - lastSeatingMinutesBefore;
-  for (let h = openHour; h < closeHour; h++) {
-    if (h * 60 <= cutoffMins) slots.push(`${String(h).padStart(2, '0')}:00`);
-    if (h * 60 + 30 <= cutoffMins) slots.push(`${String(h).padStart(2, '0')}:30`);
+  const startMins = openHour * 60;
+  const endMins   = closeHour * 60;
+  // Last slot must finish by close.
+  const lastStart = endMins - Math.max(STRIDE_MINUTES, slotDurationMinutes);
+
+  for (let m = startMins; m <= lastStart; m += STRIDE_MINUTES) {
+    const h  = Math.floor(m / 60);
+    const mm = m % 60;
+    slots.push(`${String(h).padStart(2, '0')}:${String(mm).padStart(2, '0')}`);
   }
   return slots;
 }
 
+// Returns today's date in Asia/Ulaanbaatar (UTC+8, no DST) as YYYY-MM-DD.
+// Using toISOString() returned UTC, which between 16:00-24:00 UTC was the
+// previous calendar day in Mongolia — so date-equality checks against
+// booked_date silently rejected/accepted the wrong day.
 export function todayDateString(): string {
-  return new Date().toISOString().split('T')[0];
+  const mnt = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  return mnt.toISOString().split('T')[0];
+}
+
+// crypto.randomUUID is available on Hermes/JSC in recent RN; the timestamp
+// fallback is more than unique enough for per-user idempotency within the
+// 10-min hold window — the DB unique index is scoped to (user_id, key).
+function generateIdempotencyKey(): string {
+  const c: any = (globalThis as any).crypto;
+  if (c?.randomUUID) return c.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }

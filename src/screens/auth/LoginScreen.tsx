@@ -13,18 +13,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../../lib/supabase';
-import { colors, gradientPrimary } from '../../theme';
+import { gradientPrimary } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import type { AuthStackParamList } from '../../navigation';
 import HCaptchaModal from '../../components/HCaptchaModal';
-
-WebBrowser.maybeCompleteAuthSession();
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
 export default function LoginScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const s = React.useMemo(() => makeStyles(colors), [colors]);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -34,26 +33,6 @@ export default function LoginScreen({ navigation }: Props) {
   const [error, setError] = useState('');
   const [captchaOpen, setCaptchaOpen] = useState(false);
 
-  async function handleFacebookLogin() {
-    setLoading(true);
-    setError('');
-    const redirectUri = makeRedirectUri();
-    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: 'facebook',
-      options: { redirectTo: redirectUri, skipBrowserRedirect: true },
-    });
-    if (oauthError || !data.url) {
-      setError('Фэйсбүүкээр нэвтрэхэд алдаа гарлаа');
-      setLoading(false);
-      return;
-    }
-    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-    if (result.type === 'success') {
-      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
-      if (sessionError) setError('Нэвтрэхэд алдаа гарлаа');
-    }
-    setLoading(false);
-  }
 
   async function handleLogin() {
     const trimmedEmail = email.trim();
@@ -145,15 +124,22 @@ export default function LoginScreen({ navigation }: Props) {
               {error ? <Text style={s.errorText}>{error}</Text> : null}
 
               {/* CTA */}
-              <Pressable onPress={handleLogin} disabled={loading}>
-                <LinearGradient
-                  colors={loading ? ['rgba(0,83,163,0.5)', 'rgba(26,63,168,0.5)'] : gradientPrimary}
-                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                  style={s.primaryBtn}
+              <View style={s.btnShadow}>
+                <Pressable
+                  onPress={handleLogin}
+                  disabled={loading}
+                  android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: false }}
+                  style={s.pressable}
                 >
-                  <Text style={s.primaryBtnText}>{loading ? 'Түр хүлээнэ үү...' : 'Нэвтрэх'}</Text>
-                </LinearGradient>
-              </Pressable>
+                  <LinearGradient
+                    colors={loading ? ['rgba(0,83,163,0.5)', 'rgba(26,63,168,0.5)'] : gradientPrimary}
+                    start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                    style={s.primaryBtnGradient}
+                  >
+                    <Text style={s.primaryBtnText}>{loading ? 'Түр хүлээнэ үү...' : 'Нэвтрэх'}</Text>
+                  </LinearGradient>
+                </Pressable>
+              </View>
 
               <View style={s.signupRow}>
                 <Text style={s.signupText}>Шинэ хэрэглэгч болох </Text>
@@ -171,11 +157,9 @@ export default function LoginScreen({ navigation }: Props) {
 
               {/* Social auth row */}
               <View style={s.socialRow}>
-                <Pressable style={s.socialBtn} onPress={handleFacebookLogin} disabled={loading}>
-                  <Ionicons name="logo-facebook" size={18} color="#1877F2" />
-                </Pressable>
                 <Pressable style={s.socialBtn} onPress={() => navigation.navigate('PhoneLogin')} disabled={loading}>
                   <Ionicons name="call-outline" size={18} color={colors.text} />
+                  <Text style={{ color: colors.textSec, fontSize: 12, marginLeft: 8 }}>Утсаар нэвтрэх</Text>
                 </Pressable>
               </View>
             </View>
@@ -200,65 +184,76 @@ export default function LoginScreen({ navigation }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  flex: { flex: 1 },
-  scroll: { paddingHorizontal: 24, paddingTop: 44, paddingBottom: 32 },
+type Colors = ReturnType<typeof useTheme>['colors'];
+function makeStyles(colors: Colors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    flex: { flex: 1 },
+    scroll: { paddingHorizontal: 24, paddingTop: 44, paddingBottom: 32 },
 
-  header: { alignItems: 'center', marginBottom: 36 },
-  brandTile: {
-    width: 44, height: 44, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: colors.primary, shadowOpacity: 0.33, shadowRadius: 20, shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  brandLetter: { color: '#fff', fontWeight: '700', fontSize: 19, letterSpacing: -0.3 },
-  appName: { color: colors.textMuted, fontSize: 10.5, fontWeight: '600', letterSpacing: 2.2, marginTop: 14 },
-  title: { color: colors.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.8, marginTop: 8 },
-  subtitle: { color: colors.textSec, fontSize: 13, marginTop: 6 },
+    header: { alignItems: 'center', marginBottom: 36 },
+    brandTile: {
+      width: 44, height: 44, borderRadius: 13,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: colors.primary, shadowOpacity: 0.33, shadowRadius: 20, shadowOffset: { width: 0, height: 8 },
+      elevation: 8,
+    },
+    brandLetter: { color: '#fff', fontWeight: '700', fontSize: 19, letterSpacing: -0.3 },
+    appName: { color: colors.textMuted, fontSize: 10.5, fontWeight: '600', letterSpacing: 2.2, marginTop: 14 },
+    title: { color: colors.text, fontSize: 26, fontWeight: '700', letterSpacing: -0.8, marginTop: 8 },
+    subtitle: { color: colors.textSec, fontSize: 13, marginTop: 6 },
 
-  form: { marginBottom: 24 },
-  label: {
-    color: colors.textSec, fontSize: 10.5, fontWeight: '600',
-    letterSpacing: 1.2, marginBottom: 8, textTransform: 'uppercase',
-  },
-  inputWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.inputBg, borderRadius: 12,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  inputFocused: { borderColor: colors.primary },
-  input: { color: colors.text, fontSize: 14, paddingHorizontal: 14, paddingVertical: 13 },
-  inputFlex: { flex: 1 },
-  eyeBtn: { paddingHorizontal: 14 },
-  forgotBtn: { alignSelf: 'flex-end', paddingVertical: 8 },
-  forgotText: { color: colors.primary, fontSize: 12, fontWeight: '500' },
-  errorText: { color: colors.danger, fontSize: 12, marginBottom: 8 },
+    form: { marginBottom: 24 },
+    label: {
+      color: colors.textSec, fontSize: 10.5, fontWeight: '600',
+      letterSpacing: 1.2, marginBottom: 8, textTransform: 'uppercase',
+    },
+    inputWrap: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: colors.inputBg, borderRadius: 12,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    inputFocused: { borderColor: colors.primary },
+    input: { color: colors.text, fontSize: 14, paddingHorizontal: 14, paddingVertical: 13 },
+    inputFlex: { flex: 1 },
+    eyeBtn: { paddingHorizontal: 14 },
+    forgotBtn: { alignSelf: 'flex-end', paddingVertical: 8 },
+    forgotText: { color: colors.primary, fontSize: 12, fontWeight: '500' },
+    errorText: { color: colors.danger, fontSize: 12, marginBottom: 8 },
 
-  primaryBtn: {
-    borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 16,
-    shadowColor: colors.primary, shadowOpacity: 0.31, shadowRadius: 14, shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  primaryBtnText: { color: '#fff', fontSize: 14.5, fontWeight: '600', letterSpacing: 0.2 },
+    btnShadow: {
+      marginBottom: 16,
+      borderRadius: 12,
+      shadowColor: colors.primary, shadowOpacity: 0.31, shadowRadius: 14, shadowOffset: { width: 0, height: 4 },
+      elevation: 6,
+    },
+    pressable: {
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    primaryBtnGradient: {
+      borderRadius: 12, paddingVertical: 14, alignItems: 'center',
+    },
+    primaryBtnText: { color: '#fff', fontSize: 14.5, fontWeight: '600', letterSpacing: 0.2 },
 
-  signupRow: { flexDirection: 'row', justifyContent: 'center' },
-  signupText: { color: colors.textSec, fontSize: 13 },
-  signupLink: { color: colors.primary, fontSize: 13, fontWeight: '600' },
+    signupRow: { flexDirection: 'row', justifyContent: 'center' },
+    signupText: { color: colors.textSec, fontSize: 13 },
+    signupLink: { color: colors.primary, fontSize: 13, fontWeight: '600' },
 
-  divider: { flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 16, gap: 10 },
-  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-  dividerText: { color: colors.textMuted, fontSize: 11, fontWeight: '500' },
+    divider: { flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 16, gap: 10 },
+    dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+    dividerText: { color: colors.textMuted, fontSize: 11, fontWeight: '500' },
 
-  socialRow: { flexDirection: 'row', gap: 10 },
-  socialBtn: {
-    flex: 1, height: 44, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  googleG: { color: colors.text, fontSize: 15, fontWeight: '700', fontStyle: 'italic' },
+    socialRow: { flexDirection: 'row', gap: 10 },
+    socialBtn: {
+      flex: 1, height: 44, borderRadius: 12,
+      backgroundColor: colors.inputBg,
+      borderWidth: 1, borderColor: colors.border,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    },
+    googleG: { color: colors.text, fontSize: 15, fontWeight: '700', fontStyle: 'italic' },
 
-  legal: { color: colors.textMuted, fontSize: 10, lineHeight: 16, textAlign: 'center' },
-  legalLink: { color: colors.primary },
-});
+    legal: { color: colors.textMuted, fontSize: 10, lineHeight: 16, textAlign: 'center' },
+    legalLink: { color: colors.primary },
+  });
+}

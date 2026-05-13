@@ -1,227 +1,244 @@
 <!DOCTYPE html>
 <html lang="mn">
+
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.hcaptcha.com https://hcaptcha.com; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Нэвтрэх — МонМэп Бизнес Портал</title>
   <link rel="stylesheet" href="css/style.css" />
 </head>
+
 <body>
 
-<div class="auth-page">
+  <div class="auth-page">
 
-  <!-- Left panel -->
-  <div class="auth-left">
-    <div>
-      <a href="index.html" class="sidebar-logo" style="margin-bottom:48px;display:flex;">
-        <div class="logo-icon">📍</div>
-        Мон<span class="accent">Мэп</span>
-      </a>
-      <h2 style="color:white;font-size:1.875rem;margin-bottom:16px;line-height:1.2;">Бизнесийнхээ захиалгыг бүрэн хянаарай</h2>
-      <p style="color:rgba(255,255,255,0.65);font-size:1rem;line-height:1.7;max-width:360px;">МонМэп бизнес порталд нэвтрэн захиалга хүлээн авах, баталгаажуулах, хянах бүхнийг нэг дороос хий.</p>
-    </div>
-
-    <div style="display:flex;flex-direction:column;gap:16px;">
-      <div style="display:flex;align-items:flex-start;gap:14px;background:rgba(255,255,255,0.07);border-radius:var(--radius-lg);padding:18px;">
-        <span style="font-size:1.5rem;flex-shrink:0;">📅</span>
-        <div>
-          <div style="font-size:0.9rem;font-weight:700;color:white;margin-bottom:4px;">Захиалга удирдах</div>
-          <div style="font-size:0.8125rem;color:rgba(255,255,255,0.55);">Цаг захиалга хүлээн авах, баталгаажуулах, цуцлах</div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:flex-start;gap:14px;background:rgba(255,255,255,0.07);border-radius:var(--radius-lg);padding:18px;">
-        <span style="font-size:1.5rem;flex-shrink:0;">📊</span>
-        <div>
-          <div style="font-size:0.9rem;font-weight:700;color:white;margin-bottom:4px;">Дэлгэрэнгүй статистик</div>
-          <div style="font-size:0.8125rem;color:rgba(255,255,255,0.55);">Орлого, захиалгын тренд, шилдэг цагийг хар</div>
-        </div>
-      </div>
-      <div style="display:flex;align-items:flex-start;gap:14px;background:rgba(255,255,255,0.07);border-radius:var(--radius-lg);padding:18px;">
-        <span style="font-size:1.5rem;flex-shrink:0;">🔔</span>
-        <div>
-          <div style="font-size:0.9rem;font-weight:700;color:white;margin-bottom:4px;">Шуурхай мэдэгдэл</div>
-          <div style="font-size:0.8125rem;color:rgba(255,255,255,0.55);">Шинэ захиалга бүрт нэн даруй мэдэгдэл ав</div>
-        </div>
-      </div>
-    </div>
-
-    <div style="font-size:0.8125rem;color:rgba(255,255,255,0.35);">
-      © 2024 МонМэп — Монгол Улс 🇲🇳
-    </div>
-  </div>
-
-  <!-- Right panel -->
-  <div class="auth-right">
-    <div class="auth-form-wrap">
-      <a href="index.html" class="nav-logo" style="margin-bottom:32px;display:flex;">
-        <div class="logo-icon">📍</div>
-        Мон<span class="accent">Мэп</span>
-      </a>
-
-      <h1 class="auth-title">Бизнес порталд нэвтрэх</h1>
-      <p class="auth-subtitle">И-мэйл болон нууц үгээ оруулна уу</p>
-
-      <div id="alertBox" class="alert alert-danger hidden">
-        <span class="alert-icon">⚠️</span>
-        <span id="alertMsg">И-мэйл эсвэл нууц үг буруу байна.</span>
+    <!-- Left panel -->
+    <div class="auth-left">
+      <div>
+        <a href="index.html" class="sidebar-logo" style="margin-bottom:48px;display:flex;">
+          <div class="logo-icon">📍</div>
+          Мон<span class="accent">Мэп</span>
+        </a>
+        <h2 style="color:white;font-size:1.875rem;margin-bottom:16px;line-height:1.2;">Бизнесийнхээ захиалгыг бүрэн
+          хянаарай</h2>
+        <p style="color:rgba(255,255,255,0.65);font-size:1rem;line-height:1.7;max-width:360px;">МонМэп бизнес порталд
+          нэвтрэн захиалга хүлээн авах, баталгаажуулах, хянах бүхнийг нэг дороос хий.</p>
       </div>
 
-      <form id="loginForm" novalidate>
-        <div class="form-group">
-          <label class="form-label" for="email">И-мэйл хаяг <span class="required">*</span></label>
-          <input type="email" id="email" class="form-control" placeholder="example@business.mn" autocomplete="email" />
-          <span class="form-error">Зөв и-мэйл хаяг оруулна уу</span>
-        </div>
-
-        <div class="form-group">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-            <label class="form-label" for="password" style="margin-bottom:0;">Нууц үг <span class="required">*</span></label>
-            <a href="#" style="font-size:0.8125rem;" onclick="showForgot(event)">Нууц үг мартсан?</a>
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div
+          style="display:flex;align-items:flex-start;gap:14px;background:rgba(255,255,255,0.07);border-radius:var(--radius-lg);padding:18px;">
+          <span style="font-size:1.5rem;flex-shrink:0;">📅</span>
+          <div>
+            <div style="font-size:0.9rem;font-weight:700;color:white;margin-bottom:4px;">Захиалга удирдах</div>
+            <div style="font-size:0.8125rem;color:rgba(255,255,255,0.55);">Цаг захиалга хүлээн авах, баталгаажуулах,
+              цуцлах</div>
           </div>
-          <div style="position:relative;">
-            <input type="password" id="password" class="form-control" placeholder="Нууц үгээ оруулна уу" autocomplete="current-password" />
-            <button type="button" id="togglePwd" style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray-400);font-size:1rem;cursor:pointer;" title="Нууц үг харах">👁</button>
+        </div>
+        <div
+          style="display:flex;align-items:flex-start;gap:14px;background:rgba(255,255,255,0.07);border-radius:var(--radius-lg);padding:18px;">
+          <span style="font-size:1.5rem;flex-shrink:0;">📊</span>
+          <div>
+            <div style="font-size:0.9rem;font-weight:700;color:white;margin-bottom:4px;">Дэлгэрэнгүй статистик</div>
+            <div style="font-size:0.8125rem;color:rgba(255,255,255,0.55);">Орлого, захиалгын тренд, шилдэг цагийг хар
+            </div>
           </div>
-          <span class="form-error">Нууц үг оруулна уу</span>
+        </div>
+        <div
+          style="display:flex;align-items:flex-start;gap:14px;background:rgba(255,255,255,0.07);border-radius:var(--radius-lg);padding:18px;">
+          <span style="font-size:1.5rem;flex-shrink:0;">🔔</span>
+          <div>
+            <div style="font-size:0.9rem;font-weight:700;color:white;margin-bottom:4px;">Шуурхай мэдэгдэл</div>
+            <div style="font-size:0.8125rem;color:rgba(255,255,255,0.55);">Шинэ захиалга бүрт нэн даруй мэдэгдэл ав
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style="font-size:0.8125rem;color:rgba(255,255,255,0.35);">
+        © 2026 МонМэп — Монгол Улс 🇲🇳
+      </div>
+    </div>
+
+    <!-- Right panel -->
+    <div class="auth-right">
+      <div class="auth-form-wrap">
+        <a href="index.html" class="nav-logo" style="margin-bottom:32px;display:flex;">
+          <div class="logo-icon">📍</div>
+          Мон<span class="accent">Мэп</span>
+        </a>
+
+        <h1 class="auth-title">Бизнес порталд нэвтрэх</h1>
+        <p class="auth-subtitle">И-мэйл болон нууц үгээ оруулна уу</p>
+
+        <div id="alertBox" class="alert alert-danger hidden">
+          <span class="alert-icon">⚠️</span>
+          <span id="alertMsg">И-мэйл эсвэл нууц үг буруу байна.</span>
         </div>
 
-        <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;">
-          <input type="checkbox" id="remember" style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);" />
-          <label for="remember" style="font-size:0.875rem;color:var(--gray-600);cursor:pointer;">Намайг санах</label>
-        </div>
+        <form id="loginForm" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="email">И-мэйл хаяг <span class="required">*</span></label>
+            <input type="email" id="email" class="form-control" placeholder="example@business.mn"
+              autocomplete="email" />
+            <span class="form-error">Зөв и-мэйл хаяг оруулна уу</span>
+          </div>
 
-        <button type="submit" class="btn btn-primary w-full btn-lg" id="loginBtn">
-          <span id="loginBtnText">Нэвтрэх</span>
-          <span id="loginBtnSpinner" class="hidden">⏳</span>
-        </button>
-      </form>
+          <div class="form-group">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+              <label class="form-label" for="password" style="margin-bottom:0;">Нууц үг <span
+                  class="required">*</span></label>
+              <a href="#" style="font-size:0.8125rem;" onclick="showForgot(event)">Нууц үг мартсан?</a>
+            </div>
+            <div style="position:relative;">
+              <input type="password" id="password" class="form-control" placeholder="Нууц үгээ оруулна уу"
+                autocomplete="current-password" />
+              <button type="button" id="togglePwd"
+                style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--gray-400);font-size:1rem;cursor:pointer;"
+                title="Нууц үг харах">👁</button>
+            </div>
+            <span class="form-error">Нууц үг оруулна уу</span>
+          </div>
 
-      <div class="auth-divider">эсвэл</div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:24px;">
+            <input type="checkbox" id="remember"
+              style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary);" />
+            <label for="remember" style="font-size:0.875rem;color:var(--gray-600);cursor:pointer;">Намайг санах</label>
+          </div>
 
-      <p style="text-align:center;font-size:0.9rem;color:var(--gray-600);">
-        Бүртгэл байхгүй юу?
-        <a href="register.html" style="font-weight:600;">Бизнес бүртгүүлэх →</a>
-      </p>
+          <button type="submit" class="btn btn-primary w-full btn-lg" id="loginBtn">
+            <span id="loginBtnText">Нэвтрэх</span>
+            <span id="loginBtnSpinner" class="hidden">⏳</span>
+          </button>
+        </form>
 
-      <!-- Demo hint -->
-      <div class="alert alert-info mt-24" style="font-size:0.8125rem;">
-        <span class="alert-icon">💡</span>
-        <div>
-          <strong>Демо нэвтрэх:</strong><br>
-          И-мэйл: <code>demo@monmap.mn</code><br>
-          Нууц үг: <code>demo1234</code>
+        <div class="auth-divider">эсвэл</div>
+
+        <p style="text-align:center;font-size:0.9rem;color:var(--gray-600);">
+          Бүртгэл байхгүй юу?
+          <a href="register.html" style="font-weight:600;">Бизнес бүртгүүлэх →</a>
+        </p>
+
+        <!-- Demo hint -->
+        <div class="alert alert-info mt-24" style="font-size:0.8125rem;">
+          <span class="alert-icon">💡</span>
+          <div>
+            <strong>Демо нэвтрэх:</strong><br>
+            И-мэйл: <code>demo@monmap.mn</code><br>
+            Нууц үг: <code>demo1234</code>
+          </div>
         </div>
       </div>
     </div>
   </div>
-</div>
 
-<!-- Forgot password modal -->
-<div class="modal-overlay" id="forgotModal">
-  <div class="modal">
-    <div class="modal-header">
-      <span class="modal-title">Нууц үг сэргээх</span>
-      <button class="modal-close" onclick="closeForgot()">✕</button>
-    </div>
-    <div class="modal-body">
-      <p style="color:var(--gray-600);margin-bottom:20px;">Бүртгэлтэй и-мэйл хаягаа оруулна уу. Нууц үг сэргээх холбоос илгээнэ.</p>
-      <div class="form-group" style="margin-bottom:0;">
-        <label class="form-label">И-мэйл хаяг</label>
-        <input type="email" class="form-control" placeholder="example@business.mn" />
+  <!-- Forgot password modal -->
+  <div class="modal-overlay" id="forgotModal">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title">Нууц үг сэргээх</span>
+        <button class="modal-close" onclick="closeForgot()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="color:var(--gray-600);margin-bottom:20px;">Бүртгэлтэй и-мэйл хаягаа оруулна уу. Нууц үг сэргээх
+          холбоос илгээнэ.</p>
+        <div class="form-group" style="margin-bottom:0;">
+          <label class="form-label">И-мэйл хаяг</label>
+          <input type="email" class="form-control" placeholder="example@business.mn" />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" onclick="closeForgot()">Цуцлах</button>
+        <button class="btn btn-primary" onclick="sendReset()">Илгээх</button>
       </div>
     </div>
-    <div class="modal-footer">
-      <button class="btn btn-ghost" onclick="closeForgot()">Цуцлах</button>
-      <button class="btn btn-primary" onclick="sendReset()">Илгээх</button>
-    </div>
   </div>
-</div>
 
-<div class="toast-container" id="toastContainer"></div>
+  <div class="toast-container" id="toastContainer"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js" integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae" crossorigin="anonymous"></script>
-<script src="js/supabase-client.js"></script>
-<script src="js/utils.js"></script>
-<script>
-  // Redirect to dashboard if already logged in
-  (async function () {
-    const { data: { session } } = await _sb.auth.getSession();
-    if (session) window.location.href = 'dashboard.html';
-  })();
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    // Redirect to dashboard if already logged in
+    (async function () {
+      const { data: { session } } = await _sb.auth.getSession();
+      if (session) window.location.href = 'dashboard.html';
+    })();
 
-  // Toggle password visibility
-  document.getElementById('togglePwd').addEventListener('click', function () {
-    const pwd = document.getElementById('password');
-    pwd.type = pwd.type === 'password' ? 'text' : 'password';
-    this.textContent = pwd.type === 'password' ? '👁' : '🙈';
-  });
+    // Toggle password visibility
+    document.getElementById('togglePwd').addEventListener('click', function () {
+      const pwd = document.getElementById('password');
+      pwd.type = pwd.type === 'password' ? 'text' : 'password';
+      this.textContent = pwd.type === 'password' ? '👁' : '🙈';
+    });
 
-  // Login form
-  document.getElementById('loginForm').addEventListener('submit', async function (e) {
-    e.preventDefault();
-    const email    = document.getElementById('email').value.trim();
-    const password = document.getElementById('password').value;
-    let valid = true;
+    // Login form
+    document.getElementById('loginForm').addEventListener('submit', async function (e) {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      let valid = true;
 
-    const emailGroup = document.getElementById('email').closest('.form-group');
-    const pwdGroup   = document.getElementById('password').closest('.form-group');
-    emailGroup.classList.remove('has-error');
-    pwdGroup.classList.remove('has-error');
-    document.getElementById('alertBox').classList.add('hidden');
+      const emailGroup = document.getElementById('email').closest('.form-group');
+      const pwdGroup = document.getElementById('password').closest('.form-group');
+      emailGroup.classList.remove('has-error');
+      pwdGroup.classList.remove('has-error');
+      document.getElementById('alertBox').classList.add('hidden');
 
-    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      emailGroup.classList.add('has-error'); valid = false;
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        emailGroup.classList.add('has-error'); valid = false;
+      }
+      if (!password) {
+        pwdGroup.classList.add('has-error'); valid = false;
+      }
+      if (!valid) return;
+
+      const btn = document.getElementById('loginBtn');
+      const btnText = document.getElementById('loginBtnText');
+      const btnSpinner = document.getElementById('loginBtnSpinner');
+      btn.disabled = true;
+      btnText.textContent = 'Нэвтэрч байна...';
+      btnSpinner.classList.remove('hidden');
+
+      const { error } = await _sb.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        btn.disabled = false;
+        btnText.textContent = 'Нэвтрэх';
+        btnSpinner.classList.add('hidden');
+        document.getElementById('alertBox').classList.remove('hidden');
+        document.getElementById('alertMsg').textContent =
+          'И-мэйл эсвэл нууц үг буруу байна. Дахин оролдоно уу.';
+        return;
+      }
+
+      // Clear cached business so it's re-fetched fresh
+      localStorage.removeItem('mm_biz');
+      showToast('success', 'Амжилттай нэвтэрлээ!', 'Самбар руу шилжиж байна...');
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 700);
+    });
+
+    function showForgot(e) { e.preventDefault(); document.getElementById('forgotModal').classList.add('open'); }
+    function closeForgot() { document.getElementById('forgotModal').classList.remove('open'); }
+
+    async function sendReset() {
+      const emailInput = document.querySelector('#forgotModal input[type="email"]');
+      const email = emailInput ? emailInput.value.trim() : '';
+      if (!email) { showToast('error', 'Алдаа', 'И-мэйл хаяг оруулна уу.'); return; }
+      const { error } = await _sb.auth.resetPasswordForEmail(email);
+      closeForgot();
+      if (error) {
+        showToast('error', 'Алдаа', error.message);
+      } else {
+        showToast('success', 'И-мэйл илгээгдлээ', 'Нууц үг сэргээх холбоос и-мэйл рүү илгээгдлээ.');
+      }
     }
-    if (!password) {
-      pwdGroup.classList.add('has-error'); valid = false;
-    }
-    if (!valid) return;
 
-    const btn       = document.getElementById('loginBtn');
-    const btnText   = document.getElementById('loginBtnText');
-    const btnSpinner = document.getElementById('loginBtnSpinner');
-    btn.disabled = true;
-    btnText.textContent = 'Нэвтэрч байна...';
-    btnSpinner.classList.remove('hidden');
-
-    const { error } = await _sb.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      btn.disabled = false;
-      btnText.textContent = 'Нэвтрэх';
-      btnSpinner.classList.add('hidden');
-      document.getElementById('alertBox').classList.remove('hidden');
-      document.getElementById('alertMsg').textContent =
-        'И-мэйл эсвэл нууц үг буруу байна. Дахин оролдоно уу.';
-      return;
-    }
-
-    // Clear cached business so it's re-fetched fresh
-    localStorage.removeItem('mm_biz');
-    showToast('success', 'Амжилттай нэвтэрлээ!', 'Самбар руу шилжиж байна...');
-    setTimeout(() => { window.location.href = 'dashboard.html'; }, 700);
-  });
-
-  function showForgot(e) { e.preventDefault(); document.getElementById('forgotModal').classList.add('open'); }
-  function closeForgot() { document.getElementById('forgotModal').classList.remove('open'); }
-
-  async function sendReset() {
-    const emailInput = document.querySelector('#forgotModal input[type="email"]');
-    const email = emailInput ? emailInput.value.trim() : '';
-    if (!email) { showToast('error', 'Алдаа', 'И-мэйл хаяг оруулна уу.'); return; }
-    const { error } = await _sb.auth.resetPasswordForEmail(email);
-    closeForgot();
-    if (error) {
-      showToast('error', 'Алдаа', error.message);
-    } else {
-      showToast('success', 'И-мэйл илгээгдлээ', 'Нууц үг сэргээх холбоос и-мэйл рүү илгээгдлээ.');
-    }
-  }
-
-  document.getElementById('forgotModal').addEventListener('click', function (e) {
-    if (e.target === this) closeForgot();
-  });
-</script>
+    document.getElementById('forgotModal').addEventListener('click', function (e) {
+      if (e.target === this) closeForgot();
+    });
+  </script>
 </body>
+
 </html>

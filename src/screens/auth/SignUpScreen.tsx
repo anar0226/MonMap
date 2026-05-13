@@ -13,21 +13,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as WebBrowser from 'expo-web-browser';
-import { makeRedirectUri } from 'expo-auth-session';
 import { supabase } from '../../lib/supabase';
-import { colors, gradientPrimary } from '../../theme';
+import { gradientPrimary } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import type { AuthStackParamList } from '../../navigation';
 import HCaptchaModal from '../../components/HCaptchaModal';
-
-WebBrowser.maybeCompleteAuthSession();
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'SignUp'> };
 
 function passwordStrength(pw: string): 0 | 1 | 2 | 3 {
   if (!pw) return 0;
   if (pw.length < 8) return 1;
-  
+
   let classes = 0;
   if (/[a-z]/.test(pw)) classes++;
   if (/[A-Z]/.test(pw)) classes++;
@@ -40,10 +37,13 @@ function passwordStrength(pw: string): 0 | 1 | 2 | 3 {
   return 2; // Medium
 }
 
-const strengthColors = ['transparent', colors.danger, colors.warning, colors.success];
 const strengthLabels = ['', 'Сул', 'Дунд', 'Хүчтэй'];
 
 export default function SignUpScreen({ navigation }: Props) {
+  const { colors } = useTheme();
+  const s = React.useMemo(() => makeStyles(colors), [colors]);
+  // Theme-dependent so it lives inside the component, not at module load.
+  const strengthColors = ['transparent', colors.danger, colors.warning, colors.success];
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -60,26 +60,6 @@ export default function SignUpScreen({ navigation }: Props) {
   const pwMatch = confirm.length > 0 && confirm === password;
   const pwMismatch = confirm.length > 0 && confirm !== password;
 
-  async function handleFacebookSignUp() {
-    setLoading(true);
-    setError('');
-    const redirectUri = makeRedirectUri();
-    const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: 'facebook',
-      options: { redirectTo: redirectUri, skipBrowserRedirect: true },
-    });
-    if (oauthError || !data.url) {
-      setError('Фэйсбүүкээр нэвтрэхэд алдаа гарлаа');
-      setLoading(false);
-      return;
-    }
-    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUri);
-    if (result.type === 'success') {
-      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
-      if (sessionError) setError('Нэвтрэхэд алдаа гарлаа');
-    }
-    setLoading(false);
-  }
 
   async function handleSignUp() {
     const trimmedName  = name.trim();
@@ -124,17 +104,16 @@ export default function SignUpScreen({ navigation }: Props) {
       options: { data: { full_name: trimmedName }, captchaToken },
     });
     setLoading(false);
-    if (authError) {
-      const msg = authError.message;
-      if (msg.includes('already registered')) setError('Имэйл бүртгэлтэй байна');
-      else setError('Бүртгүүлэхэд алдаа гарлаа');
-    } else {
-      navigation.navigate('VerifyOtp', {
-        method: 'email',
-        identifier: trimmedEmail,
-        fullName: trimmedName,
-      });
+    if (authError && !authError.message.includes('already registered')) {
+      setError('Бүртгүүлэхэд алдаа гарлаа');
+      return;
     }
+    // Navigate on both success and "already registered" — same UX prevents email enumeration
+    navigation.navigate('VerifyOtp', {
+      method: 'email',
+      identifier: trimmedEmail,
+      fullName: trimmedName,
+    });
   }
 
   return (
@@ -268,15 +247,22 @@ export default function SignUpScreen({ navigation }: Props) {
             {error ? <Text style={s.errorText}>{error}</Text> : null}
 
             {/* Submit */}
-            <Pressable onPress={handleSignUp} disabled={loading || !agreeToTerms}>
-              <LinearGradient
-                colors={agreeToTerms && !loading ? gradientPrimary : ['rgba(0,83,163,0.38)', 'rgba(26,63,168,0.38)']}
-                start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-                style={s.submitBtn}
+            <View style={s.submitShadow}>
+              <Pressable
+                onPress={handleSignUp}
+                disabled={loading || !agreeToTerms}
+                android_ripple={{ color: 'rgba(255,255,255,0.2)', borderless: false }}
+                style={s.submitPressable}
               >
-                <Text style={s.submitBtnText}>{loading ? 'Түр хүлээнэ үү...' : 'Бүртгүүлэх'}</Text>
-              </LinearGradient>
-            </Pressable>
+                <LinearGradient
+                  colors={agreeToTerms && !loading ? gradientPrimary : ['rgba(0,83,163,0.38)', 'rgba(26,63,168,0.38)']}
+                  start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                  style={s.submitBtnGradient}
+                >
+                  <Text style={s.submitBtnText}>{loading ? 'Түр хүлээнэ үү...' : 'Бүртгүүлэх'}</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
 
             {/* Divider */}
             <View style={s.divider}>
@@ -287,11 +273,9 @@ export default function SignUpScreen({ navigation }: Props) {
 
             {/* Social signup row */}
             <View style={s.socialRow}>
-              <Pressable style={s.socialBtn} onPress={handleFacebookSignUp} disabled={loading}>
-                <Ionicons name="logo-facebook" size={18} color="#1877F2" />
-              </Pressable>
               <Pressable style={s.socialBtn} onPress={() => navigation.navigate('PhoneLogin')} disabled={loading}>
                 <Ionicons name="call-outline" size={18} color={colors.text} />
+                <Text style={{ color: colors.textSec, fontSize: 12, marginLeft: 8 }}>Утсаар бүртгүүлэх</Text>
               </Pressable>
             </View>
 
@@ -314,76 +298,87 @@ export default function SignUpScreen({ navigation }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  flex: { flex: 1 },
-  scroll: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 32 },
+type Colors = ReturnType<typeof useTheme>['colors'];
+function makeStyles(colors: Colors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    flex: { flex: 1 },
+    scroll: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 32 },
 
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-  backBtn: { marginRight: 12 },
-  brandTile: {
-    width: 44, height: 44, borderRadius: 13,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: colors.primary, shadowOpacity: 0.33, shadowRadius: 20, shadowOffset: { width: 0, height: 8 },
-    elevation: 8,
-  },
-  brandLetter: { color: '#fff', fontWeight: '700', fontSize: 19, letterSpacing: -0.3 },
-  appName: { color: colors.textMuted, fontSize: 9, fontWeight: '600', letterSpacing: 1.5 },
-  pageTitle: { color: colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.4 },
+    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+    backBtn: { marginRight: 12 },
+    brandTile: {
+      width: 44, height: 44, borderRadius: 13,
+      alignItems: 'center', justifyContent: 'center',
+      shadowColor: colors.primary, shadowOpacity: 0.33, shadowRadius: 20, shadowOffset: { width: 0, height: 8 },
+      elevation: 8,
+    },
+    brandLetter: { color: '#fff', fontWeight: '700', fontSize: 19, letterSpacing: -0.3 },
+    appName: { color: colors.textMuted, fontSize: 9, fontWeight: '600', letterSpacing: 1.5 },
+    pageTitle: { color: colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.4 },
 
-  label: {
-    color: colors.textSec, fontSize: 10.5, fontWeight: '600',
-    letterSpacing: 1.2, marginBottom: 8, textTransform: 'uppercase',
-  },
-  inputWrap: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: colors.inputBg, borderRadius: 12,
-    borderWidth: 1, borderColor: colors.border,
-  },
-  inputFocused: { borderColor: colors.primary },
-  input: { color: colors.text, fontSize: 14, paddingHorizontal: 14, paddingVertical: 13 },
-  inputFlex: { flex: 1 },
-  eyeBtn: { paddingHorizontal: 12 },
-  confirmRight: { flexDirection: 'row', alignItems: 'center', paddingRight: 2 },
+    label: {
+      color: colors.textSec, fontSize: 10.5, fontWeight: '600',
+      letterSpacing: 1.2, marginBottom: 8, textTransform: 'uppercase',
+    },
+    inputWrap: {
+      flexDirection: 'row', alignItems: 'center',
+      backgroundColor: colors.inputBg, borderRadius: 12,
+      borderWidth: 1, borderColor: colors.border,
+    },
+    inputFocused: { borderColor: colors.primary },
+    input: { color: colors.text, fontSize: 14, paddingHorizontal: 14, paddingVertical: 13 },
+    inputFlex: { flex: 1 },
+    eyeBtn: { paddingHorizontal: 12 },
+    confirmRight: { flexDirection: 'row', alignItems: 'center', paddingRight: 2 },
 
-  strengthRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 },
-  strengthTrack: { flex: 1, height: 2.5, backgroundColor: colors.border, borderRadius: 2, overflow: 'hidden' },
-  strengthFill: { height: '100%', borderRadius: 2 },
-  strengthLabel: { fontSize: 10, fontWeight: '600' },
-  errorSmall: { color: colors.danger, fontSize: 10.5, marginTop: 4 },
+    strengthRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 8 },
+    strengthTrack: { flex: 1, height: 2.5, backgroundColor: colors.border, borderRadius: 2, overflow: 'hidden' },
+    strengthFill: { height: '100%', borderRadius: 2 },
+    strengthLabel: { fontSize: 10, fontWeight: '600' },
+    errorSmall: { color: colors.danger, fontSize: 10.5, marginTop: 4 },
 
-  termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 14, gap: 10 },
-  checkbox: {
-    width: 18, height: 18, borderRadius: 5,
-    borderWidth: 1.5, borderColor: colors.border,
-    alignItems: 'center', justifyContent: 'center',
-    marginTop: 1,
-  },
-  checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
-  termsText: { flex: 1, color: colors.textSec, fontSize: 12, lineHeight: 18 },
-  termsLink: { color: colors.primary },
+    termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: 14, gap: 10 },
+    checkbox: {
+      width: 18, height: 18, borderRadius: 5,
+      borderWidth: 1.5, borderColor: colors.border,
+      alignItems: 'center', justifyContent: 'center',
+      marginTop: 1,
+    },
+    checkboxChecked: { backgroundColor: colors.primary, borderColor: colors.primary },
+    termsText: { flex: 1, color: colors.textSec, fontSize: 12, lineHeight: 18 },
+    termsLink: { color: colors.primary },
 
-  errorText: { color: colors.danger, fontSize: 12, marginTop: 8 },
-  submitBtn: {
-    borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 14,
-    shadowColor: colors.primary, shadowOpacity: 0.28, shadowRadius: 14, shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  submitBtnText: { color: '#fff', fontSize: 14.5, fontWeight: '600', letterSpacing: 0.2 },
+    errorText: { color: colors.danger, fontSize: 12, marginTop: 8 },
+    submitShadow: {
+      marginTop: 14,
+      borderRadius: 12,
+      shadowColor: colors.primary, shadowOpacity: 0.28, shadowRadius: 14, shadowOffset: { width: 0, height: 4 },
+      elevation: 6,
+    },
+    submitPressable: {
+      borderRadius: 12,
+      overflow: 'hidden',
+    },
+    submitBtnGradient: {
+      borderRadius: 12, paddingVertical: 14, alignItems: 'center',
+    },
+    submitBtnText: { color: '#fff', fontSize: 14.5, fontWeight: '600', letterSpacing: 0.2 },
 
-  loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 14 },
-  loginText: { color: colors.textSec, fontSize: 12.5 },
-  loginLink: { color: colors.primary, fontSize: 12.5, fontWeight: '600' },
+    loginRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 14 },
+    loginText: { color: colors.textSec, fontSize: 12.5 },
+    loginLink: { color: colors.primary, fontSize: 12.5, fontWeight: '600' },
 
-  divider: { flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 16, gap: 10 },
-  dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
-  dividerText: { color: colors.textMuted, fontSize: 11, fontWeight: '500' },
+    divider: { flexDirection: 'row', alignItems: 'center', marginTop: 20, marginBottom: 16, gap: 10 },
+    dividerLine: { flex: 1, height: StyleSheet.hairlineWidth, backgroundColor: colors.border },
+    dividerText: { color: colors.textMuted, fontSize: 11, fontWeight: '500' },
 
-  socialRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
-  socialBtn: {
-    flex: 1, height: 44, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    borderWidth: 1, borderColor: colors.border,
-    alignItems: 'center', justifyContent: 'center',
-  },
-});
+    socialRow: { flexDirection: 'row', gap: 10, marginBottom: 4 },
+    socialBtn: {
+      flex: 1, height: 44, borderRadius: 12,
+      backgroundColor: colors.inputBg,
+      borderWidth: 1, borderColor: colors.border,
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    },
+  });
+}

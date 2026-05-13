@@ -11,3 +11,4 @@ export { SocialPill } from './SocialPill';
 export { MenuItem } from './MenuItem';
 export { Stat } from './Stat';
 export { Badge } from './Badge';
+export { Skeleton, SkeletonBookingCard, SkeletonSearchRow } from './Skeleton';

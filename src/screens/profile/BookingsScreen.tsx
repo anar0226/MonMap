@@ -11,7 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
+import { SkeletonBookingCard } from '../../components/ui/Skeleton';
 import { supabase } from '../../lib/supabase';
 import { useSupabase } from '../../context/SupabaseContext';
 import type { AppStackParamList } from '../../navigation';
@@ -27,11 +28,15 @@ interface Booking {
   guest_name: string;
   status: string;
   created_at: string;
+  deposit_amount: number | null;
+  payment_id: string | null;
   place_name?: string;
 }
 
 export default function BookingsScreen({ navigation }: Props) {
   const { session } = useSupabase();
+  const { colors } = useTheme();
+  const s = React.useMemo(() => makeStyles(colors), [colors]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -39,9 +44,14 @@ export default function BookingsScreen({ navigation }: Props) {
   const [cancelling, setCancelling] = useState<Set<string>>(new Set());
 
   const handleCancel = (b: Booking) => {
+    const hasDeposit = b.deposit_amount != null && b.payment_id != null;
+    const refundNote = hasDeposit
+      ? '\n\nЗахиалга цуцлагдвал баталгааны төлбөр 2 цагийн өмнө буцаагдана.'
+      : '';
+
     Alert.alert(
       'Захиалга цуцлах',
-      `"${b.place_name ?? b.place_id}" захиалгыг цуцлах уу?`,
+      `"${b.place_name ?? b.place_id}" захиалгыг цуцлах уу?${refundNote}`,
       [
         { text: 'Болих', style: 'cancel' },
         {
@@ -49,14 +59,30 @@ export default function BookingsScreen({ navigation }: Props) {
           style: 'destructive',
           onPress: async () => {
             setCancelling(prev => new Set(prev).add(b.id));
-            const { error } = await supabase
-              .from('bookings')
-              .update({ status: 'cancelled' })
-              .eq('id', b.id);
-            if (error) {
+            let failed = false;
+
+            if (hasDeposit) {
+              // Use edge function — it handles the QPay refund based on timing policy
+              const { error } = await supabase.functions.invoke('cancel-booking', {
+                body: { bookingId: b.id },
+              });
+              if (error) failed = true;
+            } else {
+              // Standard free booking — direct DB update
+              const { error } = await supabase
+                .from('bookings')
+                .update({ status: 'cancelled' })
+                .eq('id', b.id);
+              if (error) {
+                failed = true;
+              } else {
+                supabase.functions.invoke('notify-booking', { body: { bookingId: b.id } }).catch(console.warn);
+              }
+            }
+
+            if (failed) {
               Alert.alert('Алдаа', 'Цуцлах боломжгүй байна. Дахин оролдоно уу.');
             } else {
-              supabase.functions.invoke('notify-booking', { body: { bookingId: b.id } }).catch(console.warn);
               setBookings(prev =>
                 prev.map(x => x.id === b.id ? { ...x, status: 'cancelled' } : x),
               );
@@ -77,7 +103,7 @@ export default function BookingsScreen({ navigation }: Props) {
       try {
         const { data, error } = await supabase
           .from('bookings')
-          .select('id, place_id, booked_date, time_slot, party_size, guest_name, status, created_at')
+          .select('id, place_id, booked_date, time_slot, party_size, guest_name, status, created_at, deposit_amount, payment_id')
           .eq('user_id', session.user.id)
           .order('created_at', { ascending: false })
           .limit(50);
@@ -125,9 +151,14 @@ export default function BookingsScreen({ navigation }: Props) {
       </SafeAreaView>
 
       {loading ? (
-        <View style={s.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        // Skeleton cards match the actual card layout below so the transition
+        // to real data is layout-shift-free. Four rows ≈ a full mobile viewport.
+        <ScrollView contentContainerStyle={s.list}>
+          <SkeletonBookingCard />
+          <SkeletonBookingCard />
+          <SkeletonBookingCard />
+          <SkeletonBookingCard />
+        </ScrollView>
       ) : loadError ? (
         <View style={s.center}>
           <View style={s.emptyIcon}>
@@ -190,20 +221,24 @@ export default function BookingsScreen({ navigation }: Props) {
 }
 
 function StatusBadge({ status }: { status: string }) {
+  const { colors } = useTheme();
   const isConfirmed = status === 'confirmed';
   const isCancelled = status === 'cancelled';
   const isPending   = status === 'pending';
   const isExpired   = status === 'expired';
 
+  // Status colors are deliberately constant across themes — semantic meaning
+  // doesn't change with the palette. The translucent backgrounds work on
+  // both light and dark since they're keyed off the brand color, not a token.
   const bg = isConfirmed ? 'rgba(16,185,129,0.12)'
     : isCancelled ? 'rgba(239,68,68,0.12)'
     : isPending   ? 'rgba(251,184,36,0.12)'
     : isExpired   ? 'rgba(148,163,184,0.14)'
-    : 'rgba(255,255,255,0.08)';
+    : colors.inputBg;
 
   const fg = isConfirmed ? '#10B981'
     : isCancelled ? colors.danger
-    : isPending   ? '#FBB824'
+    : isPending   ? '#D97706'
     : isExpired   ? '#94A3B8'
     : colors.textSec;
 
@@ -214,75 +249,79 @@ function StatusBadge({ status }: { status: string }) {
     : status;
 
   return (
-    <View style={[s.statusBadge, { backgroundColor: bg }]}>
-      <Text style={[s.statusText, { color: fg }]}>{label}</Text>
+    <View style={{ paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6, backgroundColor: bg }}>
+      <Text style={{ fontSize: 10, fontWeight: '600', color: fg }}>{label}</Text>
     </View>
   );
 }
 
-const s = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.bg },
-  safeTop: { backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14, gap: 12,
-  },
-  backBtn: {
-    width: 34, height: 34, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  title: { color: colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  emptyIcon: {
-    width: 64, height: 64, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-  },
-  emptyTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 8 },
-  emptyDesc: { color: colors.textSec, fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 80, gap: 10 },
-  card: {
-    backgroundColor: colors.cardBg, borderRadius: 14,
-    borderWidth: 1, borderColor: colors.border, padding: 14,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconWrap: {
-    width: 40, height: 40, borderRadius: 12,
-    backgroundColor: `${colors.primary}1A`,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  cardName: { color: colors.text, fontSize: 14, fontWeight: '700' },
-  cardDate: { color: colors.textSec, fontSize: 12, marginTop: 2 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
-  statusText: { fontSize: 10, fontWeight: '600' },
-  cardDetails: {
-    flexDirection: 'row', gap: 16,
-    marginTop: 10, paddingTop: 10,
-    borderTopWidth: 0.5, borderTopColor: colors.border,
-  },
-  detailText: { color: colors.textSec, fontSize: 12 },
-  cancelBtn: {
-    marginTop: 10,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: `${colors.danger}44`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: `${colors.danger}0D`,
-    minHeight: 34,
-  },
-  cancelBtnText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
-  retryBtn: {
-    marginTop: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  retryBtnText: { color: colors.text, fontSize: 13, fontWeight: '600' },
-});
+type Colors = ReturnType<typeof useTheme>['colors'];
+function makeStyles(colors: Colors) {
+  // Translucent overlays adapt to theme via inputBg/border tokens — the dark
+  // theme's rgba(255,255,255,0.08) becomes inputBg='rgba(15,23,42,0.04)' in
+  // light, which renders correctly on a white card.
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.bg },
+    safeTop: { backgroundColor: colors.bg },
+    header: {
+      flexDirection: 'row', alignItems: 'center',
+      paddingHorizontal: 16, paddingTop: 12, paddingBottom: 14, gap: 12,
+    },
+    backBtn: {
+      width: 34, height: 34, borderRadius: 10,
+      backgroundColor: colors.inputBg,
+      borderWidth: 1, borderColor: colors.border,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    title: { color: colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+    emptyIcon: {
+      width: 64, height: 64, borderRadius: 20,
+      backgroundColor: colors.inputBg,
+      alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    },
+    emptyTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 8 },
+    emptyDesc: { color: colors.textSec, fontSize: 13, lineHeight: 19, textAlign: 'center' },
+    list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 80, gap: 10 },
+    card: {
+      backgroundColor: colors.cardBg, borderRadius: 14,
+      borderWidth: 1, borderColor: colors.border, padding: 14,
+    },
+    cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+    iconWrap: {
+      width: 40, height: 40, borderRadius: 12,
+      backgroundColor: `${colors.primary}1A`,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    cardName: { color: colors.text, fontSize: 14, fontWeight: '700' },
+    cardDate: { color: colors.textSec, fontSize: 12, marginTop: 2 },
+    cardDetails: {
+      flexDirection: 'row', gap: 16,
+      marginTop: 10, paddingTop: 10,
+      borderTopWidth: 0.5, borderTopColor: colors.border,
+    },
+    detailText: { color: colors.textSec, fontSize: 12 },
+    cancelBtn: {
+      marginTop: 10,
+      paddingVertical: 8,
+      borderRadius: 8,
+      borderWidth: 1,
+      borderColor: `${colors.danger}44`,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: `${colors.danger}0D`,
+      minHeight: 34,
+    },
+    cancelBtnText: { color: colors.danger, fontSize: 12, fontWeight: '600' },
+    retryBtn: {
+      marginTop: 16,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.inputBg,
+    },
+    retryBtnText: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  });
+}

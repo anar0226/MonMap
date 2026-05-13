@@ -5,6 +5,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme';
 
 const SITE_KEY = process.env.EXPO_PUBLIC_HCAPTCHA_SITE_KEY ?? '';
+if (__DEV__) {
+  console.log('[HCaptchaModal] SITE_KEY:', SITE_KEY ? 'SET' : 'MISSING');
+}
 
 type Props = {
   visible: boolean;
@@ -43,14 +46,20 @@ export default function HCaptchaModal({ visible, onSolved, onCancel }: Props) {
         <View style={s.sheet}>
           <View style={s.header}>
             <Text style={s.title}>Хүний баталгаажуулалт</Text>
-            <Pressable onPress={onCancel} hitSlop={8}>
+            <Pressable
+              onPress={onCancel}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              style={s.closeBtn}
+            >
               <Ionicons name="close" size={22} color={colors.textSec} />
             </Pressable>
           </View>
           {SITE_KEY ? (
             <WebView
               ref={webRef}
-              originWhitelist={['*']}
+              originWhitelist={['https://hcaptcha.invalid', 'https://*.hcaptcha.com']}
               source={{ html, baseUrl: 'https://hcaptcha.invalid' }}
               onMessage={onMessage}
               javaScriptEnabled
@@ -113,6 +122,11 @@ const s = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 18, paddingBottom: 10,
+  },
+  closeBtn: {
+    width: 44, height: 44,
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: -10,
   },
   title: { color: colors.text, fontSize: 15, fontWeight: '600' },
   web: { flex: 1, backgroundColor: 'transparent' },

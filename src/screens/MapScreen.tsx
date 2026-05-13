@@ -56,7 +56,7 @@ export default function MapScreen() {
   const [searchOpen, setSearchOpen] = useState(false);
   const { geojson, loading: placesLoading, error: placesError } = usePlaces();
   const { place, loading: detailLoading, fetchDetail, clear } = usePlaceDetail();
-  const { multi, route, loading: routeLoading, error: routeError, fetchRoute, selectMode, selectAlternative, clear: clearRoute } = useDirections();
+  const { multi, route: dirRoute, loading: routeLoading, error: routeError, fetchRoute, selectMode, selectAlternative, clear: clearRoute } = useDirections();
   const [routeDestName, setRouteDestName] = useState<string | null>(null);
   const nav = useTurnByTurnNav();
   const { isOnline, wasEverOnline } = useNetworkStatus();
@@ -221,17 +221,17 @@ export default function MapScreen() {
   }, [clearRoute]);
 
   const handleStartNavigation = useCallback(() => {
-    if (!route || !multi) return;
-    nav.start(route.steps, multi.destination);
-  }, [route, multi, nav.start]);
+    if (!dirRoute || !multi) return;
+    nav.start(dirRoute.steps, multi.destination);
+  }, [dirRoute, multi, nav.start]);
 
   const handleEndNavigation = useCallback(() => {
     nav.stop();
   }, [nav.stop]);
 
   useEffect(() => {
-    if (route) fitBoundsToRoute(route.bounds.sw, route.bounds.ne);
-  }, [route, fitBoundsToRoute]);
+    if (dirRoute) fitBoundsToRoute(dirRoute.bounds.sw, dirRoute.bounds.ne);
+  }, [dirRoute, fitBoundsToRoute]);
 
   // Lock camera to user heading while navigating.
   useEffect(() => {
@@ -246,10 +246,10 @@ export default function MapScreen() {
   }, [nav.mode, nav.userLocation, nav.heading]);
 
   const durationRemainingSec = useMemo(() => {
-    if (!route || route.distanceMeters === 0) return route?.durationSeconds ?? 0;
-    if (nav.distanceToDestination <= 0) return route.durationSeconds;
-    return Math.round((nav.distanceToDestination / route.distanceMeters) * route.durationSeconds);
-  }, [nav.distanceToDestination, route]);
+    if (!dirRoute || dirRoute.distanceMeters === 0) return dirRoute?.durationSeconds ?? 0;
+    if (nav.distanceToDestination <= 0) return dirRoute.durationSeconds;
+    return Math.round((nav.distanceToDestination / dirRoute.distanceMeters) * dirRoute.durationSeconds);
+  }, [nav.distanceToDestination, dirRoute]);
 
   // Build iconImage expression: ['coalesce', ['concat', 'poi-', primary_category], 'poi-fallback']
   // We can't `concat` a literal with an unknown getter that may not match a registered name,
@@ -422,7 +422,7 @@ export default function MapScreen() {
         {/* Alternative driving routes — rendered FIRST (underneath) at low opacity
             so the active route always paints over them.  Each one is its own
             ShapeSource so we can stack them deterministically. */}
-        {route?.mode === 'driving' && route.alternatives?.map((altRoute, idx) => (
+        {dirRoute?.mode === 'driving' && dirRoute.alternatives?.map((altRoute, idx) => (
           <MapboxGL.ShapeSource key={`route-alt-${idx}`} id={`route-alt-${idx}`} shape={altRoute.segments}>
             <MapboxGL.LineLayer
               id={`route-alt-${idx}-line`}
@@ -437,8 +437,8 @@ export default function MapScreen() {
           </MapboxGL.ShapeSource>
         ))}
 
-        {route && (
-          <MapboxGL.ShapeSource id="route" shape={route.segments}>
+        {dirRoute && (
+          <MapboxGL.ShapeSource id="route" shape={dirRoute.segments}>
             {/* White casing under the route for contrast */}
             <MapboxGL.LineLayer
               id="route-casing"

@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import { CategoryIcon } from '../../components/CategoryIcon';
 import { CATEGORY_LABELS, CATEGORY_COLORS, FALLBACK_COLOR } from '../../constants/categories';
 import { useSavedPlaces } from '../../hooks/useSavedPlaces';
@@ -22,6 +22,8 @@ type Props = { navigation: NativeStackNavigationProp<AppStackParamList, 'SavedPl
 
 export default function SavedPlacesScreen({ navigation }: Props) {
   const { places, loading, error, remove, reload } = useSavedPlaces();
+  const { colors } = useTheme();
+  const s = React.useMemo(() => makeStyles(colors), [colors]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => { reload(); });
@@ -73,6 +75,8 @@ export default function SavedPlacesScreen({ navigation }: Props) {
             <SavedPlaceRow
               key={place.place_id}
               place={place}
+              s={s}
+              colors={colors}
               onRemove={() => remove(place.place_id)}
               onPress={() => navigation.navigate('Map', {
                 focusPlaceId: place.place_id,
@@ -88,12 +92,19 @@ export default function SavedPlacesScreen({ navigation }: Props) {
   );
 }
 
+type Colors = ReturnType<typeof useTheme>['colors'];
+type Styles = ReturnType<typeof makeStyles>;
+
 function SavedPlaceRow({
   place,
+  s,
+  colors,
   onRemove,
   onPress,
 }: {
   place: Place;
+  s: Styles;
+  colors: Colors;
   onRemove: () => void;
   onPress: () => void;
 }) {
@@ -132,65 +143,67 @@ function SavedPlaceRow({
   );
 }
 
-const s = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: colors.bg },
-  safeTop: { backgroundColor: colors.bg },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
-    gap: 12,
-  },
-  backBtn: {
-    width: 34, height: 34, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
-    alignItems: 'center', justifyContent: 'center',
-  },
-  title: { color: colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
-  emptyIcon: {
-    width: 64, height: 64, borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 16,
-  },
-  emptyTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 8 },
-  emptyDesc: { color: colors.textSec, fontSize: 13, lineHeight: 19, textAlign: 'center' },
-  list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 80, gap: 10 },
-  card: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.cardBg,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 14,
-    gap: 12,
-  },
-  cardIcon: {
-    width: 48, height: 48, borderRadius: 14,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  cardBody: { flex: 1, gap: 3 },
-  cardName: { color: colors.text, fontSize: 14, fontWeight: '700' },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  catText: { color: colors.textMuted, fontSize: 11, fontWeight: '500' },
-  statusDot: { width: 6, height: 6, borderRadius: 3 },
-  statusText: { fontSize: 10, fontWeight: '600' },
-  cardAddr: { color: colors.textSec, fontSize: 11, marginTop: 1 },
-  removeBtn: { padding: 4 },
-  footerText: { color: colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 8 },
-  retryBtn: {
-    marginTop: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  retryBtnText: { color: colors.text, fontSize: 13, fontWeight: '600' },
-});
+function makeStyles(colors: Colors) {
+  return StyleSheet.create({
+    flex: { flex: 1, backgroundColor: colors.bg },
+    safeTop: { backgroundColor: colors.bg },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      paddingTop: 12,
+      paddingBottom: 14,
+      gap: 12,
+    },
+    backBtn: {
+      width: 34, height: 34, borderRadius: 10,
+      backgroundColor: colors.inputBg,
+      borderWidth: 1, borderColor: colors.border,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    title: { color: colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.3 },
+    center: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32 },
+    emptyIcon: {
+      width: 64, height: 64, borderRadius: 20,
+      backgroundColor: colors.inputBg,
+      alignItems: 'center', justifyContent: 'center',
+      marginBottom: 16,
+    },
+    emptyTitle: { color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 8 },
+    emptyDesc: { color: colors.textSec, fontSize: 13, lineHeight: 19, textAlign: 'center' },
+    list: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 80, gap: 10 },
+    card: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.cardBg,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 14,
+      gap: 12,
+    },
+    cardIcon: {
+      width: 48, height: 48, borderRadius: 14,
+      alignItems: 'center', justifyContent: 'center',
+    },
+    cardBody: { flex: 1, gap: 3 },
+    cardName: { color: colors.text, fontSize: 14, fontWeight: '700' },
+    cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+    catText: { color: colors.textMuted, fontSize: 11, fontWeight: '500' },
+    statusDot: { width: 6, height: 6, borderRadius: 3 },
+    statusText: { fontSize: 10, fontWeight: '600' },
+    cardAddr: { color: colors.textSec, fontSize: 11, marginTop: 1 },
+    removeBtn: { padding: 4 },
+    footerText: { color: colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 8 },
+    retryBtn: {
+      marginTop: 16,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+      borderRadius: 10,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.inputBg,
+    },
+    retryBtnText: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  });
+}

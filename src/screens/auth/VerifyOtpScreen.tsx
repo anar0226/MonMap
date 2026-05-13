@@ -13,7 +13,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { supabase } from '../../lib/supabase';
-import { colors, gradientPrimary } from '../../theme';
+import { gradientPrimary } from '../../theme';
+import { useTheme } from '../../context/ThemeContext';
 import type { AuthStackParamList } from '../../navigation';
 import HCaptchaModal from '../../components/HCaptchaModal';
 
@@ -22,6 +23,8 @@ type Props = NativeStackScreenProps<AuthStackParamList, 'VerifyOtp'>;
 const CODE_LEN = 6;
 
 export default function VerifyOtpScreen({ navigation, route }: Props) {
+  const { colors } = useTheme();
+  const s = React.useMemo(() => makeStyles(colors), [colors]);
   const { method, identifier, fullName } = route.params;
   const [digits, setDigits] = useState<string[]>(Array(CODE_LEN).fill(''));
   const [loading, setLoading] = useState(false);
@@ -181,32 +184,35 @@ export default function VerifyOtpScreen({ navigation, route }: Props) {
   );
 }
 
-const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  flex: { flex: 1 },
-  scroll: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 32 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-  backBtn: { marginRight: 12 },
-  brandTile: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  brandLetter: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  appName: { color: colors.textMuted, fontSize: 9, fontWeight: '600', letterSpacing: 1.5 },
-  pageTitle: { color: colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.4 },
-  intro: { color: colors.textSec, fontSize: 13, lineHeight: 19, marginBottom: 22 },
-  codeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
-  codeInput: {
-    width: 46, height: 56, borderRadius: 12,
-    backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.border,
-    color: colors.text, fontSize: 22, fontWeight: '600', textAlign: 'center',
-  },
-  codeInputFilled: { borderColor: colors.primary },
-  errorText: { color: colors.danger, fontSize: 12, marginTop: 4, marginBottom: 4 },
-  submitBtn: {
-    borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 14,
-    shadowColor: colors.primary, shadowOpacity: 0.28, shadowRadius: 14, shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  submitBtnText: { color: '#fff', fontSize: 14.5, fontWeight: '600', letterSpacing: 0.2 },
-  resendRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 18 },
-  resendText: { color: colors.textSec, fontSize: 12.5 },
-  resendLink: { color: colors.primary, fontSize: 12.5, fontWeight: '600' },
-});
+type Colors = ReturnType<typeof useTheme>['colors'];
+function makeStyles(colors: Colors) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: colors.bg },
+    flex: { flex: 1 },
+    scroll: { paddingHorizontal: 22, paddingTop: 20, paddingBottom: 32 },
+    header: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
+    backBtn: { marginRight: 12 },
+    brandTile: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+    brandLetter: { color: '#fff', fontWeight: '700', fontSize: 14 },
+    appName: { color: colors.textMuted, fontSize: 9, fontWeight: '600', letterSpacing: 1.5 },
+    pageTitle: { color: colors.text, fontSize: 17, fontWeight: '700', letterSpacing: -0.4 },
+    intro: { color: colors.textSec, fontSize: 13, lineHeight: 19, marginBottom: 22 },
+    codeRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
+    codeInput: {
+      width: 46, height: 56, borderRadius: 12,
+      backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.border,
+      color: colors.text, fontSize: 22, fontWeight: '600', textAlign: 'center',
+    },
+    codeInputFilled: { borderColor: colors.primary },
+    errorText: { color: colors.danger, fontSize: 12, marginTop: 4, marginBottom: 4 },
+    submitBtn: {
+      borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 14,
+      shadowColor: colors.primary, shadowOpacity: 0.28, shadowRadius: 14, shadowOffset: { width: 0, height: 4 },
+      elevation: 6,
+    },
+    submitBtnText: { color: '#fff', fontSize: 14.5, fontWeight: '600', letterSpacing: 0.2 },
+    resendRow: { flexDirection: 'row', justifyContent: 'center', marginTop: 18 },
+    resendText: { color: colors.textSec, fontSize: 12.5 },
+    resendLink: { color: colors.primary, fontSize: 12.5, fontWeight: '600' },
+  });
+}

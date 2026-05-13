@@ -11,6 +11,7 @@
 //   SUPABASE_SERVICE_ROLE_KEY  — auto-populated by Supabase
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { reportError } from '../_shared/errors.ts'
 
 const SUPABASE_URL              = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -27,6 +28,24 @@ Deno.serve(async (req) => {
 
   const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
+  // Clean up expired slot holds and mark their pending payments as failed.
+  // Holds have their own 10-minute TTL set at creation time.
+  const { data: expiredHolds } = await db
+    .from('slot_holds')
+    .delete()
+    .lt('expires_at', new Date().toISOString())
+    .select('id')
+
+  if (expiredHolds?.length) {
+    const holdIds = expiredHolds.map(h => h.id)
+    await db
+      .from('payments')
+      .update({ status: 'failed', updated_at: new Date().toISOString() })
+      .in('hold_id', holdIds)
+      .eq('status', 'pending')
+    console.log(`expire-bookings: cleaned ${expiredHolds.length} expired slot hold(s)`)
+  }
+
   // Find all pending bookings older than EXPIRY_MINUTES.
   // We deliberately do NOT use updated_at because it doesn't exist on the
   // bookings table; created_at is what we have.
@@ -39,7 +58,9 @@ Deno.serve(async (req) => {
     .lt('created_at', cutoff)
 
   if (fetchErr) {
-    console.error('expire-bookings: fetch failed:', fetchErr)
+    // Cron loop is blind without this — if the fetch starts failing we'll
+    // stop expiring bookings and slot holds will pile up indefinitely.
+    reportError(fetchErr, { source: 'expire-bookings', context: { phase: 'fetch-stale' } })
     return new Response(JSON.stringify({ error: fetchErr.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
@@ -64,7 +85,9 @@ Deno.serve(async (req) => {
     .select('id')
 
   if (updErr) {
-    console.error('expire-bookings: update failed:', updErr)
+    // Same blast radius as fetchErr above — without the status flip, all
+    // downstream guest notifications also won't fire.
+    reportError(updErr, { source: 'expire-bookings', context: { phase: 'mark-expired', candidateCount: ids.length } })
     return new Response(JSON.stringify({ error: updErr.message }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },

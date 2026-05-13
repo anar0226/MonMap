@@ -104,7 +104,7 @@ export default function ProfileScreen({ navigation }: Props) {
 
         {/* Menu sections */}
         <View style={s.sections}>
-          <SectionLabel label="Миний данс" />
+          <SectionLabel label="Миний хэрэглээ" />
           <MenuCard items={[
             { icon: '📋', iconColor: colors.primary, label: 'Захиалгууд', subtitle: 'Идэвхтэй болон дууссан', onTap: () => navigation.navigate('Bookings') },
             { icon: '🔖', iconColor: colors.purple, label: 'Хадгалсан газрууд', subtitle: `${savedCount} газар хадгалсан`, onTap: () => navigation.navigate('SavedPlaces') },

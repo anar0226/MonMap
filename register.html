@@ -1,0 +1,1403 @@
+<!DOCTYPE html>
+<html lang="mn">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.hcaptcha.com https://hcaptcha.com https://api.mapbox.com; worker-src blob:; child-src blob:; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com https://api.mapbox.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com https://api.mapbox.com https://events.mapbox.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Бизнес бүртгүүлэх — МонМэп</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+  <style>
+    .reg-page {
+      min-height: 100vh;
+      background: var(--gray-50);
+      padding: 40px 24px 60px;
+    }
+
+    .reg-wrap {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .reg-card {
+      background: var(--white);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow-lg);
+      padding: 40px;
+    }
+
+    .upload-zone {
+      border: 2px dashed var(--gray-300);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      text-align: center;
+      cursor: pointer;
+      transition: all var(--transition);
+      background: var(--gray-50);
+    }
+
+    .upload-zone:hover,
+    .upload-zone.dragover {
+      border-color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .upload-zone.has-file {
+      border-color: var(--success);
+      background: var(--success-light);
+    }
+
+    .working-hours-grid {
+      display: grid;
+      grid-template-columns: 1fr auto auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+
+    .working-hours-grid:last-child {
+      border-bottom: none;
+    }
+
+    .day-label {
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: var(--gray-700);
+    }
+
+    .service-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      background: var(--primary-light);
+      color: var(--primary);
+      border-radius: 999px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+    }
+
+    .service-tag button {
+      background: none;
+      border: none;
+      color: var(--primary);
+      cursor: pointer;
+      font-size: 0.9rem;
+      line-height: 1;
+      padding: 0;
+    }
+
+    .step-panel {
+      display: none;
+    }
+
+    .step-panel.active {
+      display: block;
+    }
+
+    .pin-map {
+      width: 100%;
+      height: 280px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--gray-200);
+      overflow: hidden;
+    }
+
+    .pin-map-hint {
+      font-size: 0.8125rem;
+      color: var(--gray-500);
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pin-coords {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.75rem;
+      color: var(--gray-600);
+      background: var(--gray-50);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="reg-page">
+    <div class="reg-wrap">
+
+      <!-- Header -->
+      <div class="text-center mb-32">
+        <a href="index.html" class="nav-logo" style="justify-content:center;margin-bottom:16px;display:flex;"
+          aria-label="MONMAP">
+          <div class="logo-icon" aria-hidden="true"></div>
+          MONMAP
+        </a>
+        <h2 style="margin-bottom:6px;">Бизнесээ бүртгүүлэх</h2>
+        <p>Ердөө 4 алхамд МонМэп платформд нэгдэн орно уу</p>
+      </div>
+
+      <!-- Steps bar -->
+      <div class="steps-bar" id="stepsBar">
+        <div class="step-wrapper">
+          <div class="step-item active" id="step-ind-1">
+            <div class="step-circle">1</div>
+          </div>
+          <div class="step-label">Бүртгэл</div>
+        </div>
+        <div class="step-connector" id="conn-1"></div>
+        <div class="step-wrapper">
+          <div class="step-item" id="step-ind-2">
+            <div class="step-circle">2</div>
+          </div>
+          <div class="step-label">Бизнес</div>
+        </div>
+        <div class="step-connector" id="conn-2"></div>
+        <div class="step-wrapper">
+          <div class="step-item" id="step-ind-3">
+            <div class="step-circle">3</div>
+          </div>
+          <div class="step-label">Үйлчилгээ</div>
+        </div>
+        <div class="step-connector" id="conn-3"></div>
+        <div class="step-wrapper" id="docStepWrap" style="display:none;">
+          <div class="step-item" id="step-ind-4">
+            <div class="step-circle">4</div>
+          </div>
+          <div class="step-label">Баримт</div>
+        </div>
+        <div class="step-connector" id="conn-4" style="display:none;"></div>
+        <div class="step-wrapper">
+          <div class="step-item" id="step-ind-5">
+            <div class="step-circle" id="review-circle">4</div>
+          </div>
+          <div class="step-label">Батлах</div>
+        </div>
+      </div>
+
+      <div class="reg-card">
+
+        <!-- Step 1: Account -->
+        <div class="step-panel active" id="panel-1">
+          <h3 style="margin-bottom:6px;">Бүртгэлийн мэдээлэл</h3>
+          <p class="mb-24">Бизнесийн и-мэйл хаягаа оруулна уу — нэвтрэх холбоос и-мэйлээр ирнэ</p>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Овог <span class="required">*</span></label>
+              <input type="text" class="form-control" id="lastName" placeholder="Бат" />
+              <span class="form-error">Овог оруулна уу</span>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Нэр <span class="required">*</span></label>
+              <input type="text" class="form-control" id="firstName" placeholder="Болд" />
+              <span class="form-error">Нэр оруулна уу</span>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Утасны дугаар <span class="required">*</span></label>
+            <div style="display:flex;gap:8px;">
+              <select class="form-control" style="width:90px;flex-shrink:0;">
+                <option>+976</option>
+              </select>
+              <input type="tel" class="form-control" id="phone" placeholder="9900-0000" maxlength="8" />
+            </div>
+            <span class="form-error">Утасны дугаар оруулна уу</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">И-мэйл хаяг <span class="required">*</span></label>
+            <input type="email" class="form-control" id="regEmail" placeholder="example@business.mn" />
+            <span class="form-error">Зөв и-мэйл хаяг оруулна уу</span>
+          </div>
+
+          <div class="alert alert-info" id="emailVerifiedBadge" style="display:none;margin-bottom:16px;">
+            <span class="alert-icon">✓</span>
+            <div><strong>И-мэйл хаяг баталгаажлаа.</strong> Үргэлжлүүлж бизнесийнхээ мэдээллийг бөглөнө үү.</div>
+          </div>
+
+          <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:20px;">
+            <input type="checkbox" id="terms"
+              style="width:16px;height:16px;margin-top:2px;accent-color:var(--primary);" />
+            <label for="terms" style="font-size:0.875rem;color:var(--gray-600);cursor:pointer;line-height:1.5;">
+              <a href="terms.html" target="_blank" style="font-weight:600;">Үйлчилгээний нөхцөл</a> болон <a
+                href="privacy.html" target="_blank" style="font-weight:600;">Нууцлалын бодлого</a>-той танилцан зөвшөөрч
+              байна
+            </label>
+          </div>
+
+          <!-- hCaptcha — solved before email-verification OTP is sent. -->
+          <div id="hcaptchaWrap" style="margin-bottom:20px;">
+            <label class="form-label">Хүний баталгаажуулалт <span class="required">*</span></label>
+            <div id="hcaptcha-widget"></div>
+          </div>
+
+          <div style="display:flex;justify-content:flex-end;">
+            <button id="step1NextBtn" class="btn btn-primary btn-lg" onclick="verifyEmailAndAdvance()">Үргэлжлүүлэх
+              →</button>
+          </div>
+        </div>
+
+        <!-- Step 2: Business Info -->
+        <div class="step-panel" id="panel-2">
+          <h3 style="margin-bottom:6px;">Бизнесийн мэдээлэл</h3>
+          <p class="mb-24">МонМэп дэлгэцэнд харагдах бизнесийн мэдээллийг оруулна уу</p>
+
+          <!-- Claim existing place -->
+          <div id="claimSection" style="margin-bottom:24px;">
+            <div class="alert alert-info" style="margin-bottom:16px;">
+              <span class="alert-icon">🔍</span>
+              <div>
+                <strong>Таны бизнес МонМэп-д аль хэдийн байж болзошгүй!</strong><br>
+                Эхлээд хайж үзнэ үү — олдвол нэг товшилтоор нэхэмжилж авна.
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+              <input type="text" id="claimSearchInput" class="form-control"
+                placeholder="Бизнесийнхээ нэрийг бичнэ үү..." oninput="onClaimSearch()" />
+            </div>
+            <div id="claimResults"
+              style="display:none;border:1px solid var(--gray-200);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:12px;">
+            </div>
+            <div id="claimedPlaceBox"
+              style="display:none;background:var(--success-light);border:1.5px solid var(--success);border-radius:var(--radius-lg);padding:16px;margin-bottom:12px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                  <div style="font-weight:700;color:var(--gray-900);" id="claimedName"></div>
+                  <div style="font-size:0.8125rem;color:var(--gray-500);margin-top:2px;" id="claimedAddress"></div>
+                </div>
+                <button onclick="clearClaimedPlace()"
+                  style="background:none;border:none;cursor:pointer;color:var(--gray-400);font-size:1.1rem;"
+                  title="Цуцлах">✕</button>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost" style="font-size:0.875rem;color:var(--gray-500);"
+              onclick="switchToCreateMode()">
+              МонМэп-д байхгүй — Шинэ бизнес бүртгэх →
+            </button>
+          </div>
+
+          <!-- Create new place (hidden by default, shown when user skips claim) -->
+          <div id="createSection" style="display:none;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;cursor:pointer;"
+              onclick="switchToClaimMode()">
+              <span style="font-size:0.875rem;color:var(--primary);font-weight:600;">← МонМэп-д хайх руу буцах</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Бизнесийн нэр <span class="required">*</span></label>
+              <input type="text" class="form-control" id="bizName" placeholder="жш: Эрдэнэт Салон, Blue Sky Cafe" />
+              <span class="form-error">Бизнесийн нэр оруулна уу</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Бизнесийн төрөл <span class="required">*</span></label>
+              <select class="form-control" id="bizType">
+                <option value="">— Сонгох —</option>
+                <option>Үсчин / Салон</option>
+                <option>Ресторан / Кафе</option>
+                <option>Эмнэлэг / Эмч</option>
+                <option>Спорт заал / Фитнесс</option>
+                <option>Спа / Массаж</option>
+                <option>Сургалт / Дасгалжуулалт</option>
+                <option>Авто засвар</option>
+                <option>Фото студио</option>
+                <option>Бусад</option>
+              </select>
+              <span class="form-error">Бизнесийн төрлийг сонгоно уу</span>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Дүүрэг <span class="required">*</span></label>
+                <select class="form-control" id="district">
+                  <option value="">— Сонгох —</option>
+                  <option>Баянзүрх</option>
+                  <option>Баянгол</option>
+                  <option>Сүхбаатар</option>
+                  <option>Чингэлтэй</option>
+                  <option>Хан-Уул</option>
+                  <option>Налайх</option>
+                  <option>Багануур</option>
+                  <option>Багахангай</option>
+                  <option>Сонгинохайрхан</option>
+                </select>
+                <span class="form-error">Дүүрэг сонгоно уу</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Хороо</label>
+                <select class="form-control" id="khoroo">
+                  <option value="">— Сонгох —</option>
+                  <option>1-р хороо</option>
+                  <option>2-р хороо</option>
+                  <option>3-р хороо</option>
+                  <option>4-р хороо</option>
+                  <option>5-р хороо</option>
+                  <option>6-р хороо</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Дэлгэрэнгүй хаяг <span class="required">*</span></label>
+              <input type="text" class="form-control" id="address" placeholder="жш: Сансарын гудамж, 5А тоот" />
+              <span class="form-error">Хаяг оруулна уу</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Газрын зурагт байршил <span class="required">*</span></label>
+              <div id="pinMap" class="pin-map"></div>
+              <div class="pin-map-hint">
+                <span>📍 Тэмдэглэгээг чирж бизнесийнхээ яг байршилд тавина уу.</span>
+                <span class="pin-coords" id="pinCoords">47.9184, 106.9177</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Бизнесийн утас <span class="required">*</span></label>
+              <input type="tel" class="form-control" id="bizPhone" placeholder="9900-0000" />
+              <span class="form-error">Утасны дугаар оруулна уу</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Бизнесийн тайлбар</label>
+              <textarea class="form-control" id="bizDesc" placeholder="Бизнесийнхээ тухай товч тайлбар..."></textarea>
+              <span class="form-hint">250 тэмдэгтэнд багтаана</span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Лого / Зураг оруулах</label>
+              <!-- We deliberately don't accept a file here. The previous version
+               showed an upload zone but never actually persisted the file —
+               the change handler only updated the UI. The file can't ride
+               the OTP-magic-link redirect across browser tabs anyway. The
+               owner will add their logo from the business profile page once
+               their account is confirmed. -->
+              <div class="alert alert-info" style="font-size:0.8125rem;">
+                <span class="alert-icon">ℹ️</span>
+                <div>
+                  <strong>Лого зургаа дараа нь нэмээрэй.</strong> Бүртгэл
+                  баталгаажсаны дараа Профайл хэсгээс лого, зураг оруулах
+                  боломжтой.
+                </div>
+              </div>
+            </div>
+
+            <!-- nav buttons for create mode -->
+            <div style="display:flex;justify-content:space-between;gap:12px;">
+              <button class="btn btn-ghost btn-lg" onclick="goStep(1)">← Буцах</button>
+              <button class="btn btn-primary btn-lg" onclick="goStep(3)">Үргэлжлүүлэх →</button>
+            </div>
+          </div><!-- /createSection -->
+
+          <!-- nav buttons for claim mode (visible only in claim mode) -->
+          <div id="claimNavButtons" style="display:flex;justify-content:space-between;gap:12px;margin-top:8px;">
+            <button class="btn btn-ghost btn-lg" onclick="goStep(1)">← Буцах</button>
+            <button class="btn btn-primary btn-lg" id="claimNextBtn" onclick="goStep(3)" disabled>Үргэлжлүүлэх
+              →</button>
+          </div>
+
+        </div>
+
+        <!-- Step 3: Services & Hours -->
+        <div class="step-panel" id="panel-3">
+          <h3 style="margin-bottom:6px;">Үйлчилгээ & Ажлын цаг</h3>
+          <p class="mb-24">Санал болгох үйлчилгээ болон ажлын цагаа тохируулна уу</p>
+
+          <!-- Services -->
+          <div class="form-group">
+            <label class="form-label">Үйлчилгээний нэрс</label>
+            <div id="serviceTagsWrap" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;min-height:36px;">
+            </div>
+            <div style="display:flex;gap:8px;">
+              <input type="text" class="form-control" id="serviceInput" placeholder="жш: Хулд засах, Өнгө будах..." />
+              <button type="button" class="btn btn-outline" onclick="addService()">+ Нэмэх</button>
+            </div>
+            <span class="form-hint">Enter дарах эсвэл + товч дарна уу</span>
+          </div>
+
+          <!-- Working hours -->
+          <div class="form-group">
+            <label class="form-label">Ажлын цаг</label>
+            <div
+              style="background:var(--gray-50);border-radius:var(--radius);padding:16px;border:1px solid var(--gray-200);">
+              <div id="hoursGrid"></div>
+            </div>
+          </div>
+
+          <!-- Booking settings -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Захиалгын хугацаа</label>
+              <select class="form-control" id="slotDuration">
+                <option value="30">30 минут</option>
+                <option value="45">45 минут</option>
+                <option value="60" selected>1 цаг</option>
+                <option value="90">1.5 цаг</option>
+                <option value="120">2 цаг</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Зэрэгцэх захиалга</label>
+              <input type="number" class="form-control" id="concurrent" min="1" max="999" value="1" />
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;gap:12px;">
+            <button class="btn btn-ghost btn-lg" onclick="goStep(2)">← Буцах</button>
+            <button class="btn btn-primary btn-lg" onclick="goNextFromStep3()">Үргэлжлүүлэх →</button>
+          </div>
+        </div>
+
+        <!-- Step 4: Document Upload (claim path only) -->
+        <div class="step-panel" id="panel-4">
+          <h3 style="margin-bottom:6px;">Өмчлөлийн баримт</h3>
+          <p class="mb-24">Бизнесийн өмчлөлийг батлах баримт бичгийг оруулна уу — 24 цагийн дотор шалгагдана.</p>
+
+          <div class="alert alert-info" style="margin-bottom:20px;">
+            <span class="alert-icon">📋</span>
+            <div>
+              Дараах баримтуудын аль нэгийг оруулна уу:<br>
+              <strong>• Улсын бүртгэлийн гэрчилгээ</strong> (PDF эсвэл зураг)<br>
+              <strong>• Ямар нэгэн өмчлөлийн бичиг баримт</strong> <br>
+              <strong>• Байрны түрээсийн гэрээ</strong>
+            </div>
+          </div>
+
+          <div id="docUploadZone" class="upload-zone" onclick="document.getElementById('docFileInput').click()"
+            ondragover="event.preventDefault();this.classList.add('dragover')"
+            ondragleave="this.classList.remove('dragover')" ondrop="handleDocDrop(event)">
+            <div style="font-size:2rem;margin-bottom:8px;">📁</div>
+            <div style="font-weight:600;color:var(--gray-700);margin-bottom:4px;">Баримт чирэх эсвэл сонгох</div>
+            <div style="font-size:0.8125rem;color:var(--gray-500);">Зураг (JPG, PNG, WEBP) эсвэл PDF · Дээд тал 10 МБ ·
+              3 хүртэл файл</div>
+          </div>
+          <input type="file" id="docFileInput" accept="image/*,application/pdf" multiple style="display:none;"
+            onchange="handleDocFiles(this.files)" />
+
+          <div id="docPreviewGrid"
+            style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px;margin-top:16px;">
+          </div>
+          <div id="docCounter" style="font-size:0.8125rem;color:var(--gray-500);margin-top:12px;display:none;"></div>
+
+          <div style="display:flex;justify-content:space-between;gap:12px;margin-top:24px;">
+            <button class="btn btn-ghost btn-lg" onclick="goStep(3)">← Буцах</button>
+            <button class="btn btn-primary btn-lg" id="docNextBtn" onclick="goStepWithUpload(5)" disabled>Үргэлжлүүлэх
+              →</button>
+          </div>
+        </div>
+
+        <!-- Step 5: Review & Submit -->
+        <div class="step-panel" id="panel-5">
+          <h3 style="margin-bottom:6px;">Мэдээлэл шалгах</h3>
+          <p class="mb-24">Доорх мэдээллийг шалгаад, бүртгэлийг илгээнэ үү</p>
+
+          <div id="reviewBlock"
+            style="background:var(--gray-50);border-radius:var(--radius-lg);padding:24px;border:1px solid var(--gray-200);margin-bottom:24px;">
+            <!-- Filled by JS -->
+          </div>
+
+          <div class="alert alert-info">
+            <span class="alert-icon">ℹ️</span>
+            <div>
+              <strong>Баталгаажуулалтын үйл явц:</strong> МонМэпийн баг таны мэдээллийг шалгаж <strong>24 цагийн
+                дотор</strong> и-мэйлээр мэдэгдэнэ. Баталгаажсаны дараа захиалга хүлээн авч эхэлнэ.
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;gap:12px;margin-top:20px;">
+            <button class="btn btn-ghost btn-lg" onclick="goBackFromReview()">← Буцах</button>
+            <button class="btn btn-primary btn-lg" id="submitBtn" onclick="submitRegistration()">
+              ✓ Бүртгэл илгээх
+            </button>
+          </div>
+        </div>
+
+      </div><!-- end reg-card -->
+
+      <p class="text-center mt-16 text-sm text-muted">
+        Бүртгэлтэй юу? <a href="login.html">Нэвтрэх →</a>
+      </p>
+
+    </div>
+  </div>
+
+  <!-- OTP Modal: shown after email is sent, user enters the 6-digit code -->
+  <div class="modal-overlay" id="otpModal">
+    <div class="modal">
+      <div class="modal-body" style="text-align:center;padding:40px 32px;">
+        <div style="font-size:3.5rem;margin-bottom:16px;">📧</div>
+        <h3 style="margin-bottom:8px;">И-мэйлийг шалгана уу</h3>
+        <p style="color:var(--gray-600);line-height:1.7;margin-bottom:24px;">
+          <strong id="sentToEmail"></strong> хаяг руу 6 оронтой баталгаажуулах код илгээлээ.
+        </p>
+        <div class="form-group" style="text-align:left;margin-bottom:8px;">
+          <label class="form-label">Баталгаажуулах код</label>
+          <input type="text" id="otpInput" class="form-control" placeholder="123456" maxlength="6" inputmode="numeric"
+            pattern="[0-9]*" style="font-size:1.5rem;letter-spacing:0.3em;text-align:center;" />
+        </div>
+        <div id="otpError" style="color:var(--danger,#ef4444);font-size:0.875rem;margin-bottom:12px;display:none;">
+        </div>
+        <button class="btn btn-primary w-full btn-lg" id="otpBtn" onclick="verifyOtp()">
+          Баталгаажуулах
+        </button>
+        <div style="margin-top:16px;font-size:0.8125rem;color:var(--gray-500);">
+          Код ирэхгүй байна уу? <button onclick="resendOtp()"
+            style="background:none;border:none;color:var(--primary);cursor:pointer;font-size:0.8125rem;font-weight:600;">Дахин
+            илгээх</button>
+        </div>
+        <div style="margin-top:10px;font-size:0.8125rem;color:var(--gray-400);">Спам хавтсаа шалгана уу.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="https://js.hcaptcha.com/1/api.js?onload=onHcaptchaLoad&render=explicit" async defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js"
+    integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae"
+    crossorigin="anonymous"></script>
+  <script src="js/supabase-client.js"></script>
+  <script src="js/utils.js"></script>
+  <script>
+    let currentStep = 1;
+    const services = [];
+
+    // Per-field validators used by both the click-Continue submit path and the
+    // live blur/input listeners attached below. Returning a truthy string means
+    // the field is invalid; the string becomes the form-error span text so we
+    // get a specific message instead of a generic "fix this field".
+    // Declared up here (not next to the other helpers below) because the live
+    // validation forEach further down references it during module init — moving
+    // it later puts the reference inside the const's temporal dead zone.
+    const FIELD_VALIDATORS = {
+      lastName: v => v.trim() ? '' : 'Овог оруулна уу',
+      firstName: v => v.trim() ? '' : 'Нэр оруулна уу',
+      phone: v => v.trim().length >= 7 ? '' : 'Дор хаяж 7 оронтой утасны дугаар оруулна уу',
+      regEmail: v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) ? '' : 'Зөв и-мэйл хаяг оруулна уу',
+      bizName: v => v.trim() ? '' : 'Бизнесийн нэр оруулна уу',
+      bizType: v => v ? '' : 'Бизнесийн төрлийг сонгоно уу',
+      district: v => v ? '' : 'Дүүрэг сонгоно уу',
+      address: v => v.trim() ? '' : 'Хаяг оруулна уу',
+      bizPhone: v => v.trim().length >= 7 ? '' : 'Дор хаяж 7 оронтой утасны дугаар оруулна уу',
+    };
+
+    // ── Document upload (claim path step 4) ──
+    let docFiles = [];  // [{file, docType, previewUrl}]
+    let pendingDocs = []; // [{storage_path, doc_type}] after successful upload
+
+    const DOC_TYPE_OPTS = [
+      { value: 'registration_certificate', label: 'Бүртгэлийн гэрчилгээ' },
+      { value: 'storefront_photo', label: 'Дэлгүүрийн зураг' },
+      { value: 'lease_agreement', label: 'Түрээсийн гэрээ' },
+      { value: 'other', label: 'Бусад' },
+    ];
+
+    function handleDocDrop(e) {
+      e.preventDefault();
+      document.getElementById('docUploadZone').classList.remove('dragover');
+      addDocFiles(e.dataTransfer.files);
+    }
+    function handleDocFiles(fileList) { addDocFiles(fileList); }
+
+    function addDocFiles(fileList) {
+      const remaining = 3 - docFiles.length;
+      const toAdd = Array.from(fileList).slice(0, remaining);
+      for (const file of toAdd) {
+        if (file.size > 10 * 1024 * 1024) {
+          showToast('error', 'Файл хэт том', `${file.name}: 10 МБ-аас их байж болохгүй`);
+          continue;
+        }
+        docFiles.push({ file, docType: 'registration_certificate', previewUrl: URL.createObjectURL(file) });
+      }
+      renderDocPreviews();
+    }
+
+    function removeDocFile(i) {
+      URL.revokeObjectURL(docFiles[i].previewUrl);
+      docFiles.splice(i, 1);
+      renderDocPreviews();
+    }
+
+    function renderDocPreviews() {
+      const grid = document.getElementById('docPreviewGrid');
+      const counter = document.getElementById('docCounter');
+      const nextBtn = document.getElementById('docNextBtn');
+      if (!grid) return;
+      if (!docFiles.length) {
+        grid.innerHTML = '';
+        if (counter) counter.style.display = 'none';
+        if (nextBtn) nextBtn.disabled = true;
+        document.getElementById('docUploadZone').classList.remove('has-file');
+        return;
+      }
+      document.getElementById('docUploadZone').classList.add('has-file');
+      if (counter) { counter.style.display = 'block'; counter.textContent = `${docFiles.length} / 3 баримт нэмсэн`; }
+      if (nextBtn) nextBtn.disabled = false;
+
+      const typeOptsHtml = DOC_TYPE_OPTS.map(o =>
+        `<option value="${o.value}">${escapeHtml(o.label)}</option>`
+      ).join('');
+
+      grid.innerHTML = docFiles.map((df, i) => {
+        const isPdf = df.file.type === 'application/pdf';
+        const thumb = isPdf
+          ? `<div style="height:88px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:var(--gray-100);border-radius:var(--radius) var(--radius) 0 0;">
+             <span style="font-size:2rem;">📄</span>
+             <small style="font-size:0.625rem;color:var(--gray-500);text-align:center;padding:0 6px;word-break:break-all;line-height:1.3;">${escapeHtml(df.file.name)}</small>
+           </div>`
+          : `<img src="${df.previewUrl}" alt="${escapeHtml(df.file.name)}" loading="lazy"
+             style="width:100%;height:88px;object-fit:cover;border-radius:var(--radius) var(--radius) 0 0;" />`;
+        return `
+        <div style="border:1px solid var(--gray-200);border-radius:var(--radius);background:var(--white);overflow:hidden;position:relative;">
+          <button onclick="removeDocFile(${i})" title="Устгах"
+            style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:999px;background:rgba(0,0,0,0.55);color:#fff;border:none;font-size:0.75rem;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:1;line-height:1;">✕</button>
+          ${thumb}
+          <div style="padding:6px;">
+            <select style="width:100%;font-size:0.75rem;padding:4px 6px;border:1px solid var(--gray-200);border-radius:4px;font-family:var(--font);"
+              onchange="docFiles[${i}].docType=this.value">${typeOptsHtml}</select>
+          </div>
+        </div>`;
+      }).join('');
+
+      // Restore selected type values after innerHTML re-render.
+      grid.querySelectorAll('select').forEach((sel, i) => { if (docFiles[i]) sel.value = docFiles[i].docType; });
+    }
+
+    async function uploadDocFiles() {
+      const { data: { session } } = await _sb.auth.getSession();
+      if (!session || !claimedPlace) return [];
+      const uploaded = [];
+      for (const df of docFiles) {
+        const ext = df.file.name.includes('.') ? df.file.name.split('.').pop().toLowerCase() : 'jpg';
+        const uid = Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+        const path = `${session.user.id}/${claimedPlace.place_id}_${uid}.${ext}`;
+        const { error } = await _sb.storage.from('verification-docs').upload(path, df.file, { upsert: false });
+        if (error) {
+          showToast('error', 'Файл оруулах алдаа', `${df.file.name}: ${error.message}`);
+          return null;
+        }
+        uploaded.push({ storage_path: path, doc_type: df.docType });
+      }
+      return uploaded;
+    }
+
+    async function goStepWithUpload(n) {
+      const btn = document.getElementById('docNextBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Оруулж байна...';
+      try {
+        const uploaded = await uploadDocFiles();
+        if (uploaded === null) { btn.disabled = false; btn.textContent = 'Үргэлжлүүлэх →'; return; }
+        pendingDocs = uploaded;
+        goStep(n);
+      } catch (e) {
+        showToast('error', 'Алдаа', e.message || 'Файл оруулах үед алдаа гарлаа.');
+        btn.disabled = false;
+        btn.textContent = 'Үргэлжлүүлэх →';
+      }
+    }
+
+    // ── Claim vs Create state ──
+    let claimedPlace = null;   // { place_id, name, primary_category, formatted_address }
+    let createMode = false;  // true = user chose "register new business"
+    let claimSearchTimer = null;
+
+    function switchToCreateMode() {
+      createMode = true;
+      claimedPlace = null;
+      document.getElementById('claimSection').style.display = 'none';
+      document.getElementById('createSection').style.display = 'block';
+      document.getElementById('claimNavButtons').style.display = 'none';
+      // Hide document upload step — create path auto-verifies, no docs needed.
+      document.getElementById('docStepWrap').style.display = 'none';
+      document.getElementById('conn-4').style.display = 'none';
+      document.getElementById('review-circle').textContent = '4';
+      // Map needs the container to be visible to size itself; defer to next frame.
+      requestAnimationFrame(() => {
+        initPinMap();
+        if (pinMap) pinMap.resize();
+      });
+    }
+    function switchToClaimMode() {
+      createMode = false;
+      document.getElementById('claimSection').style.display = 'block';
+      document.getElementById('createSection').style.display = 'none';
+      document.getElementById('claimNavButtons').style.display = 'flex';
+      // Show document upload step for claim path.
+      document.getElementById('docStepWrap').style.display = '';
+      document.getElementById('conn-4').style.display = '';
+      document.getElementById('review-circle').textContent = '5';
+    }
+
+    function goNextFromStep3() { goStep(createMode ? 5 : 4); }
+    function goBackFromReview() { goStep(createMode ? 3 : 4); }
+
+    function onClaimSearch() {
+      clearTimeout(claimSearchTimer);
+      const q = document.getElementById('claimSearchInput').value.trim();
+      if (q.length < 2) {
+        document.getElementById('claimResults').style.display = 'none';
+        return;
+      }
+      claimSearchTimer = setTimeout(() => runClaimSearch(q), 300);
+    }
+
+    async function runClaimSearch(q) {
+      const results = await searchPlaces(q);
+      const box = document.getElementById('claimResults');
+      if (!results.length) {
+        box.style.display = 'block';
+        box.innerHTML = `<div style="padding:16px;text-align:center;color:var(--gray-500);font-size:0.875rem;">
+        Олдсонгүй — <button class="btn btn-ghost" style="font-size:0.875rem;" onclick="switchToCreateMode()">Шинэ бизнес бүртгэх →</button>
+      </div>`;
+        return;
+      }
+      box.style.display = 'block';
+      // `places.name` and `formatted_address` come from a public DB table —
+      // treat as untrusted at the render layer. The JSON payload embedded in
+      // the inline onclick gets escapeAttrJson'd so a name with quotes / angle
+      // brackets / ampersands can't break out of the attribute and inject JS.
+      box.innerHTML = results.map(p => `
+      <div onclick="selectClaimedPlace(${escapeAttrJson(p)})"
+           style="padding:12px 16px;cursor:pointer;border-bottom:1px solid var(--gray-100);display:flex;flex-direction:column;gap:2px;transition:background .15s;"
+           onmouseover="this.style.background='var(--gray-50)'" onmouseout="this.style.background=''">
+        <div style="font-weight:600;font-size:0.9rem;color:var(--gray-900);">${escapeHtml(p.name)}</div>
+        <div style="font-size:0.8rem;color:var(--gray-500);">${escapeHtml(p.formatted_address || p.primary_category || '')}</div>
+      </div>
+    `).join('');
+    }
+
+    function selectClaimedPlace(p) {
+      claimedPlace = p;
+      document.getElementById('claimResults').style.display = 'none';
+      document.getElementById('claimSearchInput').value = '';
+      document.getElementById('claimedName').textContent = p.name;
+      document.getElementById('claimedAddress').textContent = p.formatted_address || p.primary_category || '';
+      document.getElementById('claimedPlaceBox').style.display = 'block';
+      document.getElementById('claimNextBtn').disabled = false;
+    }
+
+    function clearClaimedPlace() {
+      claimedPlace = null;
+      document.getElementById('claimedPlaceBox').style.display = 'none';
+      document.getElementById('claimNextBtn').disabled = true;
+    }
+
+    const days = [
+      { key: 'mon', label: 'Даваа' },
+      { key: 'tue', label: 'Мягмар' },
+      { key: 'wed', label: 'Лхагва' },
+      { key: 'thu', label: 'Пүрэв' },
+      { key: 'fri', label: 'Баасан' },
+      { key: 'sat', label: 'Бямба' },
+      { key: 'sun', label: 'Ням' },
+    ];
+
+    function buildHoursGrid() {
+      const grid = document.getElementById('hoursGrid');
+      grid.innerHTML = days.map(d => `
+      <div class="working-hours-grid">
+        <div class="day-label">${d.label}</div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.8125rem;cursor:pointer;">
+          <input type="checkbox" id="day-${d.key}" ${['mon', 'tue', 'wed', 'thu', 'fri'].includes(d.key) ? 'checked' : ''}
+            onchange="toggleDay('${d.key}')" style="accent-color:var(--primary);"> Нээлттэй
+        </label>
+        <input type="time" id="open-${d.key}" class="form-control" style="width:110px;" value="09:00"
+          ${['sat', 'sun'].includes(d.key) ? 'disabled' : ''} />
+        <input type="time" id="close-${d.key}" class="form-control" style="width:110px;" value="18:00"
+          ${['sat', 'sun'].includes(d.key) ? 'disabled' : ''} />
+      </div>
+    `).join('');
+    }
+    buildHoursGrid();
+
+    // Render hCaptcha widget on Step 1 after the API script loads. The
+    // onHcaptchaLoad callback can fire twice (api.js's onload= and the manual
+    // window.hcaptcha check below); a guard prevents the "Only one captcha is
+    // permitted per parent container" duplicate-render error.
+    let _hcaptchaWidgetId = null;
+    window.onHcaptchaLoad = function () {
+      if (_hcaptchaWidgetId !== null) return;
+      const container = document.getElementById('hcaptcha-widget');
+      if (!container) return;
+      _hcaptchaWidgetId = hcaptcha.render(container, { sitekey: window._HCAPTCHA_SITE_KEY });
+    };
+    if (window.hcaptcha) window.onHcaptchaLoad();
+
+    // Start Step 2 in claim mode — show claim nav, hide create nav
+    switchToClaimMode();
+
+    // Live validation: validate on blur (after the user finishes a field) and
+    // clear the error on input as soon as the value becomes valid. This avoids
+    // surprising users mid-typing while still catching mistakes before submit.
+    Object.keys(FIELD_VALIDATORS).forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      const check = () => {
+        const msg = FIELD_VALIDATORS[id](el.value);
+        setError(id, msg || false);
+      };
+      const clearIfValid = () => {
+        if (!FIELD_VALIDATORS[id](el.value)) setError(id, false);
+      };
+      el.addEventListener('blur', check);
+      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', clearIfValid);
+    });
+
+    function toggleDay(key) {
+      const checked = document.getElementById('day-' + key).checked;
+      document.getElementById('open-' + key).disabled = !checked;
+      document.getElementById('close-' + key).disabled = !checked;
+    }
+
+    function addService() {
+      const input = document.getElementById('serviceInput');
+      const val = input.value.trim();
+      if (!val) return;
+      services.push(val);
+      renderServices();
+      input.value = '';
+      input.focus();
+    }
+    document.getElementById('serviceInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); addService(); }
+    });
+
+    function removeService(i) {
+      services.splice(i, 1);
+      renderServices();
+    }
+    function renderServices() {
+      const wrap = document.getElementById('serviceTagsWrap');
+      // Service names are owner-typed but still rendered via innerHTML — escape
+      // to prevent self-XSS that could later leak via the review payload.
+      wrap.innerHTML = services.map((s, i) => `
+      <span class="service-tag">${escapeHtml(s)} <button onclick="removeService(${i})" title="Устгах">✕</button></span>
+    `).join('');
+    }
+
+    function goStep(n) {
+      if (n > currentStep && !validateStep(currentStep)) return;
+      document.getElementById('panel-' + currentStep).classList.remove('active');
+      // Steps 1–5 exist; step 4 indicator is hidden for create mode.
+      // In create mode steps run 1→2→3→5, so step 5 visually appears as "4".
+      for (let i = 1; i <= 5; i++) {
+        const ind = document.getElementById('step-ind-' + i);
+        if (!ind) continue;
+        ind.classList.remove('active', 'done');
+        const visNum = (createMode && i === 5) ? 4 : i;
+        if (i < n) { ind.classList.add('done'); ind.querySelector('.step-circle').textContent = '✓'; }
+        else if (i === n) { ind.classList.add('active'); ind.querySelector('.step-circle').textContent = visNum; }
+        else { ind.querySelector('.step-circle').textContent = visNum; }
+      }
+      for (let i = 1; i <= 4; i++) {
+        const conn = document.getElementById('conn-' + i);
+        if (!conn) continue;
+        conn.classList.toggle('done', i < n);
+      }
+      currentStep = n;
+      document.getElementById('panel-' + n).classList.add('active');
+      if (n === 5) buildReview();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function validateStep(step) {
+      const runField = id => {
+        const el = document.getElementById(id);
+        const msg = FIELD_VALIDATORS[id](el.value);
+        setError(id, msg || false);
+        return !msg;
+      };
+      if (step === 1) {
+        clearErrors('panel-1');
+        const fields = ['lastName', 'firstName', 'phone', 'regEmail'];
+        let ok = fields.map(runField).every(Boolean);
+        if (!document.getElementById('terms').checked) {
+          showToast('error', 'Нөхцөл зөвшөөрнө үү', 'Үргэлжлүүлэхийн тулд нөхцөлтэй зөвшөөрнө үү.');
+          ok = false;
+        }
+        return ok;
+      }
+      if (step === 2) {
+        // Claim mode: a place must be selected
+        if (!createMode) {
+          if (!claimedPlace) {
+            showToast('error', 'Бизнес сонгоно уу', 'МонМэп-д хайж бизнесээ сонгох эсвэл "Шинэ бизнес бүртгэх" товчийг дарна уу.');
+            return false;
+          }
+          return true;
+        }
+        clearErrors('panel-2');
+        const fields = ['bizName', 'bizType', 'district', 'address', 'bizPhone'];
+        return fields.map(runField).every(Boolean);
+      }
+      if (step === 4) {
+        // Document upload step (claim mode only) — at least 1 file required.
+        if (!createMode && docFiles.length === 0) {
+          showToast('error', 'Баримт шаардлагатай', 'Дор хаяж нэг баримт оруулна уу.');
+          return false;
+        }
+        return true;
+      }
+      return true;
+    }
+
+    function setError(id, show) {
+      const el = document.getElementById(id);
+      const group = el.closest('.form-group');
+      if (!group) return;
+      group.classList.toggle('has-error', !!show);
+      // Update the existing form-error text with the specific message when one
+      // was passed (live validation path). The static fallback copy in HTML is
+      // kept for the bulk-validate-on-submit path that still passes a boolean.
+      if (typeof show === 'string') {
+        const errEl = group.querySelector('.form-error');
+        if (errEl) errEl.textContent = show;
+      }
+      // ARIA: announce validity changes to screen readers and tie input to its message.
+      if (el && el.tagName === 'INPUT' || (el && el.tagName === 'SELECT')) {
+        el.setAttribute('aria-invalid', show ? 'true' : 'false');
+        const errEl = group.querySelector('.form-error');
+        if (errEl && !errEl.id) errEl.id = id + '-error';
+        if (errEl) {
+          errEl.setAttribute('role', 'alert');
+          errEl.setAttribute('aria-live', 'polite');
+          if (show) el.setAttribute('aria-describedby', errEl.id);
+          else el.removeAttribute('aria-describedby');
+        }
+      }
+    }
+    function clearErrors(panelId) {
+      document.getElementById(panelId).querySelectorAll('.form-group').forEach(g => g.classList.remove('has-error'));
+    }
+
+    // ── Step-1 email verification ──
+    // The owner proves they actually control the email before they're allowed
+    // past Step 1. We send an 8-digit OTP via Supabase signInWithOtp (gated by
+    // hCaptcha), open the existing OTP modal, and only call goStep(2) once
+    // _sb.auth fires SIGNED_IN (see onAuthStateChange below). The user's
+    // captcha-protected session then carries them through the rest of the
+    // form, so the final submit can call the RPC directly — no second OTP.
+    let _emailVerified = false;
+
+    function _setEmailVerifiedUI(on) {
+      _emailVerified = on;
+      const badge = document.getElementById('emailVerifiedBadge');
+      const wrap = document.getElementById('hcaptchaWrap');
+      const emailEl = document.getElementById('regEmail');
+      if (badge) badge.style.display = on ? 'flex' : 'none';
+      if (wrap) wrap.style.display = on ? 'none' : '';
+      if (emailEl) emailEl.readOnly = on;
+    }
+
+    // If the user edits any Step-1 identity field after verifying, the prior
+    // OTP no longer applies to the new value — force them to re-verify.
+    ['regEmail', 'lastName', 'firstName', 'phone'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.addEventListener('input', () => { if (_emailVerified) _setEmailVerifiedUI(false); });
+    });
+
+    async function verifyEmailAndAdvance() {
+      if (!validateStep(1)) return;
+      if (_emailVerified) { goStep(2); return; }
+
+      if (!window.hcaptcha) {
+        showToast('error', 'Captcha ачаалагдаагүй', 'Хуудсыг дахин ачаална уу.');
+        return;
+      }
+      const captchaToken = hcaptcha.getResponse();
+      if (!captchaToken) {
+        showToast('error', 'Captcha шаардлагатай', 'Хүний баталгаажуулалтыг бөглөнө үү.');
+        return;
+      }
+
+      const btn = document.getElementById('step1NextBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Илгээж байна...';
+      const reset = () => { btn.disabled = false; btn.textContent = 'Үргэлжлүүлэх →'; };
+
+      const email = document.getElementById('regEmail').value.trim();
+      const lastName = document.getElementById('lastName').value.trim();
+      const firstName = document.getElementById('firstName').value.trim();
+      const userPhone = document.getElementById('phone').value.trim();
+
+      const { error } = await _sb.auth.signInWithOtp({
+        email,
+        options: {
+          shouldCreateUser: true,
+          captchaToken,
+          data: { full_name: `${lastName} ${firstName}`, phone: userPhone },
+        },
+      });
+      try { hcaptcha.reset(); } catch (_) { }
+
+      if (error) {
+        showToast('error', 'Алдаа', error.message);
+        reset();
+        return;
+      }
+
+      // Mark intent so onAuthStateChange routes the resulting SIGNED_IN to
+      // "advance to Step 2" instead of "complete registration".
+      localStorage.setItem('mm_step1_verifying', '1');
+      document.getElementById('sentToEmail').textContent = email;
+      document.getElementById('otpModal').classList.add('open');
+      document.getElementById('otpInput').focus();
+      // step1NextBtn stays disabled until OTP is verified (or modal is dismissed).
+    }
+
+    function buildReview() {
+      const ownerName = document.getElementById('lastName').value + ' ' + document.getElementById('firstName').value;
+      const email = document.getElementById('regEmail').value;
+      // `row()` escapes both label and value; services + claimedPlace fields
+      // are also escaped at every interpolation site below. The review block is
+      // rendered with values the user typed (or selected from places) and we
+      // can't trust either source in an innerHTML context.
+      const row = (label, val) => val
+        ? `<div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:4px;">${escapeHtml(label)}</div><div class="font-semibold">${escapeHtml(val)}</div></div>`
+        : '';
+
+      if (!createMode && claimedPlace) {
+        document.getElementById('reviewBlock').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          ${row('Нэр', ownerName)}
+          ${row('И-мэйл', email)}
+          <div style="grid-column:1/-1;padding:12px;background:var(--primary-light);border-radius:var(--radius);border:1.5px solid var(--primary);">
+            <div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:6px;">Нэхэмжлэх бизнес</div>
+            <div style="font-weight:700;font-size:1rem;">${escapeHtml(claimedPlace.name)}</div>
+            <div style="font-size:0.8125rem;color:var(--gray-500);margin-top:2px;">${escapeHtml(claimedPlace.formatted_address || '')}</div>
+          </div>
+          ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s => `<span class="badge badge-primary">${escapeHtml(s)}</span>`).join('')}</div></div>` : ''}
+        </div>
+      `;
+      } else {
+        document.getElementById('reviewBlock').innerHTML = `
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+          ${row('Нэр', ownerName)}
+          ${row('И-мэйл', email)}
+          ${row('Бизнесийн нэр', document.getElementById('bizName').value)}
+          ${row('Төрөл', document.getElementById('bizType').value)}
+          ${row('Дүүрэг', document.getElementById('district').value)}
+          ${row('Хаяг', document.getElementById('address').value)}
+          ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s => `<span class="badge badge-primary">${escapeHtml(s)}</span>`).join('')}</div></div>` : ''}
+        </div>
+      `;
+      }
+    }
+
+    // Map UI business-type label → places.primary_category slug
+    const CATEGORY_MAP = {
+      'Үсчин / Салон': 'salon',
+      'Ресторан / Кафе': 'restaurant',
+      'Эмнэлэг / Эмч': 'clinic',
+      'Спорт заал / Фитнесс': 'gym',
+      'Спа / Массаж': 'spa',
+      'Сургалт / Дасгалжуулалт': 'training',
+      'Авто засвар': 'auto_repair',
+      'Фото студио': 'photo_studio',
+      'Бусад': 'other',
+    };
+
+    // Default location (Ulaanbaatar centre). The pin-placement map (init below)
+    // lets the owner drag the marker to their actual address — pinLat/pinLng are
+    // updated live and submitted with the RPC payload so the POI lands in the
+    // right place from day one (was previously hard-coded to UB centre).
+    const UB_LAT = 47.9184, UB_LNG = 106.9177;
+    let pinLat = UB_LAT, pinLng = UB_LNG;
+    let pinMap = null, pinMarker = null;
+
+    function _fmtCoord(v) { return Number(v).toFixed(5); }
+    function _updatePinCoordLabel() {
+      const el = document.getElementById('pinCoords');
+      if (el) el.textContent = `${_fmtCoord(pinLat)}, ${_fmtCoord(pinLng)}`;
+    }
+
+    function initPinMap() {
+      if (pinMap || !window.mapboxgl || !window._MAPBOX_TOKEN) return;
+      const container = document.getElementById('pinMap');
+      if (!container || container.offsetWidth === 0) return; // not visible yet
+      mapboxgl.accessToken = window._MAPBOX_TOKEN;
+      pinMap = new mapboxgl.Map({
+        container,
+        style: 'mapbox://styles/mapbox/streets-v12',
+        center: [pinLng, pinLat],
+        zoom: 12,
+      });
+      pinMap.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+      pinMap.addControl(new mapboxgl.GeolocateControl({
+        positionOptions: { enableHighAccuracy: true },
+        trackUserLocation: false,
+        showAccuracyCircle: false,
+      }), 'top-right');
+      pinMarker = new mapboxgl.Marker({ draggable: true, color: '#2563eb' })
+        .setLngLat([pinLng, pinLat])
+        .addTo(pinMap);
+      pinMarker.on('dragend', () => {
+        const { lng, lat } = pinMarker.getLngLat();
+        pinLng = lng; pinLat = lat;
+        _updatePinCoordLabel();
+      });
+      pinMap.on('click', e => {
+        pinLng = e.lngLat.lng; pinLat = e.lngLat.lat;
+        pinMarker.setLngLat([pinLng, pinLat]);
+        _updatePinCoordLabel();
+      });
+    }
+
+    // Build a YYYY-MM-DDThh:mm:ss-style ISO string for timestamp columns
+    function nowIso() { return new Date().toISOString(); }
+
+    async function submitRegistration() {
+      const btn = document.getElementById('submitBtn');
+      btn.disabled = true;
+      btn.textContent = '⏳ Илгээж байна...';
+      const reset = () => { btn.disabled = false; btn.textContent = '✓ Бүртгэл илгээх'; };
+
+      // Email was verified at Step 1, so the user already has a Supabase
+      // session — no second OTP needed. If the session has somehow expired,
+      // bounce them back to Step 1 to re-verify rather than silently failing.
+      const { data: { session } } = await _sb.auth.getSession();
+      if (!session) {
+        _setEmailVerifiedUI(false);
+        showToast('error', 'Сесс дууссан', 'И-мэйлээ дахин баталгаажуулна уу.');
+        reset();
+        goStep(1);
+        return;
+      }
+
+      const email = document.getElementById('regEmail').value.trim();
+      const lastName = document.getElementById('lastName').value.trim();
+      const firstName = document.getElementById('firstName').value.trim();
+      const userPhone = document.getElementById('phone').value.trim();
+      const bizName = document.getElementById('bizName').value.trim();
+      const bizType = document.getElementById('bizType').value;
+      const district = document.getElementById('district').value;
+      const khoroo = document.getElementById('khoroo').value;
+      const address = document.getElementById('address').value.trim();
+      const bizPhone = document.getElementById('bizPhone').value.trim();
+      const bizDesc = document.getElementById('bizDesc').value.trim();
+      const concurrent = Math.max(1, parseInt(document.getElementById('concurrent').value) || 1);
+
+      const payload = {
+        email, lastName, firstName, userPhone,
+        bizName, bizType, district, khoroo, address, bizPhone, bizDesc, concurrent,
+        lat: createMode ? pinLat : null,
+        lng: createMode ? pinLng : null,
+        claimPlaceId: (!createMode && claimedPlace) ? claimedPlace.place_id : null,
+        claimBizName: (!createMode && claimedPlace) ? claimedPlace.name : null,
+        claimCategory: (!createMode && claimedPlace) ? claimedPlace.primary_category : null,
+        pendingDocs: pendingDocs.length ? pendingDocs : null,
+      };
+      // Still cached so completeRegistration's reset paths can surface what
+      // was being submitted if the RPC throws.
+      localStorage.setItem('mm_pending_reg', JSON.stringify(payload));
+
+      await completeRegistration(session.user.id, payload);
+    }
+
+    async function verifyOtp() {
+      const email = document.getElementById('regEmail').value.trim();
+      const token = document.getElementById('otpInput').value.trim();
+      const errEl = document.getElementById('otpError');
+      const btn = document.getElementById('otpBtn');
+      errEl.style.display = 'none';
+
+      if (!/^\d{6}$/.test(token)) {
+        errEl.textContent = '6 оронтой тоо оруулна уу.';
+        errEl.style.display = 'block';
+        return;
+      }
+
+      btn.disabled = true;
+      btn.textContent = '⏳ Шалгаж байна...';
+
+      const { error } = await _sb.auth.verifyOtp({ email, token, type: 'email' });
+
+      if (error) {
+        errEl.textContent = 'Код буруу эсвэл хугацаа дууссан. Дахин оролдоно уу.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Баталгаажуулах';
+        return;
+      }
+      // onAuthStateChange fires next and calls completeRegistration. If it
+      // doesn't (e.g. listener never wired, RPC hangs on a flaky network), this
+      // watchdog surfaces a clear error instead of leaving the user stranded on
+      // "⏳ Шалгаж байна...". Cleared in completeRegistration on redirect.
+      window._otpWatchdog = setTimeout(() => {
+        errEl.textContent = 'Сүлжээний асуудал байна. Дахин оролдоно уу.';
+        errEl.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Баталгаажуулах';
+      }, 15000);
+    }
+
+    async function resendOtp() {
+      const email = document.getElementById('regEmail').value.trim();
+      const { error } = await _sb.auth.signInWithOtp({
+        email,
+        options: { shouldCreateUser: true },
+      });
+      if (error) showToast('error', 'Алдаа', error.message);
+      else showToast('success', 'Код илгээгдлээ', 'И-мэйлийг шалгана уу.');
+    }
+
+    // Close the OTP modal and reset every button to its idle state. Called from
+    // every error path in the post-OTP flow so the user is never stranded on
+    // "⏳ Шалгаж байна..." with no way forward.
+    function _resetOtpFlow() {
+      const modal = document.getElementById('otpModal');
+      if (modal) modal.classList.remove('open');
+      const otpBtn = document.getElementById('otpBtn');
+      if (otpBtn) { otpBtn.disabled = false; otpBtn.textContent = 'Баталгаажуулах'; }
+      const submitBtn = document.getElementById('submitBtn');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '✓ Бүртгэл илгээх'; }
+      if (window.hcaptcha) { try { hcaptcha.reset(); } catch (_) { } }
+    }
+
+    async function completeRegistration(userId, d) {
+      try {
+        // Pre-flight: if this user already has a business_owners row, the OTP
+        // signed them in to an existing account. Don't try to create another
+        // place — just route them to their dashboard with a clear message.
+        const { data: existing } = await _sb
+          .from('business_owners')
+          .select('place_id, claim_status, places(name, primary_category)')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (existing?.place_id) {
+          localStorage.removeItem('mm_pending_reg');
+          localStorage.setItem('mm_biz', JSON.stringify({
+            id: existing.place_id,
+            name: (existing.places && existing.places.name) || existing.place_id,
+            type: (existing.places && existing.places.primary_category) || 'Бизнес',
+            claim_status: existing.claim_status,
+            verified: existing.claim_status === 'verified',
+          }));
+          showToast('info', 'Та аль хэдийн бүртгэлтэй',
+            'Энэ и-мэйл хаягаар өмнө нь бизнес бүртгүүлсэн байна. Дашбоард руу шилжүүлж байна.');
+          setTimeout(() => { window.location.href = 'dashboard.html'; }, 1200);
+          return;
+        }
+
+        // Atomic: the SECURITY DEFINER RPC inserts into places + business_owners
+        // in one transaction. If either fails, neither is written, so a retry
+        // (or opening the magic link from a different browser) is safe.
+        const category = CATEGORY_MAP[d.bizType] || 'other';
+        const fullAddress = [d.address, d.khoroo, d.district, 'Улаанбаатар'].filter(Boolean).join(', ');
+        const payload = d.claimPlaceId
+          ? { claimPlaceId: d.claimPlaceId }
+          : {
+            name: d.bizName,
+            category,
+            lat: (typeof d.lat === 'number') ? d.lat : UB_LAT,
+            lng: (typeof d.lng === 'number') ? d.lng : UB_LNG,
+            formatted_address: fullAddress,
+            short_address: d.address || null,
+            phone_national: d.bizPhone || null,
+            slot_capacity: d.concurrent || 1,
+            raw: {
+              source: 'portal', description: d.bizDesc || null,
+              district: d.district, khoroo: d.khoroo || null,
+            },
+          };
+
+        const docPaths = (d.pendingDocs && d.pendingDocs.length) ? d.pendingDocs : null;
+        const { data: placeId, error } = await _sb.rpc(
+          'complete_business_registration', { p_payload: payload, p_doc_paths: docPaths }
+        );
+        if (error || !placeId) {
+          console.warn('[monmap-portal] complete_business_registration:', error);
+          _resetOtpFlow();
+          showToast('error', 'Бүртгэл дуусгах алдаа',
+            (error && error.message) || 'Дахин оролдоно уу. Асуудал үргэлжилбэл бидэнтэй холбогдоно уу.');
+          return;
+        }
+
+        const bizName = d.claimBizName || d.bizName || placeId;
+        const bizType = d.claimCategory || d.bizType || 'Бизнес';
+        localStorage.removeItem('mm_pending_reg');
+        localStorage.setItem('mm_biz', JSON.stringify({
+          id: placeId, name: bizName, type: bizType, verified: false,
+        }));
+
+        window.location.href = 'dashboard.html';
+      } catch (e) {
+        console.error('[monmap-portal] completeRegistration threw:', e);
+        _resetOtpFlow();
+        showToast('error', 'Алдаа', e.message || 'Бүртгэл дуусгах үед алдаа гарлаа.');
+      }
+    }
+
+    // If the magic link was opened in a different browser (no mm_pending_reg)
+    // but the user already has a business_owners row from a prior attempt,
+    // route them to the dashboard. Otherwise sign them out with a clear hint
+    // to reopen the link in the original browser.
+    async function _recoverFromMissingPending(userId) {
+      try {
+        const { data } = await _sb
+          .from('business_owners')
+          .select('place_id')
+          .eq('user_id', userId)
+          .maybeSingle();
+        if (data?.place_id) {
+          window.location.href = 'dashboard.html';
+          return;
+        }
+        await _sb.auth.signOut();
+        _resetOtpFlow();
+        showToast('warning', 'Бүртгэл дуусгах боломжгүй',
+          'Магтадтай линкийг бүртгэл эхлүүлсэн хөтчөөрөө нээнэ үү.');
+      } catch (e) {
+        console.error('[monmap-portal] _recoverFromMissingPending threw:', e);
+        _resetOtpFlow();
+        showToast('error', 'Алдаа', e.message || 'Алдаа гарлаа.');
+      }
+    }
+
+    // SIGNED_IN fires in two situations now:
+    //  1. Step-1 OTP just verified → close modal, mark email verified, advance
+    //     to Step 2. The user finishes the rest of the form while signed in.
+    //  2. Magic-link tab opened with a stale mm_pending_reg from the legacy
+    //     flow → finish that registration. Kept for backwards-compat with any
+    //     half-completed flows already in users' inboxes.
+    _sb.auth.onAuthStateChange(async (event, session) => {
+      if (event !== 'SIGNED_IN' || !session) return;
+      if (window._otpWatchdog) { clearTimeout(window._otpWatchdog); window._otpWatchdog = null; }
+
+      if (localStorage.getItem('mm_step1_verifying')) {
+        localStorage.removeItem('mm_step1_verifying');
+        const modal = document.getElementById('otpModal');
+        const otpBtn = document.getElementById('otpBtn');
+        const otpEl = document.getElementById('otpInput');
+        const step1Btn = document.getElementById('step1NextBtn');
+        if (modal) modal.classList.remove('open');
+        if (otpBtn) { otpBtn.disabled = false; otpBtn.textContent = 'Баталгаажуулах'; }
+        if (otpEl) otpEl.value = '';
+        if (step1Btn) { step1Btn.disabled = false; step1Btn.textContent = 'Үргэлжлүүлэх →'; }
+        _setEmailVerifiedUI(true);
+        goStep(2);
+        showToast('success', 'И-мэйл баталгаажлаа', 'Бизнесийнхээ мэдээллийг бөглөнө үү.');
+        return;
+      }
+
+      const pending = JSON.parse(localStorage.getItem('mm_pending_reg') || 'null');
+      if (pending) await completeRegistration(session.user.id, pending);
+      else await _recoverFromMissingPending(session.user.id);
+    });
+
+    // (No file-upload handler here — see the inline note in step-2 where the
+    // upload zone used to live. Logos are uploaded from profile.html after
+    // the account is verified.)
+  </script>
+</body>
+
+</html>

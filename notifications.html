@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co; img-src 'self' data: blob: https:; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Мэдэгдэл — МонМэп Бизнес Портал</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* The whole page is a single tall card with grouped rows — closer to a
+       feed than a table, because each row needs ~2 lines of context and a
+       retry button. A real table feels too dense at this scale. */
+    .notif-summary {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .notif-summary-card {
+      background: var(--white);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      padding: 18px 20px;
+      box-shadow: var(--shadow-sm);
+    }
+    .notif-summary-label { font-size: .75rem; color: var(--gray-500); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; }
+    .notif-summary-value { font-size: 2rem; font-weight: 800; color: var(--gray-900); margin-top: 6px; line-height: 1; }
+    .notif-summary-sub   { font-size: .8125rem; color: var(--gray-500); margin-top: 6px; }
+
+    .notif-filters {
+      display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;
+    }
+    .notif-filter-pill {
+      padding: 6px 14px; border-radius: 999px;
+      background: var(--white); border: 1px solid var(--gray-200);
+      font-size: .8125rem; font-weight: 500; color: var(--gray-700);
+      cursor: pointer; transition: all var(--transition);
+    }
+    .notif-filter-pill:hover { background: var(--gray-100); }
+    .notif-filter-pill.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+
+    .notif-row {
+      display: grid;
+      grid-template-columns: 36px 1fr auto;
+      gap: 14px;
+      align-items: start;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--gray-100);
+    }
+    .notif-row:last-child { border-bottom: none; }
+    .notif-channel-icon {
+      width: 36px; height: 36px;
+      border-radius: 999px;
+      background: var(--danger-light);
+      color: var(--danger);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; flex-shrink: 0;
+    }
+    .notif-row[data-resolved="true"] .notif-channel-icon {
+      background: var(--success-light);
+      color: var(--success);
+    }
+    .notif-content { min-width: 0; }
+    .notif-headline {
+      font-size: .9375rem; font-weight: 600; color: var(--gray-900);
+      margin-bottom: 4px;
+    }
+    .notif-sub {
+      font-size: .8125rem; color: var(--gray-500); line-height: 1.5;
+    }
+    .notif-error {
+      font-size: .75rem; color: var(--danger);
+      background: var(--danger-light);
+      padding: 6px 10px;
+      border-radius: var(--radius-sm);
+      margin-top: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      word-break: break-word;
+    }
+    .notif-actions {
+      display: flex; flex-direction: column; gap: 6px;
+      align-items: flex-end;
+    }
+    .notif-time {
+      font-size: .75rem; color: var(--gray-400);
+      white-space: nowrap;
+    }
+    .notif-row[data-resolved="true"] .retry-btn { display: none; }
+
+    .empty-state {
+      text-align: center; padding: 56px 24px;
+      color: var(--gray-500);
+    }
+    .empty-state-icon {
+      font-size: 2.5rem; margin-bottom: 12px;
+    }
+    .empty-state-title { font-size: 1rem; font-weight: 700; color: var(--gray-800); margin-bottom: 6px; }
+
+    @media (max-width: 640px) {
+      .notif-row { grid-template-columns: 32px 1fr; }
+      .notif-actions { grid-column: 1 / -1; align-items: flex-start; padding-left: 50px; flex-direction: row; justify-content: space-between; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="index.html" class="sidebar-logo" aria-label="MONMAP">
+        <div class="logo-icon" aria-hidden="true"></div>
+        MONMAP
+      </a>
+    </div>
+    <div class="sidebar-business">
+      <div class="business-pill">
+        <div class="business-avatar" id="sbAvatar">М</div>
+        <div class="business-info">
+          <div class="business-name" id="sbBizName">МонМэп Бизнес</div>
+          <div class="business-type" id="sbBizType">—</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Үндсэн</span>
+      <a href="dashboard.html"><span class="nav-icon" data-icon="home"></span> Самбар</a>
+      <a href="bookings.html">
+        <span class="nav-icon" data-icon="calendar"></span> Захиалга
+        <span class="nav-badge" id="pendingBadge">0</span>
+      </a>
+      <span class="nav-section-label">Удирдлага</span>
+      <a href="profile.html"><span class="nav-icon" data-icon="store"></span> Бизнесийн мэдээлэл</a>
+      <a href="services.html"><span class="nav-icon" data-icon="services"></span> Үйлчилгээ & Цаг</a>
+      <a href="reports.html"><span class="nav-icon" data-icon="chart"></span> Тайлан</a>
+      <a href="customers.html"><span class="nav-icon" data-icon="users"></span> Харилцагчид</a>
+      <span class="nav-section-label">Тохиргоо</span>
+      <a href="notifications.html" class="active">
+        <span class="nav-icon" data-icon="bell"></span> Мэдэгдэл
+        <span class="nav-badge" id="notifBadge" style="display:none;">0</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="profile.html"><span class="nav-icon" data-icon="user"></span> Профайл</a>
+      <button type="button" class="nav-link" onclick="logout()"><span class="nav-icon" data-icon="logout"></span> Гарах</button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Цэс нээх" title="Цэс">☰</button>
+        <span class="page-title">Мэдэгдлийн төлөв</span>
+      </div>
+      <div class="top-bar-right">
+        <button class="theme-toggle" id="themeToggle" aria-label="Дэлгэцийн горим" title="Гэрэлтэй / Харанхуй горим">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+        </button>
+        <div class="top-bar-avatar" id="topAvatar">Б</div>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- Summary stats -->
+      <div class="notif-summary" id="summaryGrid">
+        <div class="notif-summary-card"><span class="skel skel-line-sm"></span><span class="skel skel-title"></span><span class="skel skel-text"></span></div>
+        <div class="notif-summary-card"><span class="skel skel-line-sm"></span><span class="skel skel-title"></span><span class="skel skel-text"></span></div>
+        <div class="notif-summary-card"><span class="skel skel-line-sm"></span><span class="skel skel-title"></span><span class="skel skel-text"></span></div>
+      </div>
+
+      <!-- Filters + list -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">📡 Хүргэлтийн түүх</span>
+          <button class="btn btn-outline btn-sm" onclick="refresh()">↻ Шинэчлэх</button>
+        </div>
+        <div class="card-body" style="padding:8px 24px 24px;">
+          <div class="notif-filters">
+            <button class="notif-filter-pill active" data-window="24" onclick="setWindow(24,this)">Сүүлийн 24 цаг</button>
+            <button class="notif-filter-pill" data-window="72" onclick="setWindow(72,this)">3 хоног</button>
+            <button class="notif-filter-pill" data-window="168" onclick="setWindow(168,this)">7 хоног</button>
+          </div>
+          <div id="notifList">
+            <div class="skel-row"><span class="skel skel-circle" style="width:36px;height:36px;"></span><div style="flex:1"><span class="skel skel-line-lg"></span><span class="skel skel-line-sm"></span></div></div>
+            <div class="skel-row"><span class="skel skel-circle" style="width:36px;height:36px;"></span><div style="flex:1"><span class="skel skel-line-lg"></span><span class="skel skel-line-sm"></span></div></div>
+            <div class="skel-row"><span class="skel skel-circle" style="width:36px;height:36px;"></span><div style="flex:1"><span class="skel skel-line-lg"></span><span class="skel skel-line-sm"></span></div></div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-sm text-muted" style="margin-top:16px;">
+        ℹ️ Энэ хуудас нь сүүлийн 7 хоногт амжилтгүй болсон SMS / push мэдэгдлүүдийг харуулна.
+        Дахин илгээх товчийг дарж тухайн захиалгын мэдэгдлийг дахин оролдоно уу.
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="js/supabase.min.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/icons.js"></script>
+<script>
+  // Tab-local state. `_window` is the time-window filter in hours; the user
+  // toggles it via the pill buttons above.
+  let _biz = null;
+  let _user = null;
+  let _window = 24;
+  let _rows = [];
+
+  // ── Channel display metadata ───────────────────────────────────────────────
+  // 'sms_owner'  — SMS to the business owner about a new/cancelled booking.
+  // 'sms_guest'  — SMS to the guest about confirmation/cancellation/expiry.
+  // 'push_guest' — Expo push to the guest's mobile app.
+  // A failed sms_owner is the *only* row that can be retried via notify-booking;
+  // sms_guest/push_guest both flow through notify-guest.
+  const CHANNEL = {
+    sms_owner:  { icon: '📱', label: 'Эзний SMS',      fn: 'notify-booking' },
+    sms_guest:  { icon: '💬', label: 'Зочны SMS',      fn: 'notify-guest'   },
+    push_guest: { icon: '🔔', label: 'Зочны push',     fn: 'notify-guest'   },
+  };
+
+  // ── Sidebar / auth bootstrap (mirrors other portal pages) ──────────────────
+  (async () => {
+    const session = await requireAuth();
+    if (!session) return;
+    _user = session.user;
+    _biz  = JSON.parse(localStorage.getItem('mm_biz') || 'null');
+
+    if (_biz) {
+      document.getElementById('sbBizName').textContent = _biz.name || 'МонМэп Бизнес';
+      document.getElementById('sbBizType').textContent = _biz.primary_category || '—';
+      document.getElementById('sbAvatar').textContent  = (_biz.name || 'Б')[0];
+    }
+    document.getElementById('topAvatar').textContent = (_user.email || 'Б')[0].toUpperCase();
+
+    setActiveSidebarLink();
+    initMobileSidebar();
+    wireThemeToggle('#themeToggle');
+
+    // Mirror the dashboard's pending-bookings badge in the sidebar
+    if (_biz) {
+      const { count } = await _sb.from('bookings')
+        .select('id', { count: 'exact', head: true })
+        .eq('place_id', _biz.place_id)
+        .eq('status', 'pending');
+      if (count != null && count > 0) {
+        document.getElementById('pendingBadge').textContent = String(count);
+        document.getElementById('pendingBadge').style.display = 'inline-flex';
+      }
+    }
+
+    await refresh();
+  })();
+
+  // ── Window filter pills ────────────────────────────────────────────────────
+  function setWindow(hours, btn) {
+    _window = hours;
+    document.querySelectorAll('.notif-filter-pill').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    refresh();
+  }
+
+  // ── Fetch + render ─────────────────────────────────────────────────────────
+  async function refresh() {
+    try {
+      // Both RPCs are SECURITY DEFINER and join through business_owners —
+      // see migration 20260517000002. They're authoritative on ownership so
+      // we don't need to pass place_id explicitly.
+      const [listRes, countRes] = await Promise.all([
+        _sb.rpc('failed_notifications_for_owner', {
+          p_max_age_hours: _window,
+          p_limit:         100,
+        }),
+        _sb.rpc('failed_notifications_count_for_owner'),
+      ]);
+
+      if (listRes.error) {
+        console.error('failed_notifications_for_owner:', listRes.error);
+        showToast('error', 'Алдаа', listRes.error.message);
+        return;
+      }
+
+      _rows = listRes.data || [];
+      const last24 = Number(countRes.data ?? 0);
+      renderSummary(_rows, last24);
+      renderList(_rows);
+      renderBadge(last24);
+    } catch (e) {
+      console.error('refresh failed:', e);
+      showToast('error', 'Алдаа', String(e?.message ?? e));
+    }
+  }
+
+  function renderSummary(rows, last24) {
+    // Group failures by channel for the at-a-glance count.
+    const byCh = { sms_owner: 0, sms_guest: 0, push_guest: 0 };
+    for (const r of rows) {
+      // Skip rows that have since been delivered — the bookings flags moved
+      // forward after the failure. The list view still shows them (so the
+      // owner has a record), but the summary should reflect *current* health.
+      if (isResolved(r)) continue;
+      byCh[r.channel] = (byCh[r.channel] || 0) + 1;
+    }
+
+    document.getElementById('summaryGrid').innerHTML = `
+      <div class="notif-summary-card">
+        <div class="notif-summary-label">Сүүлийн 24 цаг</div>
+        <div class="notif-summary-value" style="color:${last24 > 0 ? 'var(--danger)' : 'var(--success)'};">${last24}</div>
+        <div class="notif-summary-sub">${last24 > 0 ? 'Шалгаж дахин илгээнэ үү' : 'Бүх мэдэгдэл амжилттай'}</div>
+      </div>
+      <div class="notif-summary-card">
+        <div class="notif-summary-label">Эзэнд SMS амжилтгүй</div>
+        <div class="notif-summary-value">${byCh.sms_owner}</div>
+        <div class="notif-summary-sub">сонгосон хугацаанд</div>
+      </div>
+      <div class="notif-summary-card">
+        <div class="notif-summary-label">Зочинд хүрээгүй</div>
+        <div class="notif-summary-value">${byCh.sms_guest + byCh.push_guest}</div>
+        <div class="notif-summary-sub">SMS + push дүн</div>
+      </div>
+    `;
+  }
+
+  function renderBadge(count) {
+    const badge = document.getElementById('notifBadge');
+    if (count > 0) {
+      badge.textContent = String(count);
+      badge.style.display = 'inline-flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  function renderList(rows) {
+    const host = document.getElementById('notifList');
+
+    if (!rows.length) {
+      host.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-state-icon">✅</div>
+          <div class="empty-state-title">Сонгосон хугацаанд амжилтгүй мэдэгдэл байхгүй</div>
+          <div>Бүх SMS, push мэдэгдлүүд амжилттай хүргэгджээ.</div>
+        </div>`;
+      return;
+    }
+
+    host.innerHTML = rows.map(r => {
+      const ch = CHANNEL[r.channel] || { icon: '⚠️', label: r.channel, fn: null };
+      const resolved = isResolved(r);
+      const bookedAt = formatDate(r.booked_date) + ' ' + (r.time_slot || '');
+      const ago = relativeTime(r.attempted_at);
+      const errSnippet = (r.error_text || 'Шалтгаан тодорхойгүй').slice(0, 200);
+      // If the booking status moved between the failure and now, the retry
+      // will replay the *original* intent (via overrideStatus). Surface this
+      // so the owner isn't surprised by an SMS that doesn't reflect the
+      // booking's current state.
+      const statusDrifted = r.intended_status && r.booking_status && r.intended_status !== r.booking_status;
+
+      return `
+        <div class="notif-row" data-resolved="${resolved}">
+          <div class="notif-channel-icon">${resolved ? '✓' : ch.icon}</div>
+          <div class="notif-content">
+            <div class="notif-headline">
+              ${escapeHtml(ch.label)} — ${escapeHtml(r.guest_name || 'Зочин')}
+            </div>
+            <div class="notif-sub">
+              ${escapeHtml(r.place_name || '')} · ${escapeHtml(bookedAt)} · ${escapeHtml(String(r.booking_status || ''))}
+              ${r.guest_phone ? ' · ' + escapeHtml(r.guest_phone) : ''}
+            </div>
+            ${resolved
+              ? '<div class="notif-sub" style="color:var(--success);margin-top:4px;">✓ Энэхүү мэдэгдэл дараа нь амжилттай хүрсэн</div>'
+              : `<div class="notif-error">${escapeHtml(errSnippet)}</div>`}
+            ${!resolved && statusDrifted ? `
+              <div class="notif-sub" style="color:var(--warning);margin-top:4px;">
+                ⚠ Энэхүү мэдэгдэл анх '<b>${escapeHtml(r.intended_status)}</b>' төлөвт зориулагдсан. Дахин илгээхэд анхны зорилгоор илгээгдэнэ.
+              </div>` : ''}
+          </div>
+          <div class="notif-actions">
+            <div class="notif-time" title="${escapeHtml(r.attempted_at)}">${escapeHtml(ago)}</div>
+            ${resolved ? '' : `
+              <button class="btn btn-primary btn-sm retry-btn"
+                onclick="retry('${r.attempt_id}', '${r.channel}', ${r.booking_id}, ${r.intended_status ? "'" + escapeHtml(r.intended_status) + "'" : 'null'}, this)">
+                ↻ Дахин илгээх
+              </button>`}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    if (window.MMIcons) window.MMIcons.apply(host);
+  }
+
+  // ── Resolution check ───────────────────────────────────────────────────────
+  // A failure is "resolved" when the bookings table now shows a successful
+  // delivery to the channel the failure was on. We do NOT delete rows from
+  // notification_attempts on retry — instead we use this derived flag so the
+  // history stays intact for audit.
+  function isResolved(row) {
+    if (row.channel === 'sms_owner')                          return !!row.owner_notified_at;
+    if (row.channel === 'sms_guest' || row.channel === 'push_guest') return !!row.guest_notified_at;
+    return false;
+  }
+
+  // ── Retry: invoke the original notify-* function ────────────────────────────
+  // The function bodies already enforce ownership for user JWTs, so this is
+  // the same code path the original delivery would have used — no risk of
+  // sending to the wrong guest.
+  //
+  // We pass `overrideStatus` (the intended_status frozen at the original
+  // attempt) so retries replay the original intent. Without this, retrying
+  // a "new booking" SMS for a since-cancelled booking would re-send as a
+  // "cancellation" SMS — the owner clicked retry on a specific notification
+  // and expects that same notification, not a new one.
+  async function retry(attemptId, channel, bookingId, intendedStatus, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Илгээж байна...';
+    try {
+      const fnName = (CHANNEL[channel] || {}).fn;
+      if (!fnName) throw new Error(`Unknown channel: ${channel}`);
+
+      const body = { bookingId };
+      // Pass-through only when we have a frozen intent. Older rows without
+      // intended_status (logged before migration 20260518000001) fall back
+      // to the current-status path, which is the legacy behaviour.
+      if (intendedStatus) body.overrideStatus = intendedStatus;
+
+      const { data, error } = await _sb.functions.invoke(fnName, { body });
+      if (error) throw error;
+
+      // Three possible outcomes:
+      //   delivered=true  → at least one channel succeeded ✓
+      //   delivered=false → external service still down (Twilio/Expo)
+      //   skipped=<status>→ notify-guest had no template for this status,
+      //                     which means the booking is in a state we don't
+      //                     guest-notify on (typically 'pending').
+      if (data && data.skipped) {
+        showToast('warning', 'Илгээх боломжгүй',
+          `Энэ захиалга '${data.skipped}' төлөвт байгаа тул зочинд мэдэгдэл илгээх боломжгүй.`);
+      } else if (data && data.delivered === false) {
+        showToast('warning', 'Дахин амжилтгүй', 'Гадаад үйлчилгээ хариу өгсөнгүй. Дараа дахин оролдоно уу.');
+      } else {
+        showToast('success', 'Илгээгдлээ', 'Мэдэгдэл дахин илгээгдлээ.');
+      }
+      // Re-fetch so the row gets the updated resolved state (we don't mutate
+      // the row in-place because the function may have written new rows).
+      await refresh();
+    } catch (e) {
+      console.error('retry failed:', e);
+      showToast('error', 'Алдаа', e?.message || String(e));
+      btn.disabled = false;
+      btn.textContent = '↻ Дахин илгээх';
+    }
+  }
+
+  // ── Helpers ────────────────────────────────────────────────────────────────
+  // "5 минутын өмнө", "2 цагийн өмнө", "3 хоногийн өмнө"
+  function relativeTime(iso) {
+    const t = new Date(iso).getTime();
+    const diff = Math.max(0, Date.now() - t);
+    const m = Math.floor(diff / 60000);
+    if (m < 1)   return 'дөнгөж сая';
+    if (m < 60)  return m + ' минутын өмнө';
+    const h = Math.floor(m / 60);
+    if (h < 24)  return h + ' цагийн өмнө';
+    const d = Math.floor(h / 24);
+    return d + ' хоногийн өмнө';
+  }
+</script>
+</body>
+</html>

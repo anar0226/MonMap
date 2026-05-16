@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.hcaptcha.com https://hcaptcha.com; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Захиалга — МонМэп Бизнес Портал</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .calendar-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+    }
+    .cal-nav-btn {
+      width: 32px; height: 32px;
+      border-radius: var(--radius); border: 1px solid var(--gray-200);
+      background: var(--white); cursor: pointer; font-size: 0.9rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+    }
+    .cal-nav-btn:hover { background: var(--gray-100); }
+    .cal-month-label { font-weight: 700; font-size: 0.9375rem; color: var(--gray-800); }
+    .booking-row-actions { display: flex; gap: 6px; flex-wrap: nowrap; }
+    .add-booking-form { display: none; background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; }
+    .add-booking-form.open { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="index.html" class="sidebar-logo" aria-label="MONMAP">
+        <div class="logo-icon" aria-hidden="true"></div>
+        MONMAP
+      </a>
+    </div>
+    <div class="sidebar-business">
+      <div class="business-pill">
+        <div class="business-avatar" id="sbAvatar">М</div>
+        <div class="business-info">
+          <div class="business-name" id="sbBizName">МонМэп Бизнес</div>
+          <div class="business-type" id="sbBizType">—</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Үндсэн</span>
+      <a href="dashboard.html"><span class="nav-icon" data-icon="home"></span> Самбар</a>
+      <a href="bookings.html" class="active">
+        <span class="nav-icon" data-icon="calendar"></span> Захиалга
+        <span class="nav-badge" id="pendingBadge">0</span>
+      </a>
+      <span class="nav-section-label">Удирдлага</span>
+      <a href="profile.html"><span class="nav-icon" data-icon="store"></span> Бизнесийн мэдээлэл</a>
+      <a href="services.html"><span class="nav-icon" data-icon="services"></span> Үйлчилгээ & Цаг</a>
+      <a href="reports.html"><span class="nav-icon" data-icon="chart"></span> Тайлан</a>
+      <a href="customers.html"><span class="nav-icon" data-icon="users"></span> Харилцагчид</a>
+      <span class="nav-section-label">Тохиргоо</span>
+      <a href="notifications.html">
+        <span class="nav-icon" data-icon="bell"></span> Мэдэгдэл
+        <span class="nav-badge" id="notifBadge" style="display:none;">0</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="profile.html"><span class="nav-icon" data-icon="user"></span> Профайл</a>
+      <button type="button" class="nav-link" onclick="logout()"><span class="nav-icon" data-icon="logout"></span> Гарах</button>
+    </div>
+  </aside>
+
+  <div class="main-content">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Цэс нээх" title="Цэс">☰</button>
+        <span class="page-title">Захиалга удирдах</span>
+      </div>
+      <div class="top-bar-right">
+        <button class="btn btn-primary btn-sm" onclick="toggleAddForm()">➕ Шинэ захиалга</button>
+        <button class="theme-toggle" id="themeToggle" aria-label="Дэлгэцийн горим" title="Гэрэлтэй / Харанхуй горим">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+        </button>
+        <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл"><span data-icon="bell" aria-hidden="true"></span><span class="notification-dot"></span></button>
+        <div class="top-bar-avatar" id="topAvatar">Б</div>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- Add booking form -->
+      <div class="add-booking-form" id="addForm">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <h4 style="margin:0;">➕ Шинэ захиалга нэмэх</h4>
+          <button class="btn btn-ghost btn-sm" onclick="toggleAddForm()">✕ Хаах</button>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Харилцагчийн нэр <span class="required">*</span></label>
+            <input type="text" class="form-control" id="nClient" placeholder="Б. Нэр" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Утасны дугаар <span class="required">*</span></label>
+            <input type="tel" class="form-control" id="nPhone" placeholder="9900-0000" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Үйлчилгээ <span class="required">*</span></label>
+            <select class="form-control" id="nService">
+              <option>Засах үйлчилгээ</option>
+              <option>Хулд засах</option>
+              <option>Өнгө будах</option>
+              <option>Бусад</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Огноо <span class="required">*</span></label>
+            <input type="date" class="form-control" id="nDate" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Цаг <span class="required">*</span></label>
+            <input type="time" class="form-control" id="nTime" value="10:00" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Хугацаа (мин)</label>
+            <select class="form-control" id="nDuration">
+              <option value="30">30 мин</option>
+              <option value="45">45 мин</option>
+              <option value="60" selected>60 мин</option>
+              <option value="90">90 мин</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:16px;">
+          <label class="form-label">Тэмдэглэл</label>
+          <input type="text" class="form-control" id="nNote" placeholder="Нэмэлт мэдээлэл..." />
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+          <button class="btn btn-ghost" onclick="toggleAddForm()">Цуцлах</button>
+          <button class="btn btn-primary" onclick="addBooking()">✓ Захиалга нэмэх</button>
+        </div>
+      </div>
+
+      <!-- Main grid: calendar + list -->
+      <div style="display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start;">
+
+        <!-- Calendar -->
+        <div class="card" style="position:sticky;top:80px;">
+          <div class="card-header" style="padding:16px 20px;">
+            <div class="calendar-header" style="margin-bottom:0;width:100%;">
+              <button class="cal-nav-btn" onclick="prevMonth()">‹</button>
+              <span class="cal-month-label" id="calMonthLabel"></span>
+              <button class="cal-nav-btn" onclick="nextMonth()">›</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:16px;">
+            <div class="calendar-grid">
+              <div class="cal-day-header">Да</div>
+              <div class="cal-day-header">Мя</div>
+              <div class="cal-day-header">Лх</div>
+              <div class="cal-day-header">Пү</div>
+              <div class="cal-day-header">Ба</div>
+              <div class="cal-day-header">Бя</div>
+              <div class="cal-day-header">Ня</div>
+            </div>
+            <div class="calendar-grid" id="calGrid" style="margin-top:6px;"></div>
+          </div>
+          <div class="card-footer">
+            <div style="display:flex;gap:12px;font-size:0.75rem;color:var(--gray-500);">
+              <span style="display:flex;align-items:center;gap:5px;" aria-label="Өнөөдрийн огноо">
+                <span aria-hidden="true" style="width:10px;height:10px;background:var(--primary);border-radius:3px;display:inline-block;"></span>
+                <span>Өнөөдөр</span>
+              </span>
+              <span style="display:flex;align-items:center;gap:5px;" aria-label="Захиалгатай өдөр">
+                <span aria-hidden="true" style="width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-bottom:8px solid var(--secondary);display:inline-block;"></span>
+                <span>Захиалгатай</span>
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bookings list -->
+        <div>
+          <!-- Filters -->
+          <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap;">
+            <div class="search-bar" style="max-width:260px;">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="searchInput" placeholder="Нэр, үйлчилгээ хайх..." oninput="onSearchInput()" />
+            </div>
+            <div class="filter-chips">
+              <button class="chip active" data-filter="all" onclick="setFilter(this,'all')">Бүгд</button>
+              <button class="chip" data-filter="pending" onclick="setFilter(this,'pending')">Хүлээгдэж буй</button>
+              <button class="chip" data-filter="confirmed" onclick="setFilter(this,'confirmed')">Баталгаажсан</button>
+              <button class="chip" data-filter="canceled" onclick="setFilter(this,'canceled')">Цуцлагдсан</button>
+            </div>
+          </div>
+
+          <!-- Date label -->
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+            <h4 id="selectedDateLabel" style="margin:0;font-size:1rem;"></h4>
+            <span id="filteredCount" class="text-sm text-muted"></span>
+          </div>
+
+          <!-- Table -->
+          <div class="card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Харилцагч</th>
+                    <th>Үйлчилгээ</th>
+                    <th>Цаг</th>
+                    <th>Хугацаа</th>
+                    <th>Төлөв</th>
+                    <th>Үйлдэл</th>
+                  </tr>
+                </thead>
+                <tbody id="bookingsTableBody">
+                  <!-- Skeleton rows for first paint. JS replaces this block once the
+                       bookings query resolves; the rows are pure CSS so they cost
+                       nothing if data lands quickly. -->
+                  <tr><td colspan="7"><span class="skel skel-line-lg"></span></td></tr>
+                  <tr><td colspan="7"><span class="skel skel-line-lg"></span></td></tr>
+                  <tr><td colspan="7"><span class="skel skel-line-lg"></span></td></tr>
+                  <tr><td colspan="7"><span class="skel skel-line-lg"></span></td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div id="emptyBookings" class="empty-state hidden">
+              <div class="empty-icon">📭</div>
+              <h4>Захиалга олдсонгүй</h4>
+              <p>Шүүлтүүрийн нөхцөлд тохирох захиалга алга.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Booking detail modal -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Захиалгын дэлгэрэнгүй</span>
+      <button class="modal-close" onclick="closeModal('detailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="detailModalBody"></div>
+    <div class="modal-footer" id="detailModalFooter"></div>
+  </div>
+</div>
+
+<!-- Cancel confirm modal -->
+<div class="modal-overlay" id="cancelModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title" style="color:var(--danger);">⚠️ Захиалга цуцлах</span>
+      <button class="modal-close" onclick="closeModal('cancelModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="color:var(--gray-600);">Та энэ захиалгыг цуцлахдаа итгэлтэй байна уу? Харилцагч руу мэдэгдэл явуулна.</p>
+      <div class="form-group mt-16">
+        <label class="form-label">Цуцлах шалтгаан</label>
+        <select class="form-control" id="cancelReason">
+          <option>Бизнесийн шалтгаанаар</option>
+          <option>Харилцагч хүсэлт гаргасан</option>
+          <option>Давхцал үүссэн</option>
+          <option>Бусад</option>
+        </select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('cancelModal')">Буцах</button>
+      <button class="btn btn-danger" id="confirmCancelBtn">Тийм, цуцлах</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="js/supabase.min.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/icons.js"></script>
+<script>
+  let _biz = null;
+  let _user = null;
+  let _bookings = [];
+  let selectedDate = todayStr();
+  let activeFilter = 'all';
+  let calDate = new Date();
+  let cancelTargetId = null;
+
+  document.getElementById('nDate').value = todayStr();
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('filter') === 'pending') activeFilter = 'pending';
+
+  // ── Calendar ──
+  function renderCalendar() {
+    const year = calDate.getFullYear(), month = calDate.getMonth();
+    const months = ['1-р сар','2-р сар','3-р сар','4-р сар','5-р сар','6-р сар',
+                    '7-р сар','8-р сар','9-р сар','10-р сар','11-р сар','12-р сар'];
+    document.getElementById('calMonthLabel').textContent = `${year} он, ${months[month]}`;
+
+    // The calendar grid is laid out Mon→Sun (Mongolian convention) but
+    // Date.getDay() returns 0=Sun…6=Sat. Shift so that Monday=0 and Sunday=6,
+    // i.e. (dow + 6) % 7 — written long-hand here so the off-by-one is obvious.
+    let startDow = new Date(year, month, 1).getDay();
+    startDow = startDow === 0 ? 6 : startDow - 1;
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const prevDays    = new Date(year, month, 0).getDate();
+    const bookingDates = new Set(_bookings.map(b => b.date));
+    const todayISO = todayStr();
+    let html = '';
+    for (let i = startDow - 1; i >= 0; i--) html += `<div class="cal-day other-month">${prevDays - i}</div>`;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      let cls = 'cal-day';
+      if (ds === todayISO) cls += ' today';
+      else if (ds === selectedDate) cls += ' selected';
+      if (bookingDates.has(ds)) cls += ' has-bookings';
+      html += `<div class="${cls}" onclick="selectDate('${ds}')">${d}</div>`;
+    }
+    const total = startDow + daysInMonth;
+    const rem = total % 7 === 0 ? 0 : 7 - (total % 7);
+    for (let d = 1; d <= rem; d++) html += `<div class="cal-day other-month">${d}</div>`;
+    document.getElementById('calGrid').innerHTML = html;
+  }
+
+  // Month nav reloads bookings — _bookings only carries the visible month's
+  // rows plus all-pending (see getMonthBookings), so navigating without a
+  // refetch would leave the calendar dots stale.
+  async function reloadMonth() {
+    if (!_biz) return;
+    _bookings = await getMonthBookings(_biz.id, calDate.getFullYear(), calDate.getMonth());
+    renderCalendar();
+    renderList();
+  }
+  function prevMonth() { calDate.setMonth(calDate.getMonth() - 1); reloadMonth(); }
+  function nextMonth() { calDate.setMonth(calDate.getMonth() + 1); reloadMonth(); }
+  function selectDate(str) { selectedDate = str; renderCalendar(); renderList(); }
+
+  // Debounce the search input — re-rendering the table on every keystroke
+  // gets noticeable around ~200 bookings. 150ms is short enough that typing
+  // still feels live, but long enough to coalesce a fast burst into one render.
+  let _searchTimer = 0;
+  function onSearchInput() {
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(renderList, 150);
+  }
+
+  // ── List ──
+  function setFilter(btn, f) {
+    activeFilter = f;
+    document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    renderList();
+  }
+
+  function renderList() {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const list = _bookings.filter(b => {
+      if (b.date !== selectedDate) return false;
+      if (activeFilter !== 'all' && b.status !== activeFilter) return false;
+      if (search && !b.client.toLowerCase().includes(search) && !b.service.toLowerCase().includes(search)) return false;
+      return true;
+    }).sort((a, b) => a.time.localeCompare(b.time));
+
+    document.getElementById('selectedDateLabel').textContent = relativeDate(selectedDate) + ' — захиалга';
+    document.getElementById('filteredCount').textContent = `${list.length} захиалга`;
+
+    const pending = _bookings.filter(b => b.status === 'pending').length;
+    document.getElementById('pendingBadge').textContent = pending;
+    document.getElementById('pendingBadge').style.display = pending ? '' : 'none';
+
+    const tbody = document.getElementById('bookingsTableBody');
+    const empty = document.getElementById('emptyBookings');
+    if (!list.length) { tbody.innerHTML = ''; empty.classList.remove('hidden'); return; }
+    empty.classList.add('hidden');
+    // All `b.*` values originate from guest-controlled mobile-app input or
+    // owner-controlled portal input. Escape every interpolation that lands
+    // inside innerHTML — without this, a guest could inject script tags into
+    // their own name field and run JS in the owner's portal session.
+    tbody.innerHTML = list.map(b => `
+      <tr>
+        <td>
+          <div style="font-weight:600;">${escapeHtml(b.client)}</div>
+          <div style="font-size:0.8125rem;color:var(--gray-500);">${escapeHtml(b.phone) || '—'}</div>
+        </td>
+        <td style="font-size:0.9rem;">${escapeHtml(b.service)}</td>
+        <td><span style="font-weight:600;">${escapeHtml(b.time)}</span></td>
+        <td style="font-size:0.875rem;">${escapeHtml(b.duration)} мин</td>
+        <td>${statusBadge(b.status)}</td>
+        <td>
+          <div class="booking-row-actions">
+            <button class="btn btn-ghost btn-sm" onclick="openDetail('${escapeHtml(b.id)}')">Харах</button>
+            ${b.status === 'pending' ? `
+              <button class="btn btn-success btn-sm" onclick="confirmBooking('${escapeHtml(b.id)}')">✓</button>
+              <button class="btn btn-danger btn-sm"  onclick="openCancel('${escapeHtml(b.id)}')">✕</button>
+            ` : ''}
+            ${b.status === 'confirmed' ? `<button class="btn btn-danger btn-sm" onclick="openCancel('${escapeHtml(b.id)}')">Цуцлах</button>` : ''}
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async function confirmBooking(id) {
+    const b = _bookings.find(x => x.id === id);
+    if (!b) return;
+    const err = await confirmAndNotify(id);
+    if (err) { showToast('error', 'Алдаа', err.message); return; }
+    _bookings = await getMonthBookings(_biz.id, calDate.getFullYear(), calDate.getMonth());
+    renderCalendar(); renderList();
+    showToast('success', 'Баталгаажуулагдлаа', `${b.client}-д мэдэгдэл явуулагдлаа.`);
+  }
+
+  function openCancel(id) {
+    cancelTargetId = id;
+    document.getElementById('cancelModal').classList.add('open');
+  }
+
+  document.getElementById('confirmCancelBtn').addEventListener('click', async () => {
+    const b = _bookings.find(x => x.id === cancelTargetId);
+    if (b) {
+      const reason = document.getElementById('cancelReason')?.value || 'owner_cancel';
+      const err = await cancelAndNotify(b.id, reason, {
+        depositAmount: b.depositAmount,
+        paymentId:     b.paymentId,
+      });
+      if (!err) {
+        _bookings = await getMonthBookings(_biz.id, calDate.getFullYear(), calDate.getMonth());
+        renderCalendar(); renderList();
+        const depositNote = b.depositAmount && b.paymentId ? ' Баталгааны төлбөр буцаалт хүсэлт явуулагдлаа.' : '';
+        showToast('warning', 'Цуцлагдлаа', `${b.client}-ийн захиалга цуцлагдлаа.${depositNote}`);
+      } else showToast('error', 'Алдаа', err.message);
+    }
+    closeModal('cancelModal');
+  });
+
+  function openDetail(id) {
+    const b = _bookings.find(x => x.id === id);
+    if (!b) return;
+    document.getElementById('detailModalBody').innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Харилцагч</div><div class="font-semibold">${escapeHtml(b.client)}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Утас</div><div class="font-semibold">${escapeHtml(b.phone) || '—'}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Үйлчилгээ</div><div class="font-semibold">${escapeHtml(b.service)}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Хугацаа</div><div class="font-semibold">${escapeHtml(b.duration)} минут</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Огноо</div><div class="font-semibold">${escapeHtml(formatDate(b.date))}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Цаг</div><div class="font-semibold">${escapeHtml(b.time)}</div></div>
+        <div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Төлөв</div>${statusBadge(b.status)}</div>
+        ${b.note ? `<div style="grid-column:1/-1;background:var(--gray-50);padding:12px;border-radius:var(--radius);"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Тэмдэглэл</div><div style="font-size:0.9rem;">${escapeHtml(b.note)}</div></div>` : ''}
+      </div>`;
+    const footer = document.getElementById('detailModalFooter');
+    footer.innerHTML = `<button class="btn btn-ghost" onclick="closeModal('detailModal')">Хаах</button>`;
+    if (b.status === 'pending') {
+      footer.innerHTML += `
+        <button class="btn btn-danger btn-sm" onclick="closeModal('detailModal');openCancel('${escapeHtml(b.id)}')">✕ Цуцлах</button>
+        <button class="btn btn-success" onclick="confirmBooking('${escapeHtml(b.id)}');closeModal('detailModal')">✅ Баталгаажуулах</button>`;
+    }
+    document.getElementById('detailModal').classList.add('open');
+  }
+
+  function toggleAddForm() {
+    document.getElementById('addForm').classList.toggle('open');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  async function addBooking() {
+    const client   = document.getElementById('nClient').value.trim();
+    const phone    = document.getElementById('nPhone').value.trim();
+    const service  = document.getElementById('nService').value;
+    const date     = document.getElementById('nDate').value;
+    const time     = document.getElementById('nTime').value;
+    const duration = parseInt(document.getElementById('nDuration').value);
+    const note     = document.getElementById('nNote').value.trim();
+    if (!client || !phone || !date || !time) {
+      showToast('error', 'Мэдээлэл дутуу', 'Бүх заавал талбарыг бөглөнө үү.'); return;
+    }
+    const err = await addPortalBooking(_biz.id, _user.id, { client, phone, service, date, time, duration, note });
+    if (err) { showToast('error', 'Алдаа', err.message); return; }
+    _bookings = await getMonthBookings(_biz.id, calDate.getFullYear(), calDate.getMonth());
+    selectedDate = date;
+    renderCalendar(); renderList(); toggleAddForm();
+    showToast('success', 'Захиалга нэмэгдлээ', `${client}-ийн захиалга амжилттай нэмэгдлээ.`);
+    document.getElementById('nClient').value = '';
+    document.getElementById('nPhone').value  = '';
+    document.getElementById('nNote').value   = '';
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', function (e) { if (e.target === this) this.classList.remove('open'); });
+  });
+
+  (async function init() {
+    const auth = await requireAuth();
+    if (!auth) return;
+    _user = auth.user;
+    _biz  = auth.biz;
+
+    const bizName = (_biz && _biz.name) || 'МонМэп Бизнес';
+    document.getElementById('sbBizName').textContent = bizName;
+    document.getElementById('sbBizType').textContent = _biz ? 'Бизнес' : '';
+    document.getElementById('sbAvatar').textContent  = bizName[0] || 'Б';
+    document.getElementById('topAvatar').textContent = (_user.email || 'Б')[0].toUpperCase();
+    initMobileSidebar();
+    wireThemeToggle('#themeToggle');
+    loadNotifBadge();
+    startNotifBadgePolling();
+
+    if (!_biz) return;
+
+    _bookings = await getMonthBookings(_biz.id, calDate.getFullYear(), calDate.getMonth());
+    renderCalendar();
+    renderList();
+
+    if (activeFilter !== 'all') {
+      document.querySelectorAll('.chip').forEach(c => {
+        c.classList.remove('active');
+        if (c.dataset.filter === activeFilter) c.classList.add('active');
+      });
+    }
+
+    // Best-effort recovery for guests whose notify-guest dispatch never landed.
+    // Fire-and-forget — the page is already rendered, this just runs in the
+    // background to catch up on any Twilio outage from earlier in the day.
+    retryStuckGuestNotify(_biz.id);
+  })();
+</script>
+</body>
+</html>

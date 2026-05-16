@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MonMap — Live ETA</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css" rel="stylesheet" />
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0F172A; color: #fff; }
+
+    #map { position: fixed; inset: 0; }
+
+    .card {
+      position: fixed; left: 12px; right: 12px; top: 12px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(12px);
+      border-radius: 16px;
+      padding: 14px 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      display: flex; align-items: center; gap: 12px;
+      z-index: 10;
+    }
+    .card .pulse {
+      width: 10px; height: 10px; border-radius: 999px; background: #22c55e;
+      box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+      animation: pulse 1.8s infinite;
+    }
+    @keyframes pulse {
+      0%   { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6); }
+      70%  { box-shadow: 0 0 0 14px rgba(34, 197, 94, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+    }
+    .card .meta-name { font-size: 14px; font-weight: 600; }
+    .card .meta-eta  { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+
+    .cta {
+      position: fixed; left: 12px; right: 12px; bottom: 12px;
+      background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+      border-radius: 16px; padding: 16px;
+      display: flex; align-items: center; gap: 12px;
+      text-decoration: none; color: #fff;
+      box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45);
+      z-index: 10;
+    }
+    .cta .icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,0.18); display: flex; align-items: center; justify-content: center; font-size: 22px; }
+    .cta .text { flex: 1; }
+    .cta .title { font-size: 15px; font-weight: 700; }
+    .cta .sub   { font-size: 12px; opacity: 0.85; margin-top: 2px; }
+    .cta .chev { font-size: 20px; opacity: 0.9; }
+
+    .state-msg {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 8px; padding: 24px; text-align: center;
+      background: rgba(15, 23, 42, 0.85);
+      z-index: 11;
+    }
+    .state-msg h1 { font-size: 18px; }
+    .state-msg p  { font-size: 13px; color: rgba(255,255,255,0.7); }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="card" id="card">
+  <div class="pulse"></div>
+  <div>
+    <div class="meta-name" id="sharer">…</div>
+    <div class="meta-eta" id="eta">Байршил уншиж байна…</div>
+  </div>
+</div>
+
+<a class="cta" id="cta" href="#">
+  <div class="icon">📍</div>
+  <div class="text">
+    <div class="title">MonMap татаад ₮500 авах</div>
+    <div class="sub">Замын түгжрэлд орлоготой болоорой</div>
+  </div>
+  <div class="chev">›</div>
+</a>
+
+<div class="state-msg hidden" id="stateMsg">
+  <h1 id="stateTitle">…</h1>
+  <p id="stateSub"></p>
+</div>
+
+<script>
+  // Public, anonymous endpoint. Configure these via build-time injection in
+  // production; for v1 the URL is read from a `data-` attribute on body so
+  // ops can swap envs without touching code.
+  const SUPABASE_URL    = window.SUPABASE_URL    || 'https://YOUR-PROJECT.supabase.co';
+  const MAPBOX_TOKEN    = window.MAPBOX_TOKEN    || '';
+  const APP_INSTALL_IOS     = 'https://apps.apple.com/app/idYOUR_ID';
+  const APP_INSTALL_ANDROID = 'https://play.google.com/store/apps/details?id=YOUR_PACKAGE';
+
+  // Token from path: /share/<TOKEN> or query: ?token=<TOKEN>
+  function readToken() {
+    const m = location.pathname.match(/\/share\/([A-Z2-9]{8,32})/i);
+    if (m) return m[1].toUpperCase();
+    return new URLSearchParams(location.search).get('token');
+  }
+
+  const token = readToken();
+
+  function showState(title, sub) {
+    document.getElementById('stateMsg').classList.remove('hidden');
+    document.getElementById('stateTitle').textContent = title;
+    document.getElementById('stateSub').textContent   = sub || '';
+  }
+
+  if (!token) {
+    showState('Холбоос буруу байна', 'Тохиромжгүй холбоос. Тус холбоос дуусгавар болсон байж магадгүй.');
+  }
+
+  // CTA: deep link to /share/<token> using the app's universal link or fall
+  // back to the store. We also keep the token in the install URL for
+  // attribution after the user lands on the app.
+  const ua = navigator.userAgent || '';
+  const isiOS     = /iPhone|iPad|iPod/i.test(ua);
+  const isAndroid = /Android/i.test(ua);
+  const storeUrl  = isiOS ? APP_INSTALL_IOS : APP_INSTALL_ANDROID;
+  const cta = document.getElementById('cta');
+  cta.href = storeUrl + (storeUrl.includes('?') ? '&' : '?') + 'ref=' + encodeURIComponent(token || '');
+
+  // Copy token to clipboard on tap so the app can read it post-install if
+  // universal links don't survive the install round-trip.
+  cta.addEventListener('click', () => {
+    if (!token) return;
+    try { navigator.clipboard?.writeText(token); } catch {}
+  });
+
+  let map, meMarker, destMarker, routeAdded = false;
+
+  if (MAPBOX_TOKEN) {
+    mapboxgl.accessToken = MAPBOX_TOKEN;
+    map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [106.9057, 47.8864], // UB
+      zoom: 11,
+    });
+  } else {
+    document.getElementById('map').textContent = 'Map token missing';
+  }
+
+  async function poll() {
+    if (!token) return;
+    try {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/eta-share-fetch?token=${encodeURIComponent(token)}`);
+      if (!res.ok) {
+        if (res.status === 404) showState('Олдсонгүй', 'Энэ холбоос байхгүй байна.');
+        return;
+      }
+      const json = await res.json();
+      if (json.status === 'revoked')  { showState('Зогссон', 'Хуваалцагч хуваалцалтаа зогсоолоо.'); return; }
+      if (json.status === 'expired')  { showState('Хугацаа дууссан', 'Энэ холбоосын хугацаа дууссан байна.'); return; }
+      if (json.status === 'arrived')  { showState('Хүрсэн ✓', 'Тэд хүрэх газартаа хүрлээ.'); }
+      if (json.status === 'not_found'){ showState('Олдсонгүй', 'Энэ холбоос байхгүй байна.'); return; }
+
+      document.getElementById('sharer').textContent = json.sharerName ?? 'A friend';
+
+      if (json.position?.etaSeconds != null) {
+        const m = Math.round(json.position.etaSeconds / 60);
+        document.getElementById('eta').textContent = `${m} минутын дараа хүрнэ`;
+      } else if (json.position) {
+        document.getElementById('eta').textContent = 'Замдаа явж байна';
+      }
+
+      if (map && json.route?.coordinates && !routeAdded) {
+        const onLoad = () => {
+          map.addSource('route', { type: 'geojson', data: { type: 'Feature', geometry: { type: 'LineString', coordinates: json.route.coordinates }, properties: {} } });
+          map.addLayer({ id: 'route', type: 'line', source: 'route', paint: { 'line-color': '#3b82f6', 'line-width': 5, 'line-opacity': 0.85 } });
+          if (json.destination) {
+            destMarker = new mapboxgl.Marker({ color: '#ef4444' }).setLngLat([json.destination.lon, json.destination.lat]).addTo(map);
+          }
+          // Fit bounds to route.
+          const coords = json.route.coordinates;
+          let minLng = Infinity, maxLng = -Infinity, minLat = Infinity, maxLat = -Infinity;
+          for (const [lng, lat] of coords) {
+            if (lng < minLng) minLng = lng; if (lng > maxLng) maxLng = lng;
+            if (lat < minLat) minLat = lat; if (lat > maxLat) maxLat = lat;
+          }
+          map.fitBounds([[minLng, minLat], [maxLng, maxLat]], { padding: 80, duration: 0 });
+          routeAdded = true;
+        };
+        if (map.isStyleLoaded()) onLoad(); else map.once('load', onLoad);
+      }
+
+      if (map && json.position) {
+        const ll = [json.position.lon, json.position.lat];
+        if (meMarker) meMarker.setLngLat(ll);
+        else meMarker = new mapboxgl.Marker({ color: '#22c55e' }).setLngLat(ll).addTo(map);
+      }
+    } catch (e) {
+      console.warn('poll error', e);
+    }
+  }
+
+  poll();
+  setInterval(poll, 5000);
+</script>
+
+</body>
+</html>

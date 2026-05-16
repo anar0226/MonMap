@@ -1,0 +1,65 @@
+# ── Expo / React-Native app files (not needed on gh-pages) ──
+node_modules/
+.expo/
+dist/
+web-build/
+android/
+ios/
+src/
+*.ts
+*.tsx
+*.js.map
+App.tsx
+index.ts
+ios-frame.jsx
+tweaks-panel.jsx
+metro.config.js
+tsconfig.json
+app.json
+eas.json
+package.json
+package-lock.json
+
+# ── Supabase ──
+supabase/
+apply-migrations.sh
+setup-db.md
+
+# ── Environment & secrets ──
+.env
+.env*.local
+.env.example
+.env.local
+
+# ── Build / tooling artefacts ──
+*.tsbuildinfo
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# ── Data files ──
+data/
+uploads/
+
+# ── Docs (mobile-app specific) ──
+DEPLOYMENT.md
+SMOKE_TESTS.md
+DESIGN_SYSTEM.pdf
+
+# ── CI / agent ──
+.claude/
+.npmrc
+
+# ── OS ──
+.DS_Store
+Thumbs.db
+
+# ── Vercel (portal had its own .vercel dir) ──
+.vercel/

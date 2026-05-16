@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://unpkg.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://brykoxmygtiyrssmsvys.supabase.co/rest/v1/ https://brykoxmygtiyrssmsvys.supabase.co/functions/v1/; img-src 'self' data: blob: https:; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Дотоод зураглал — МонМэп</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-mn, 'Segoe UI', sans-serif); background: var(--gray-100, #f3f4f6); }
+
+    #app { display: flex; flex-direction: column; height: 100dvh; }
+
+    /* ── Header ── */
+    .mapper-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 16px;
+      background: #fff; border-bottom: 1px solid var(--gray-200, #e5e7eb);
+      flex-shrink: 0; gap: 8px;
+    }
+    .mapper-header h1 { font-size: 1rem; font-weight: 700; color: var(--gray-900, #111); flex: 1; }
+    .btn-sm {
+      padding: 7px 14px; border-radius: 8px; font-size: 0.825rem;
+      font-weight: 600; border: none; cursor: pointer; white-space: nowrap;
+    }
+    .btn-primary  { background: var(--primary, #2563eb); color: #fff; }
+    .btn-danger   { background: var(--danger, #ef4444);  color: #fff; }
+    .btn-success  { background: var(--success, #16a34a); color: #fff; }
+    .btn-neutral  { background: var(--gray-200, #e5e7eb); color: var(--gray-800, #1f2937); }
+    .btn-sm:disabled { opacity: .45; cursor: not-allowed; }
+
+    /* ── Tool bar ── */
+    .toolbar {
+      display: flex; align-items: center; gap: 6px;
+      padding: 8px 12px; background: #fff;
+      border-bottom: 1px solid var(--gray-200, #e5e7eb);
+      flex-wrap: wrap; flex-shrink: 0;
+    }
+    .tool-btn {
+      display: flex; align-items: center; gap: 4px;
+      padding: 6px 12px; border-radius: 20px; font-size: 0.8rem;
+      font-weight: 600; border: 2px solid transparent; cursor: pointer;
+      background: var(--gray-100, #f3f4f6); color: var(--gray-700, #374151);
+      transition: all .15s;
+    }
+    .tool-btn.active { border-color: var(--primary, #2563eb); background: #eff6ff; color: var(--primary, #2563eb); }
+    .stats { margin-left: auto; font-size: 0.78rem; color: var(--gray-500, #6b7280); }
+
+    /* ── Map ── */
+    #map { flex: 1; min-height: 0; cursor: crosshair; }
+
+    /* ── Side panel ── */
+    #side-panel {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-radius: 16px 16px 0 0;
+      box-shadow: 0 -4px 24px rgba(0,0,0,.15);
+      padding: 16px; z-index: 1000;
+      max-height: 60dvh; overflow-y: auto;
+      transform: translateY(100%); transition: transform .25s ease;
+    }
+    #side-panel.open { transform: translateY(0); }
+    #side-panel h3 { font-size: .95rem; font-weight: 700; margin-bottom: 12px; }
+    .panel-close { float: right; background: none; border: none; font-size: 1.2rem; cursor: pointer; }
+    .form-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+    .form-row label { font-size: .8rem; font-weight: 600; color: var(--gray-600, #4b5563); }
+    .form-row input, .form-row select {
+      padding: 8px 10px; border: 1px solid var(--gray-300, #d1d5db);
+      border-radius: 8px; font-size: .875rem;
+    }
+    .search-results { list-style: none; border: 1px solid var(--gray-200, #e5e7eb); border-radius: 8px; overflow: hidden; }
+    .search-results li { padding: 8px 12px; font-size: .85rem; cursor: pointer; border-bottom: 1px solid var(--gray-100, #f3f4f6); }
+    .search-results li:hover { background: #eff6ff; }
+    .search-results li:last-child { border-bottom: none; }
+
+    /* ── Toast ── */
+    #toast {
+      position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+      background: var(--gray-900, #111); color: #fff; padding: 10px 20px;
+      border-radius: 20px; font-size: .85rem; z-index: 2000; display: none;
+      max-width: calc(100vw - 32px); text-align: center;
+    }
+
+    /* Marker labels */
+    .node-label {
+      background: transparent; border: none; box-shadow: none;
+      font-size: .7rem; font-weight: 700; color: #1e40af;
+      white-space: nowrap; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Header -->
+  <header class="mapper-header">
+    <h1 id="venue-title">Дотоод зураглал</h1>
+    <button class="btn-sm btn-neutral" id="btn-switch-floor" style="display:none">Давхар солих</button>
+    <button class="btn-sm btn-success" id="btn-submit" disabled>Илгээх</button>
+  </header>
+
+  <!-- Toolbar -->
+  <div class="toolbar">
+    <button class="tool-btn active" data-tool="node" id="tool-node">📍 Node</button>
+    <button class="tool-btn" data-tool="edge" id="tool-edge">🔗 Edge</button>
+    <button class="tool-btn" data-tool="delete" id="tool-delete">🗑 Устгах</button>
+    <span class="stats" id="stats-label">Nodes: 0 &nbsp; Edges: 0</span>
+  </div>
+
+  <!-- Map -->
+  <div id="map"></div>
+
+</div>
+
+<!-- Node Panel -->
+<div id="side-panel">
+  <button class="panel-close" id="panel-close-btn">✕</button>
+  <h3 id="panel-title">Node нэмэх</h3>
+  <div class="form-row">
+    <label>Төрөл</label>
+    <select id="node-type">
+      <option value="path">Path (замын цэг)</option>
+      <option value="junction">Junction (огтлолцол)</option>
+      <option value="entrance">Entrance (орц)</option>
+      <option value="store">Store (дэлгүүр)</option>
+      <option value="elevator">Elevator (лифт)</option>
+      <option value="escalator">Escalator (эскалатор)</option>
+      <option value="stairs">Stairs (шат)</option>
+      <option value="restroom">Restroom (угаалгын өрөө)</option>
+      <option value="info">Info (мэдээлэл)</option>
+    </select>
+  </div>
+  <div class="form-row" id="row-label-mn">
+    <label>Нэр (Монгол)</label>
+    <input type="text" id="node-label-mn" placeholder="Жишээ: Nike дэлгүүр" />
+  </div>
+  <div class="form-row" id="row-place-search" style="display:none">
+    <label>Дэлгүүр хайх</label>
+    <input type="text" id="place-search" placeholder="Дэлгүүрийн нэр..." autocomplete="off" />
+    <ul class="search-results" id="place-results" style="display:none"></ul>
+    <input type="hidden" id="selected-place-id" />
+  </div>
+  <button class="btn-sm btn-primary" id="btn-add-node" style="margin-top:8px;width:100%">Node нэмэх</button>
+</div>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<script src="js/utils.js"></script>
+<script src="js/supabase-client.js"></script>
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let map, floorOverlay
+let session  = null   // { sessionId, venueId, floorNumber, floorId }
+let venue    = null
+let floors   = []
+let tool     = 'node'
+
+let nodes    = []     // { tempId, nodeType, lat, lng, placeId, labelMn, marker, labelMarker }
+let edges    = []     // { fromTempId, toTempId, bidirectional, distanceM, polyline }
+let edgeFrom = null   // tempId of first selected node when drawing edge
+let pendingLatlng = null  // where user last tapped (for node panel)
+let nextTempId = 1
+const SUPABASE_URL = 'https://brykoxmygtiyrssmsvys.supabase.co'
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', async () => {
+  await waitForSupabase()
+  const { data: { session: authSession } } = await window._sb.auth.getSession()
+  if (!authSession) { window.location.href = 'login.html'; return }
+
+  const params = new URLSearchParams(location.search)
+  const venueId = params.get('venue')
+  const floorNum = parseInt(params.get('floor') ?? '1', 10)
+  if (!venueId) { showToast('URL-д venue параметр байхгүй'); return }
+
+  // Load venue
+  const { data: v } = await window._sb.from('venues').select('*').eq('id', venueId).single()
+  if (!v) { showToast('Venue олдсонгүй'); return }
+  venue = v
+  document.getElementById('venue-title').textContent = v.name_mn
+
+  // Load floors
+  const { data: fl } = await window._sb.from('floors').select('*').eq('venue_id', venueId).order('floor_number')
+  floors = fl ?? []
+
+  await startSession(venueId, floorNum)
+  initMap()
+})
+
+async function waitForSupabase() {
+  while (!window._sb) await new Promise(r => setTimeout(r, 50))
+}
+
+// ─── Session ──────────────────────────────────────────────────────────────────
+async function startSession(venueId, floorNumber) {
+  const { data: { session: auth } } = await window._sb.auth.getSession()
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/indoor-mapping-start`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${auth.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ venueId, floorNumber }),
+  })
+  const json = await res.json()
+  if (!res.ok) { showToast('Session эхлүүлэхэд алдаа: ' + (json.error ?? res.status)); return }
+
+  const floor = floors.find(f => f.floor_number === floorNumber)
+  session = { sessionId: json.sessionId, venueId, floorNumber, floorId: floor?.id }
+
+  document.querySelector('.stats').innerHTML = `Давхар: ${floorNumber} &nbsp; Nodes: 0 &nbsp; Edges: 0`
+  if (floors.length > 1) document.getElementById('btn-switch-floor').style.display = 'block'
+
+  if (floor?.plan_svg_url) loadFloorPlan(floor.plan_svg_url, floor)
+}
+
+// ─── Map ──────────────────────────────────────────────────────────────────────
+function initMap() {
+  const center = [venue.lat, venue.lng]
+  map = L.map('map', { zoomControl: true, doubleClickZoom: false }).setView(center, 19)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '© OpenStreetMap', maxZoom: 22
+  }).addTo(map)
+
+  map.on('click', onMapClick)
+}
+
+function loadFloorPlan(svgUrl, floor) {
+  if (floorOverlay) { floorOverlay.remove(); floorOverlay = null }
+  if (!floor.anchor_lat || !floor.anchor_lng || !floor.plan_width_m || !floor.plan_height_m) return
+
+  // Compute southeast corner from anchor + real-world dimensions
+  // Rough approximation: 1° lat ≈ 111,111 m; 1° lng ≈ 111,111 × cos(lat) m
+  const metersPerLat = 111111
+  const metersPerLng = 111111 * Math.cos(floor.anchor_lat * Math.PI / 180)
+  const neLat = floor.anchor_lat - floor.plan_height_m / metersPerLat
+  const neLng = floor.anchor_lng + floor.plan_width_m  / metersPerLng
+
+  floorOverlay = L.imageOverlay(svgUrl, [
+    [floor.anchor_lat, floor.anchor_lng],
+    [neLat, neLng],
+  ], { opacity: 0.5 }).addTo(map)
+}
+
+// ─── Map click handler ────────────────────────────────────────────────────────
+function onMapClick(e) {
+  if (!session) return
+
+  if (tool === 'node') {
+    pendingLatlng = e.latlng
+    openNodePanel()
+    return
+  }
+
+  if (tool === 'edge') {
+    const closest = findClosestNode(e.latlng, 20)
+    if (!closest) { showToast('Node-д ойрхон дарна уу'); return }
+
+    if (!edgeFrom) {
+      edgeFrom = closest.tempId
+      closest.marker.setOpacity(0.5)
+      showToast('Эхний цэг сонгогдлоо. 2-р цэгийг дарна уу.')
+      return
+    }
+
+    if (edgeFrom === closest.tempId) {
+      resetEdgeMode()
+      return
+    }
+
+    addEdge(edgeFrom, closest.tempId)
+    resetEdgeMode()
+    return
+  }
+
+  if (tool === 'delete') {
+    const closest = findClosestNode(e.latlng, 20)
+    if (closest) removeNode(closest.tempId)
+  }
+}
+
+function resetEdgeMode() {
+  if (edgeFrom) {
+    const n = nodes.find(n => n.tempId === edgeFrom)
+    if (n) n.marker.setOpacity(1)
+  }
+  edgeFrom = null
+}
+
+// ─── Node helpers ─────────────────────────────────────────────────────────────
+const NODE_COLORS = {
+  path: '#6b7280', junction: '#d97706', store: '#2563eb',
+  elevator: '#7c3aed', escalator: '#7c3aed', stairs: '#7c3aed',
+  entrance: '#16a34a', restroom: '#0891b2', info: '#ea580c',
+}
+const NODE_EMOJIS = {
+  path: '·', junction: '✕', store: '🏪', elevator: '🛗',
+  escalator: '↕', stairs: '🪜', entrance: '🚪', restroom: '🚻', info: 'ℹ',
+}
+
+function makeTempId() { return `t${nextTempId++}` }
+
+function placeNode(latlng, nodeType, placeId, labelMn) {
+  const tempId = makeTempId()
+  const color  = NODE_COLORS[nodeType] ?? '#6b7280'
+  const emoji  = NODE_EMOJIS[nodeType] ?? '·'
+
+  const icon = L.divIcon({
+    html: `<div style="width:22px;height:22px;border-radius:50%;background:${color};border:2px solid #fff;
+           display:flex;align-items:center;justify-content:center;font-size:11px;color:#fff;box-shadow:0 1px 4px rgba(0,0,0,.3)">${emoji}</div>`,
+    className: '', iconSize: [22, 22], iconAnchor: [11, 11],
+  })
+
+  const marker = L.marker(latlng, { icon, draggable: true }).addTo(map)
+  marker.on('dragend', () => {
+    const n = nodes.find(n => n.tempId === tempId)
+    if (!n) return
+    n.lat = marker.getLatLng().lat
+    n.lng = marker.getLatLng().lng
+    redrawEdges()
+  })
+  marker.on('click', (e) => {
+    L.DomEvent.stopPropagation(e)
+    if (tool === 'edge') onMapClick(e)
+    if (tool === 'delete') removeNode(tempId)
+  })
+
+  let labelMarker = null
+  if (labelMn) {
+    labelMarker = L.marker(latlng, {
+      icon: L.divIcon({ className: 'node-label', html: escapeHtml(labelMn), iconAnchor: [0, -14] }),
+      interactive: false,
+    }).addTo(map)
+  }
+
+  nodes.push({ tempId, nodeType, lat: latlng.lat, lng: latlng.lng, placeId: placeId ?? null, labelMn: labelMn ?? null, marker, labelMarker })
+  updateStats()
+  checkSubmitReady()
+  return tempId
+}
+
+function removeNode(tempId) {
+  const idx = nodes.findIndex(n => n.tempId === tempId)
+  if (idx < 0) return
+  const n = nodes[idx]
+  n.marker.remove()
+  if (n.labelMarker) n.labelMarker.remove()
+  nodes.splice(idx, 1)
+
+  // Remove connected edges
+  const toRemove = edges.filter(e => e.fromTempId === tempId || e.toTempId === tempId)
+  toRemove.forEach(e => { e.polyline?.remove() })
+  edges = edges.filter(e => e.fromTempId !== tempId && e.toTempId !== tempId)
+
+  updateStats()
+  checkSubmitReady()
+}
+
+function findClosestNode(latlng, maxPixels) {
+  let best = null, bestDist = Infinity
+  for (const n of nodes) {
+    const pt = map.latLngToContainerPoint(L.latLng(n.lat, n.lng))
+    const target = map.latLngToContainerPoint(latlng)
+    const d = Math.hypot(pt.x - target.x, pt.y - target.y)
+    if (d < maxPixels && d < bestDist) { bestDist = d; best = n }
+  }
+  return best
+}
+
+// ─── Edge helpers ─────────────────────────────────────────────────────────────
+function haversineM(lat1, lng1, lat2, lng2) {
+  const R = 6371000
+  const dLat = (lat2 - lat1) * Math.PI / 180
+  const dLng = (lng2 - lng1) * Math.PI / 180
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2
+  return 2 * R * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+}
+
+function addEdge(fromTempId, toTempId) {
+  const a = nodes.find(n => n.tempId === fromTempId)
+  const b = nodes.find(n => n.tempId === toTempId)
+  if (!a || !b) return
+
+  const distanceM = haversineM(a.lat, a.lng, b.lat, b.lng)
+  const polyline = L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
+    color: '#2563eb', weight: 3, opacity: .7, dashArray: '6,4',
+  }).addTo(map)
+
+  polyline.on('click', (e) => {
+    L.DomEvent.stopPropagation(e)
+    if (tool === 'delete') {
+      const idx = edges.findIndex(ed => ed.fromTempId === fromTempId && ed.toTempId === toTempId)
+      if (idx >= 0) { edges[idx].polyline.remove(); edges.splice(idx, 1); updateStats() }
+    }
+  })
+
+  edges.push({ fromTempId, toTempId, bidirectional: true, distanceM, isAccessible: true, polyline })
+  updateStats()
+}
+
+function redrawEdges() {
+  for (const e of edges) {
+    const a = nodes.find(n => n.tempId === e.fromTempId)
+    const b = nodes.find(n => n.tempId === e.toTempId)
+    if (a && b) e.polyline.setLatLngs([[a.lat, a.lng], [b.lat, b.lng]])
+  }
+}
+
+// ─── Node panel ───────────────────────────────────────────────────────────────
+function openNodePanel() {
+  document.getElementById('node-label-mn').value = ''
+  document.getElementById('place-search').value = ''
+  document.getElementById('selected-place-id').value = ''
+  document.getElementById('place-results').style.display = 'none'
+  togglePlaceSearch()
+  document.getElementById('side-panel').classList.add('open')
+}
+
+function closePanelUI() {
+  document.getElementById('side-panel').classList.remove('open')
+  pendingLatlng = null
+}
+
+document.getElementById('panel-close-btn').addEventListener('click', closePanelUI)
+document.getElementById('node-type').addEventListener('change', togglePlaceSearch)
+
+function togglePlaceSearch() {
+  const type = document.getElementById('node-type').value
+  document.getElementById('row-place-search').style.display = type === 'store' ? 'block' : 'none'
+}
+
+document.getElementById('btn-add-node').addEventListener('click', () => {
+  if (!pendingLatlng) return
+  const nodeType = document.getElementById('node-type').value
+  const labelMn  = document.getElementById('node-label-mn').value.trim() || null
+  const placeId  = document.getElementById('selected-place-id').value || null
+  placeNode(pendingLatlng, nodeType, placeId, labelMn)
+  closePanelUI()
+})
+
+// Place search
+let placeSearchTimer = null
+document.getElementById('place-search').addEventListener('input', (e) => {
+  clearTimeout(placeSearchTimer)
+  placeSearchTimer = setTimeout(() => searchPlaces(e.target.value), 300)
+})
+
+async function searchPlaces(q) {
+  if (q.length < 2) { document.getElementById('place-results').style.display = 'none'; return }
+  const { data } = await window._sb
+    .from('places')
+    .select('place_id, name')
+    .ilike('name', `%${q}%`)
+    .limit(8)
+  const ul = document.getElementById('place-results')
+  ul.innerHTML = (data ?? []).map(p =>
+    `<li data-id="${escapeHtml(p.place_id)}" data-name="${escapeHtml(p.name)}">${escapeHtml(p.name)}</li>`
+  ).join('')
+  ul.style.display = data?.length ? 'block' : 'none'
+  ul.querySelectorAll('li').forEach(li => li.addEventListener('click', () => {
+    document.getElementById('selected-place-id').value = li.dataset.id
+    document.getElementById('place-search').value = li.dataset.name
+    document.getElementById('node-label-mn').value = li.dataset.name
+    ul.style.display = 'none'
+  }))
+}
+
+// ─── Toolbar ──────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    tool = btn.dataset.tool
+    document.querySelectorAll('.tool-btn').forEach(b => b.classList.remove('active'))
+    btn.classList.add('active')
+    if (tool !== 'edge') resetEdgeMode()
+    map.getContainer().style.cursor = tool === 'delete' ? 'not-allowed' : 'crosshair'
+  })
+})
+
+// ─── Floor switcher ───────────────────────────────────────────────────────────
+document.getElementById('btn-switch-floor').addEventListener('click', () => {
+  const currentFloor = session?.floorNumber ?? 1
+  const available = floors.map(f => f.floor_number).filter(n => n !== currentFloor)
+  if (!available.length) return
+  const target = available[0]
+  if (confirm(`${target}-р давхар руу шилжих үү? Одоогийн өгөгдөл хадгалагдсан байна.`)) {
+    clearMapData()
+    startSession(session.venueId, target)
+  }
+})
+
+function clearMapData() {
+  nodes.forEach(n => { n.marker.remove(); n.labelMarker?.remove() })
+  edges.forEach(e => e.polyline?.remove())
+  nodes = []; edges = []
+}
+
+// ─── Submit ───────────────────────────────────────────────────────────────────
+function checkSubmitReady() {
+  const hasEntrance = nodes.some(n => n.nodeType === 'entrance')
+  document.getElementById('btn-submit').disabled = nodes.length < 10 || !hasEntrance
+}
+
+document.getElementById('btn-submit').addEventListener('click', async () => {
+  if (!session) return
+  if (!confirm('Илгээх үү? Нийт ' + nodes.length + ' node, ' + edges.length + ' edge.')) return
+
+  const { data: { session: auth } } = await window._sb.auth.getSession()
+  const btn = document.getElementById('btn-submit')
+  btn.disabled = true; btn.textContent = 'Илгээж байна...'
+
+  const payload = {
+    sessionId: session.sessionId,
+    nodes: nodes.map(n => ({
+      tempId:   n.tempId,
+      nodeType: n.nodeType,
+      lat:      n.lat,
+      lng:      n.lng,
+      placeId:  n.placeId ?? null,
+      labelMn:  n.labelMn ?? null,
+    })),
+    edges: edges.map(e => ({
+      fromTempId:    e.fromTempId,
+      toTempId:      e.toTempId,
+      bidirectional: e.bidirectional,
+      distanceM:     parseFloat(e.distanceM.toFixed(2)),
+      isAccessible:  e.isAccessible,
+    })),
+  }
+
+  const res = await fetch(`${SUPABASE_URL}/functions/v1/indoor-mapping-submit`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${auth.access_token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  })
+  const json = await res.json()
+
+  if (!res.ok) {
+    btn.disabled = false; btn.textContent = 'Илгээх'
+    showToast('Алдаа: ' + (json.error ?? res.status))
+    return
+  }
+
+  showToast(`Амжилттай! ${json.nodesInserted} node, ${json.edgesInserted} edge илгээлээ.`)
+  btn.textContent = '✓ Илгээгдсэн'
+})
+
+// ─── Stats & Helpers ──────────────────────────────────────────────────────────
+function updateStats() {
+  const fl = session?.floorNumber ?? '?'
+  document.getElementById('stats-label').innerHTML =
+    `Давхар: ${fl} &nbsp; Nodes: ${nodes.length} &nbsp; Edges: ${edges.length}`
+}
+
+function showToast(msg, durationMs = 3000) {
+  const t = document.getElementById('toast')
+  t.textContent = msg; t.style.display = 'block'
+  clearTimeout(showToast._timer)
+  showToast._timer = setTimeout(() => { t.style.display = 'none' }, durationMs)
+}
+</script>
+</body>
+</html>

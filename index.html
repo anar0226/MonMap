@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>МонМэп Бизнес Портал — Захиалга удирдах систем</title>
+  <meta name="description" content="Улаанбаатар хотын бизнесүүдэд зориулсан захиалга, цаг захиалга удирдах платформ." />
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .hero-flex { display: flex; align-items: center; gap: 60px; }
+    .hero-card-mini {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--white); border-radius: var(--radius);
+      padding: 10px 14px; box-shadow: var(--shadow-sm);
+      font-size: 0.8125rem; font-weight: 600; color: var(--gray-700);
+      border: 1px solid var(--gray-100); margin-bottom: 8px;
+    }
+    .hero-card-mini .dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; }
+    .stats-banner {
+      display: flex; gap: 0;
+      background: var(--white);
+      border-radius: var(--radius-xl);
+      box-shadow: var(--shadow);
+      border: 1px solid var(--gray-100);
+      overflow: hidden;
+    }
+    .stats-banner-item {
+      flex: 1; padding: 28px 24px; text-align: center;
+      border-right: 1px solid var(--gray-100);
+    }
+    .stats-banner-item:last-child { border-right: none; }
+    .stats-banner-value { font-size: 2rem; font-weight: 800; color: var(--gray-900); }
+    .stats-banner-label { font-size: 0.875rem; color: var(--gray-500); margin-top: 4px; }
+
+    .biz-types { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-top: 28px; }
+    .biz-type-chip {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 18px;
+      background: var(--white); border-radius: 999px;
+      font-size: 0.875rem; font-weight: 600;
+      border: 2px solid var(--gray-200);
+      color: var(--gray-700);
+      transition: all var(--transition);
+    }
+    .biz-type-chip:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+  </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="navbar">
+  <div class="container">
+    <a href="index.html" class="nav-logo">
+      <div class="logo-icon">📍</div>
+      Мон<span class="accent">Мэп</span>
+    </a>
+    <div class="nav-links">
+      <a href="#features">Боломжууд</a>
+      <a href="#how">Хэрхэн ажилладаг</a>
+      <a href="#testimonials">Сэтгэл ханамж</a>
+    </div>
+    <div class="nav-actions">
+      <a href="login.html" class="btn btn-ghost btn-sm">Нэвтрэх</a>
+      <a href="register.html" class="btn btn-primary btn-sm">Бүртгүүлэх</a>
+    </div>
+    <button class="nav-hamburger" id="menuBtn" aria-label="Цэс нээх">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- Mobile Nav -->
+<div class="mobile-nav" id="mobileNav">
+  <a href="#features">Боломжууд</a>
+  <a href="#how">Хэрхэн ажилладаг</a>
+  <a href="#testimonials">Сэтгэл ханамж</a>
+  <div class="divider"></div>
+  <a href="login.html">Нэвтрэх</a>
+  <a href="register.html" style="background:var(--primary);color:white;text-align:center;border-radius:var(--radius);">Бүртгүүлэх</a>
+</div>
+
+<!-- Hero -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-flex">
+      <div class="hero-content">
+        <div class="hero-eyebrow">
+          📍 Улаанбаатар — Монгол Улс
+        </div>
+        <h1>Бизнесийнхээ захиалгыг <span>ухаалгаар</span> удирд</h1>
+        <p>МонМэп нь танай ресторан, салон, эмнэлэг, спорт зааланд ирэх захиалгыг нэг дороос удирдах, баталгаажуулах, хянах боломжийг олгодог Монголын анхны бизнес захиалгын платформ.</p>
+        <div class="hero-actions">
+          <a href="register.html" class="btn btn-primary btn-lg">Бизнесээ бүртгүүлэх</a>
+          <a href="#how" class="btn btn-ghost btn-lg">Хэрхэн ажилладаг →</a>
+        </div>
+      </div>
+      <div class="hero-image">
+        <div style="width:100%; max-width:400px;">
+          <div class="hero-card wide mb-16" style="background:white;border-radius:var(--radius-lg);padding:20px;box-shadow:var(--shadow);border:1px solid var(--gray-100);">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+              <span style="font-size:0.875rem;font-weight:700;color:var(--gray-800);">Өнөөдрийн захиалга</span>
+              <span class="badge badge-success">✓ Амжилттай</span>
+            </div>
+            <div class="hero-card-mini"><span class="dot" style="background:var(--success)"></span>Б. Энхтуяа — 10:00 • Засах үйлчилгээ</div>
+            <div class="hero-card-mini"><span class="dot" style="background:var(--warning)"></span>Д. Болд — 11:30 • Хулд засах</div>
+            <div class="hero-card-mini"><span class="dot" style="background:var(--success)"></span>Э. Нямаа — 13:00 • Өнгө будах</div>
+            <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between;">
+              <span style="font-size:0.8125rem;color:var(--gray-500);">Нийт 8 захиалга</span>
+              <span style="font-size:0.875rem;font-weight:700;color:var(--primary);">+3 шинэ</span>
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div style="background:white;border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow-sm);border:1px solid var(--gray-100);">
+              <div style="font-size:0.75rem;color:var(--gray-500);font-weight:600;text-transform:uppercase;">Энэ сар</div>
+              <div style="font-size:1.625rem;font-weight:800;color:var(--gray-900);margin-top:4px;">127</div>
+              <div style="font-size:0.8125rem;color:var(--success);font-weight:600;margin-top:2px;">↑ 18% өсөлт</div>
+            </div>
+            <div style="background:white;border-radius:var(--radius-lg);padding:18px;box-shadow:var(--shadow-sm);border:1px solid var(--gray-100);">
+              <div style="font-size:0.75rem;color:var(--gray-500);font-weight:600;text-transform:uppercase;">Орлого</div>
+              <div style="font-size:1.375rem;font-weight:800;color:var(--gray-900);margin-top:4px;">₮1.2M</div>
+              <div style="font-size:0.8125rem;color:var(--success);font-weight:600;margin-top:2px;">↑ 12% өсөлт</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats Banner -->
+<section style="padding:0 0 60px;background:linear-gradient(160deg,#f8faff 0%,#eef2ff 60%,#f8faff 100%);">
+  <div class="container">
+    <div class="stats-banner">
+      <div class="stats-banner-item">
+        <div class="stats-banner-value">1,200+</div>
+        <div class="stats-banner-label">Бүртгэлтэй бизнес</div>
+      </div>
+      <div class="stats-banner-item">
+        <div class="stats-banner-value">45,000+</div>
+        <div class="stats-banner-label">Сарын захиалга</div>
+      </div>
+      <div class="stats-banner-item">
+        <div class="stats-banner-value">9</div>
+        <div class="stats-banner-label">Дүүрэг хамрагдсан</div>
+      </div>
+      <div class="stats-banner-item">
+        <div class="stats-banner-value">98%</div>
+        <div class="stats-banner-label">Хэрэглэгчийн сэтгэл ханамж</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Business Types -->
+<section class="section section-alt" id="biz-types">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-eyebrow">Бизнесийн төрлүүд</span>
+      <h2>Аль ч бизнест тохиромжтой</h2>
+      <p>МонМэп нь Улаанбаатарын янз бүрийн бизнесүүдэд зориулж бүтээгдсэн — жижгээс томд хүртэл.</p>
+    </div>
+    <div class="biz-types">
+      <span class="biz-type-chip">💇 Үсчин / Салон</span>
+      <span class="biz-type-chip">🍽️ Ресторан / Кафе</span>
+      <span class="biz-type-chip">🏥 Эмнэлэг / Эмч</span>
+      <span class="biz-type-chip">🏋️ Спорт заал / Фитнесс</span>
+      <span class="biz-type-chip">💆 Спа / Массаж</span>
+      <span class="biz-type-chip">🎓 Сургалт / Дасгалжуулалт</span>
+      <span class="biz-type-chip">🚗 Авто засвар</span>
+      <span class="biz-type-chip">📸 Фото студио</span>
+      <span class="biz-type-chip">⚙️ Бусад</span>
+    </div>
+  </div>
+</section>
+
+<!-- Features -->
+<section class="section" id="features">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-eyebrow">Боломжууд</span>
+      <h2>Бизнесийг илүү хялбар удирдах</h2>
+      <p>МонМэп нь зүгээр нэг захиалгын систем биш — бизнесийг өсгөх цогц платформ.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🔐</div>
+        <h4>Бизнес баталгаажуулалт</h4>
+        <p>Бизнесийнхээ мэдээллийг бүртгэн, МонМэпийн баг таныг 24 цагийн дотор баталгаажуулна. Итгэмжлэгдсэн бизнес болж харагдаарай.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📅</div>
+        <h4>Захиалга удирдах</h4>
+        <p>Цаг захиалга, хүлээн авах, цуцлах бүхнийг нэг самбараас удирдана. Харилцагчийн мэдэгдэл автоматаар явна.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h4>Статистик, тайлан</h4>
+        <p>Өдөр, 7 хоног, сарын захиалгын тоо, орлого, хамгийн их эрэлттэй цаг, үйлчилгээгээ хянаарай.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔔</div>
+        <h4>Автомат мэдэгдэл</h4>
+        <p>Хэрэглэгч захиалга хийх бүрт та мэдэгдэл авна. Захиалгыг баталгаажуулсны дараа хэрэглэгч рүү SMS явна.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🗺️</div>
+        <h4>МонМэп дэлгэцэнд харагдах</h4>
+        <p>Таны бизнес МонМэп апп дээр газрын зурагт харагдана. Хэрэглэгчид амархан олох болно.</p>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📱</div>
+        <h4>Гар утасны оновчлол</h4>
+        <p>Самбар нь утас, таблет, компьютер бүрт зохицон ажиллана. Хаанаас ч, хэзээ ч захиалгаа хянаарай.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- How It Works -->
+<section class="section section-alt" id="how">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-eyebrow">Хэрхэн ажилладаг</span>
+      <h2>3 алхамд эхлэх</h2>
+      <p>Бүртгэлээс эхлэн ажиллаж эхлэхэд ердөө 3 алхам хангалттай.</p>
+    </div>
+    <div class="how-grid">
+      <div class="how-item">
+        <div class="how-number">1</div>
+        <h4>Бизнесээ бүртгэ</h4>
+        <p>Бизнесийн нэр, хаяг, төрөл, ажлын цагаа оруулаад бүртгэлийг дуусга. 5 минутаас бага хугацаа шаардагдана.</p>
+      </div>
+      <div class="how-item">
+        <div class="how-number">2</div>
+        <h4>Баталгаажуулалт хүлээ</h4>
+        <p>МонМэпийн баг бизнесийн мэдээллийг шалгаж, 24 цагийн дотор баталгаажуулна. Баталгаажилтын дараа харилцагч нар таныг олж чадна.</p>
+      </div>
+      <div class="how-item">
+        <div class="how-number">3</div>
+        <h4>Захиалга хүлээж авч эхэл</h4>
+        <p>МонМэп апп хэрэглэгчид таны бизнест цаг захиалж эхэлнэ. Та захиалгаа баталгаажуулах, цуцлах, хянах бүх эрхтэй.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Testimonials -->
+<section class="section" id="testimonials">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-eyebrow">Хэрэглэгчдийн санал</span>
+      <h2>Бизнес эзэд ярьж байна</h2>
+      <p>Улаанбаатарын бизнесүүд МонМэп-ийг хэрхэн дүгнэж байна.</p>
+    </div>
+    <div class="testimonials-grid">
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"МонМэп ашиглаж эхэлснээс хойш утасны захиалга бараг алга болж, харилцагчийн гомдол 80%-аар буурсан. Самбар маш ойлгомжтой."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" style="background:linear-gradient(135deg,#7c3aed,#a78bfa);">Б</div>
+          <div>
+            <div class="testimonial-name">Б. Ундраа</div>
+            <div class="testimonial-biz">Эрдэнэт салон, Баянзүрх</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"Эмнэлгийн уулзалтыг цааснаар бүртгэж байсан үеэс МонМэп-т шилжсэнээр эмч нарын завгүй цагийг хэмнэж, үйлчилгээний чанар дэвшсэн."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" style="background:linear-gradient(135deg,#059669,#34d399);">Д</div>
+          <div>
+            <div class="testimonial-name">Д. Баярмаа</div>
+            <div class="testimonial-biz">Эрүүл мэндийн клиник, СБД</div>
+          </div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★☆</div>
+        <p class="testimonial-text">"Фитнесс зааланд гишүүнчлэл, хичээлийн цаг захиалга бүгдийг нэг дороос удирддаг болсон. Ажилчдын ачаалал хавьгүй буурсан."</p>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar" style="background:linear-gradient(135deg,var(--primary),#3b82f6);">Г</div>
+          <div>
+            <div class="testimonial-name">Г. Батбаяр</div>
+            <div class="testimonial-biz">PowerFit заал, Хан-Уул</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="container">
+    <h2>Бизнесийнхээ ирээдүйг МонМэптэй эхэл</h2>
+    <p>Бүртгэл үнэ төлбөргүй. 14 хоногийн үнэгүй туршилт. Кредит карт шаардлагагүй.</p>
+    <div class="cta-actions">
+      <a href="register.html" class="btn btn-secondary btn-xl">Одоо бүртгүүлэх →</a>
+      <a href="login.html" class="btn btn-outline btn-xl" style="color:white;border-color:rgba(255,255,255,0.4);">Нэвтрэх</a>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <div class="footer-logo">
+          <div class="logo-icon" style="width:32px;height:32px;background:var(--primary);border-radius:8px;background-image:url('assets/logo-mark-white.svg');background-repeat:no-repeat;background-position:center;background-size:70%;font-size:0;color:transparent;"></div>
+          МонМэп
+        </div>
+        <p>Улаанбаатар хотын бизнесүүдэд зориулсан захиалга, цаг захиалга удирдах платформ.</p>
+        <div style="margin-top:16px;display:flex;gap:10px;">
+          <a href="#" style="width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:1rem;">📘</a>
+          <a href="#" style="width:36px;height:36px;border-radius:8px;background:rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;font-size:1rem;">📸</a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h5>Платформ</h5>
+        <a href="register.html">Бизнес бүртгэх</a>
+        <a href="login.html">Нэвтрэх</a>
+        <a href="dashboard.html">Самбар</a>
+        <a href="bookings.html">Захиалга</a>
+      </div>
+      <div class="footer-col">
+        <h5>Компани</h5>
+        <a href="#">Бидний тухай</a>
+        <a href="terms.html">Нөхцөл</a>
+        <a href="privacy.html">Нууцлал</a>
+        <a href="#">Холбоо барих</a>
+      </div>
+      <div class="footer-col">
+        <h5>Холбоо барих</h5>
+        <a href="#">📞 +976 9900-0000</a>
+        <a href="#">✉️ info@monmap.mn</a>
+        <a href="#">📍 УБ хот, СБД</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 МонМэп. Бүх эрх хуулиар хамгаалагдсан.</span>
+      <span>Монгол Улс 🇲🇳</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  const menuBtn = document.getElementById('menuBtn');
+  const mobileNav = document.getElementById('mobileNav');
+  menuBtn.addEventListener('click', () => {
+    mobileNav.classList.toggle('open');
+    const spans = menuBtn.querySelectorAll('span');
+    if (mobileNav.classList.contains('open')) {
+      spans[0].style.transform = 'rotate(45deg) translate(5px, 5px)';
+      spans[1].style.opacity = '0';
+      spans[2].style.transform = 'rotate(-45deg) translate(5px, -5px)';
+    } else {
+      spans.forEach(s => { s.style.transform = ''; s.style.opacity = ''; });
+    }
+  });
+  document.querySelectorAll('.mobile-nav a').forEach(a => {
+    a.addEventListener('click', () => {
+      mobileNav.classList.remove('open');
+      const spans = menuBtn.querySelectorAll('span');
+      spans.forEach(s => { s.style.transform = ''; s.style.opacity = ''; });
+    });
+  });
+</script>
+</body>
+</html>

@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; base-uri 'self'; form-action 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Үйлчилгээ & Ажлын цаг — МонМэп Бизнес Портал</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    /* ── Tab strip ── */
+    .tab-strip {
+      display: flex; gap: 0;
+      border-bottom: 1px solid var(--gray-200);
+      margin-bottom: 22px;
+    }
+    .tab-btn {
+      padding: 11px 18px; background: none; border: none;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      font-size: 0.8125rem; font-weight: 500; color: var(--gray-500);
+      cursor: pointer; display: flex; align-items: center; gap: 7px;
+      transition: color .12s;
+    }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+    .tab-btn .tab-count {
+      font-size: 0.6875rem; font-weight: 700; padding: 1px 6px;
+      border-radius: 8px; background: var(--gray-100); color: var(--gray-500);
+    }
+    .tab-btn.active .tab-count { background: rgba(0,83,163,.1); color: var(--primary); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ══════════════════════════════════════════
+       SERVICE CARDS
+    ══════════════════════════════════════════ */
+    .svc-action-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; gap: 10px; flex-wrap: wrap;
+    }
+    .svc-action-hint { font-size: .8125rem; color: var(--gray-400); }
+
+    /* Card wrapper */
+    .svc-card {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .svc-card.expanded {
+      border-color: #93b4f7;
+      box-shadow: 0 0 0 3px rgba(29,78,216,.07);
+    }
+    .svc-card.inactive { opacity: .6; }
+
+    /* Card collapsed header */
+    .svc-card-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 13px 14px 13px 8px;
+      cursor: pointer; user-select: none;
+    }
+    .svc-card-grip {
+      width: 20px; display: flex; justify-content: center;
+      color: var(--gray-300); cursor: grab; font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .svc-card-info { flex: 1; min-width: 0; }
+    .svc-card-name {
+      font-size: .9375rem; font-weight: 600; color: var(--gray-900);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    .svc-name-empty { color: var(--gray-400); font-style: italic; font-weight: 400; }
+    .svc-card-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
+
+    /* Pill badges */
+    .svc-pill {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 3px 9px; border-radius: 999px;
+      background: var(--gray-100); color: var(--gray-600);
+      font-size: .75rem; font-weight: 500; white-space: nowrap;
+    }
+    .svc-pill-warn { background: #fef3c7; color: #92400e; }
+
+    .svc-card-meta { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+    .svc-chevron {
+      width: 28px; height: 28px; border-radius: 7px; border: none;
+      background: none; display: flex; align-items: center; justify-content: center;
+      color: var(--gray-400); cursor: pointer; transition: background .1s;
+      flex-shrink: 0;
+    }
+    .svc-chevron:hover { background: var(--gray-100); }
+    .svc-chevron svg { transition: transform .18s; }
+    .svc-card.expanded .svc-chevron svg { transform: rotate(180deg); }
+
+    /* Toggle (reused from existing) */
+    .toggle {
+      width: 34px; height: 19px; border-radius: 10px;
+      background: var(--gray-300); position: relative;
+      cursor: pointer; border: none; padding: 0; flex-shrink: 0;
+      transition: background .15s;
+    }
+    .toggle.on { background: var(--primary); }
+    .toggle::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 15px; height: 15px; border-radius: 50%; background: #fff;
+      box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: left .15s;
+    }
+    .toggle.on::after { left: 17px; }
+
+    .icon-btn {
+      width: 28px; height: 28px; border-radius: 6px; border: none;
+      background: none; cursor: pointer; display: flex; align-items: center;
+      justify-content: center; color: var(--gray-400); transition: background .1s, color .1s;
+    }
+    .icon-btn:hover { background: var(--gray-100); color: var(--gray-700); }
+    .icon-btn.danger:hover { background: #fef2f2; color: #dc2626; }
+
+    /* Expanded form body */
+    .svc-card-expand {
+      padding: 0 18px 18px;
+      border-top: 1px solid var(--gray-100);
+      padding-top: 16px;
+      background: #f8fafc;
+    }
+
+    .svc-form-group { margin-bottom: 13px; }
+    .svc-form-label {
+      display: flex; align-items: baseline; gap: 6px;
+      font-size: .75rem; font-weight: 600; color: var(--gray-700);
+      margin-bottom: 6px;
+    }
+    .svc-form-hint { font-size: .6875rem; font-weight: 400; color: var(--gray-400); }
+    .svc-form-input, .svc-form-select, .svc-form-textarea {
+      width: 100%; box-sizing: border-box;
+      padding: 8px 11px; border: 1px solid var(--gray-200);
+      border-radius: 8px; font-family: inherit;
+      font-size: .875rem; color: var(--gray-900);
+      background: #fff; transition: border-color .12s, box-shadow .12s;
+    }
+    .svc-form-input:focus, .svc-form-select:focus, .svc-form-textarea:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26,86,219,.12);
+    }
+    .svc-form-textarea { resize: vertical; min-height: 60px; }
+    .svc-form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%2364748b' d='M0 0h10L5 6z'/></svg>");
+      background-repeat: no-repeat; background-position: right 10px center;
+      padding-right: 28px;
+    }
+    .svc-form-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 13px; }
+    .svc-form-input-wrap { position: relative; }
+    .svc-form-input-wrap .svc-form-input { padding-right: 28px; }
+    .svc-form-suffix {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      font-size: .8125rem; color: var(--gray-500); font-weight: 500; pointer-events: none;
+    }
+
+    /* Stepper */
+    .svc-stepper {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: #f1f5f9; border: 1px solid var(--gray-200);
+      border-radius: 9px; padding: 3px; height: 38px; box-sizing: border-box;
+    }
+    .svc-stepper-btn {
+      width: 28px; height: 28px; border-radius: 6px;
+      border: 1px solid var(--gray-200); background: #fff;
+      font-size: 1rem; font-weight: 500; cursor: pointer; color: var(--gray-700);
+      display: flex; align-items: center; justify-content: center;
+      transition: background .1s;
+    }
+    .svc-stepper-btn:hover { background: var(--gray-100); }
+    .svc-stepper-btn:disabled { opacity: .45; cursor: default; }
+    .svc-stepper-val {
+      min-width: 32px; text-align: center;
+      font-size: .875rem; font-weight: 600; color: var(--gray-900);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .svc-form-footer {
+      display: flex; justify-content: flex-end; gap: 8px;
+      margin-top: 16px; padding-top: 14px;
+      border-top: 1px solid var(--gray-100);
+    }
+
+    /* New service card (unsaved) */
+    .svc-card-new { border: 1.5px dashed var(--gray-300); }
+    .svc-card-new.expanded { border-color: var(--primary); border-style: solid; }
+
+    /* Empty state */
+    .svc-empty-state {
+      border: 2px dashed var(--gray-200); border-radius: 14px;
+      padding: 40px 20px; text-align: center; background: #fff;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .svc-empty-icon {
+      width: 48px; height: 48px; border-radius: 14px;
+      background: rgba(29,78,216,.06);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .svc-empty-title { font-size: .9375rem; font-weight: 600; color: var(--gray-800); }
+    .svc-empty-sub { font-size: .8125rem; color: var(--gray-400); max-width: 320px; line-height: 1.5; }
+
+    /* Add button (dashed) */
+    .svc-add-btn {
+      width: 100%; background: #fff;
+      border: 1.5px dashed var(--gray-300); border-radius: 12px;
+      padding: 13px; margin-top: 2px;
+      font-family: inherit; font-size: .875rem; font-weight: 600;
+      color: var(--primary); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      transition: background .12s, border-color .12s;
+    }
+    .svc-add-btn:hover { background: rgba(29,78,216,.04); border-color: var(--primary); }
+
+    /* Info banner */
+    .svc-info-banner {
+      margin-top: 12px; padding: 10px 13px;
+      background: rgba(29,78,216,.05);
+      border: 1px solid rgba(29,78,216,.15);
+      border-radius: 9px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: .75rem; color: var(--primary);
+    }
+
+    /* Footer summary */
+    .svc-footer { margin-top: 10px; display: flex; gap: 18px; font-size: .75rem; color: var(--gray-400); }
+    .svc-footer strong { color: var(--gray-700); }
+
+    /* ══════════════════════════════════════════
+       HOURS TAB
+    ══════════════════════════════════════════ */
+
+    /* Presets */
+    .hrs-presets-card {
+      background: rgba(29,78,216,.04);
+      border: 1px solid rgba(29,78,216,.15);
+      border-radius: 12px; padding: 13px 15px; margin-bottom: 14px;
+    }
+    .hrs-presets-label {
+      font-size: .6875rem; font-weight: 700; color: var(--primary);
+      letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .hrs-presets-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .hrs-preset-chip {
+      background: #fff; border: 1px solid rgba(29,78,216,.25);
+      border-radius: 999px; padding: 5px 13px;
+      font-family: inherit; font-size: .75rem; font-weight: 500;
+      color: var(--primary); cursor: pointer;
+      transition: background .12s, color .12s;
+    }
+    .hrs-preset-chip:hover { background: var(--primary); color: #fff; }
+
+    /* Day card */
+    .hrs-day-card {
+      background: #fff; border: 1px solid var(--gray-200);
+      border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+      transition: opacity .15s;
+    }
+    .hrs-day-card.hrs-day-closed { opacity: .7; }
+
+    .hrs-day-header {
+      display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
+    }
+
+    .hrs-toggle {
+      width: 34px; height: 20px; border-radius: 999px; flex-shrink: 0;
+      background: var(--gray-300); border: none; padding: 0;
+      cursor: pointer; position: relative; transition: background .18s; margin-top: 2px;
+    }
+    .hrs-toggle.on { background: var(--primary); }
+    .hrs-toggle::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; border-radius: 50%; background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: left .18s;
+    }
+    .hrs-toggle.on::after { left: 16px; }
+
+    .hrs-day-label { min-width: 110px; flex-shrink: 0; }
+    .hrs-day-name { font-size: .875rem; font-weight: 600; color: var(--gray-800); }
+    .hrs-weekend { color: #7c3aed; }
+    .hrs-day-status { font-size: .75rem; margin-top: 2px; font-weight: 500; }
+    .hrs-day-card:not(.hrs-day-closed) .hrs-day-status { color: #16a34a; }
+    .hrs-day-card.hrs-day-closed .hrs-day-status { color: var(--gray-400); }
+
+    .hrs-ranges { flex: 1; display: flex; flex-direction: column; gap: 0; min-width: 260px; }
+    .hrs-range-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .hrs-time-input {
+      height: 34px; padding: 0 9px;
+      background: #fff; border: 1px solid var(--gray-200); border-radius: 8px;
+      font-family: inherit; font-size: .875rem; font-weight: 500;
+      color: var(--gray-800); width: 100px;
+      font-variant-numeric: tabular-nums;
+      transition: border-color .12s;
+    }
+    .hrs-time-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+    .hrs-sep { color: var(--gray-400); font-size: .8125rem; }
+    .hrs-break-badge {
+      font-size: .625rem; font-weight: 700; letter-spacing: .04em;
+      color: #92400e; background: #fef3c7; padding: 2px 7px; border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .hrs-day-actions {
+      display: flex; align-items: center; gap: 12px; flex-shrink: 0; flex-wrap: wrap; margin-top: 4px;
+    }
+    .hrs-link-btn {
+      background: none; border: none; padding: 0;
+      font-family: inherit; font-size: .75rem; font-weight: 600;
+      color: var(--primary); cursor: pointer;
+      display: inline-flex; align-items: center; gap: 4px;
+      transition: opacity .12s;
+    }
+    .hrs-link-btn:hover { opacity: .75; }
+    .hrs-copy-btn { color: var(--gray-500); }
+    .hrs-copy-btn:hover { color: var(--gray-800); }
+
+    .hrs-closed-label {
+      flex: 1; font-size: .8125rem; color: var(--gray-400); font-style: italic;
+      align-self: center;
+    }
+
+    /* Booking rules in hours tab */
+    .hrs-rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 600px) {
+      .hrs-rules-grid { grid-template-columns: 1fr; }
+      .svc-form-row2 { grid-template-columns: 1fr; }
+      .hrs-ranges { min-width: 0; }
+    }
+
+    /* Rule cards (kept for Capacity tab) */
+    .rule-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .rule-card { background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--gray-200); padding: 18px; }
+    .rule-card-title { font-size: 0.875rem; font-weight: 600; color: var(--gray-900); margin-bottom: 14px; }
+    .rule-field { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+    .rule-field:last-child { border-bottom: none; }
+    .rule-field-label { flex: 1; font-size: 0.8125rem; font-weight: 500; color: var(--gray-700); }
+    .rule-field-hint { font-size: 0.6875rem; color: var(--gray-400); margin-top: 2px; }
+    .rule-field input, .rule-field select {
+      width: 100px; padding: 6px 10px; border: 1px solid var(--gray-200);
+      border-radius: 8px; font-size: 0.8125rem; font-family: inherit;
+      background: var(--white); color: var(--gray-800); text-align: right;
+    }
+    .reminder-card {
+      padding: 14px; border-radius: 10px; border: 1px solid var(--gray-200);
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .reminder-card.on { border-color: var(--primary); background: rgba(0,83,163,.03); }
+    .reminder-card-head { display: flex; align-items: center; justify-content: space-between; }
+    .reminder-card-title { font-size: 0.8125rem; font-weight: 600; color: var(--gray-800); }
+    .reminder-card-desc { font-size: 0.75rem; color: var(--gray-500); }
+
+    /* Staff cards */
+    .staff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .staff-card { background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--gray-200); padding: 18px; }
+    .staff-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+    .staff-big-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1rem; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .staff-card-name { font-size: 0.875rem; font-weight: 600; color: var(--gray-900); }
+    .staff-card-role { font-size: 0.75rem; color: var(--gray-500); margin-top: 2px; }
+    .staff-svc-label {
+      font-size: 0.625rem; font-weight: 700; color: var(--gray-400);
+      letter-spacing: .1em; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .staff-svc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .staff-svc-chip {
+      font-size: 0.75rem; padding: 3px 9px;
+      background: var(--gray-100); border-radius: 6px; color: var(--gray-700);
+    }
+
+    /* Modals */
+    .svc-modal-overlay {
+      display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
+      z-index: 200; align-items: center; justify-content: center;
+    }
+    .svc-modal-overlay.open { display: flex; }
+    .svc-modal {
+      background: var(--white); border-radius: var(--radius-xl);
+      padding: 28px; width: 100%; max-width: 480px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.18);
+      max-height: 90vh; overflow-y: auto;
+    }
+    .svc-modal-title {
+      font-size: 1rem; font-weight: 700; color: var(--gray-900);
+      margin-bottom: 20px; display: flex; align-items: center; justify-content: space-between;
+    }
+    .modal-form-group { margin-bottom: 14px; }
+    .modal-label {
+      display: block; font-size: 0.75rem; font-weight: 600;
+      color: var(--gray-600); margin-bottom: 6px; letter-spacing: .03em;
+    }
+    .modal-input, .modal-select, .modal-textarea {
+      width: 100%; padding: 9px 12px; border: 1px solid var(--gray-200);
+      border-radius: 10px; font-size: 0.875rem; font-family: inherit;
+      background: var(--white); color: var(--gray-900);
+      transition: border-color .12s; box-sizing: border-box;
+    }
+    .modal-input:focus, .modal-select:focus, .modal-textarea:focus {
+      outline: none; border-color: var(--primary);
+    }
+    .modal-textarea { resize: vertical; min-height: 72px; }
+    .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
+
+    /* Section card */
+    .section-card { background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--gray-200); padding: 20px; }
+    .section-card + .section-card { margin-top: 14px; }
+    .section-card-title { font-size: 0.875rem; font-weight: 600; color: var(--gray-900); margin-bottom: 4px; }
+    .section-card-sub { font-size: 0.75rem; color: var(--gray-400); margin-bottom: 16px; }
+    .cap-summary { display: flex; align-items: baseline; gap: 6px; margin-bottom: 14px; }
+    .cap-summary-num { font-size: 2rem; font-weight: 700; color: var(--gray-900); letter-spacing: -.03em; }
+    .cap-summary-label { font-size: 0.8125rem; color: var(--gray-500); }
+  </style>
+</head>
+<body>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="index.html" class="sidebar-logo" aria-label="MONMAP">
+        <div class="logo-icon" aria-hidden="true"></div>
+        MONMAP
+      </a>
+    </div>
+    <div class="sidebar-business">
+      <div class="business-pill">
+        <div class="business-avatar" id="sbAvatar">М</div>
+        <div class="business-info">
+          <div class="business-name" id="sbBizName">...</div>
+          <div class="business-type" id="sbBizType">МонМэп Бизнес</div>
+        </div>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Үндсэн</span>
+      <a href="dashboard.html"><span class="nav-icon" data-icon="home"></span> Самбар</a>
+      <a href="bookings.html"><span class="nav-icon" data-icon="calendar"></span> Захиалга <span class="nav-badge" id="pendingBadge" style="display:none">0</span></a>
+      <span class="nav-section-label">Удирдлага</span>
+      <a href="profile.html"><span class="nav-icon" data-icon="store"></span> Бизнесийн мэдээлэл</a>
+      <a href="services.html" class="active"><span class="nav-icon" data-icon="services"></span> Үйлчилгээ & Цаг</a>
+      <a href="reports.html"><span class="nav-icon" data-icon="chart"></span> Тайлан</a>
+      <a href="customers.html"><span class="nav-icon" data-icon="users"></span> Харилцагчид</a>
+      <span class="nav-section-label">Тохиргоо</span>
+      <a href="notifications.html">
+        <span class="nav-icon" data-icon="bell"></span> Мэдэгдэл
+        <span class="nav-badge" id="notifBadge" style="display:none;">0</span>
+      </a>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="profile.html"><span class="nav-icon" data-icon="user"></span> Профайл</a>
+      <button type="button" class="nav-link" onclick="logout()"><span class="nav-icon" data-icon="logout"></span> Гарах</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Цэс">☰</button>
+        <span class="page-title">Үйлчилгээ & Ажлын цаг</span>
+      </div>
+      <div class="top-bar-right">
+        <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл"><span data-icon="bell" aria-hidden="true"></span><span class="notification-dot"></span></button>
+        <div class="top-bar-avatar" id="topAvatar">М</div>
+      </div>
+    </div>
+
+    <div class="page-content">
+      <div id="verificationBanner" class="alert alert-warning" style="margin-bottom:18px;display:none;">
+        <span class="alert-icon">⏳</span>
+        <div>
+          <strong>Баталгаажуулалт хүлээгдэж байна</strong><br>
+          Таны бизнес МонМэп-ийн багийн хяналтад байна. 24 цагт и-мэйлээр мэдэгдэнэ.
+        </div>
+      </div>
+
+      <!-- Tab strip -->
+      <div class="tab-strip">
+        <button class="tab-btn active" data-tab="services" onclick="switchTab('services')">
+          Үйлчилгээ <span class="tab-count" id="svcTabCount">0</span>
+        </button>
+        <button class="tab-btn" data-tab="hours" onclick="switchTab('hours')">Ажлын цаг</button>
+        <button class="tab-btn" data-tab="capacity" onclick="switchTab('capacity')">Хүчин чадал & Дүрэм</button>
+        <button class="tab-btn" data-tab="staff" onclick="switchTab('staff')">
+          Ажилтнууд <span class="tab-count" id="staffTabCount">0</span>
+        </button>
+      </div>
+
+      <!-- ══ Tab: Services (Card-based) ══ -->
+      <div class="tab-panel active" id="tab-services">
+        <div class="svc-action-bar">
+          <span class="svc-action-hint">Засахын тулд карт дарна уу</span>
+          <button class="btn btn-primary btn-sm" style="font-size:.8125rem;" onclick="addSvcCard()">
+            + Үйлчилгээ нэмэх
+          </button>
+        </div>
+        <div id="svcCardsContainer"></div>
+        <div class="svc-footer" id="svcFooter"></div>
+      </div>
+
+      <!-- ══ Tab: Hours (New design) ══ -->
+      <div class="tab-panel" id="tab-hours">
+
+        <!-- Quick presets -->
+        <div class="hrs-presets-card">
+          <div class="hrs-presets-label">Хурдан тохиргоо</div>
+          <div class="hrs-presets-row">
+            <button class="hrs-preset-chip" onclick="applyPreset('weekdays-9-18')">Ажлын өдөр 9–18, Амралт хаалттай</button>
+            <button class="hrs-preset-chip" onclick="applyPreset('all-10-22')">Долоо хоног 10–22</button>
+            <button class="hrs-preset-chip" onclick="applyPreset('closed')">Бүгд хаалттай</button>
+          </div>
+        </div>
+
+        <!-- Day rows (rendered by JS) -->
+        <div id="hoursGrid"></div>
+
+        <!-- Booking rules -->
+        <div class="section-card" style="margin-top:14px;">
+          <div class="section-card-title">Захиалгын дүрэм</div>
+          <div class="hrs-rules-grid" style="margin-top:12px;">
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:600;color:var(--gray-600);margin-bottom:6px;">
+                Захиалгын хугацаа <span style="font-weight:400;color:var(--gray-400);">— Хичнээн хол урагшаа</span>
+              </label>
+              <select class="modal-select" id="hrsMaxAdvance">
+                <option value="30">30 өдрийн өмнөх хүртэл</option>
+                <option value="60" selected>60 өдрийн өмнөх хүртэл</option>
+                <option value="90">90 өдрийн өмнөх хүртэл</option>
+                <option value="180">6 сарын өмнөх хүртэл</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:600;color:var(--gray-600);margin-bottom:6px;">
+                Урьдчилсан хугацаа <span style="font-weight:400;color:var(--gray-400);">— Хамгийн багадаа</span>
+              </label>
+              <select class="modal-select" id="hrsLeadTime">
+                <option value="0">Ямар ч үед</option>
+                <option value="1" selected>1 цагийн өмнө</option>
+                <option value="2">2 цагийн өмнө</option>
+                <option value="24">1 өдрийн өмнө</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+          <button class="btn btn-primary" onclick="saveHours()">Хадгалах</button>
+        </div>
+      </div>
+
+      <!-- ══ Tab: Capacity & Rules ══ -->
+      <div class="tab-panel" id="tab-capacity">
+        <div class="rule-grid">
+
+          <div class="rule-card">
+            <div class="rule-card-title">📅 Цаг захиалах хугацаа</div>
+            <div class="rule-field">
+              <div>
+                <div class="rule-field-label">Хамгийн эрт</div>
+                <div class="rule-field-hint">Захиалах боломжтой хамгийн богино хугацаа</div>
+              </div>
+              <select class="modal-select" id="ruleLeadTime" style="width:130px;">
+                <option value="1">1 цаг</option>
+                <option value="2" selected>2 цаг</option>
+                <option value="4">4 цаг</option>
+                <option value="24">24 цаг</option>
+                <option value="48">48 цаг</option>
+              </select>
+            </div>
+            <div class="rule-field">
+              <div>
+                <div class="rule-field-label">Хамгийн оройтсон</div>
+                <div class="rule-field-hint">Урьдчилан захиалах хязгаар</div>
+              </div>
+              <select class="modal-select" id="ruleMaxAdvance" style="width:130px;">
+                <option value="7">7 хоног</option>
+                <option value="14">14 хоног</option>
+                <option value="30" selected>30 хоног</option>
+                <option value="60">60 хоног</option>
+                <option value="90">90 хоног</option>
+              </select>
+            </div>
+            <div class="rule-field">
+              <div>
+                <div class="rule-field-label">Цуцлах хязгаар</div>
+                <div class="rule-field-hint">Энэ хугацаанаас хойш үнэгүй цуцлах боломжгүй</div>
+              </div>
+              <select class="modal-select" id="ruleCancelWindow" style="width:130px;">
+                <option value="1">1 цаг</option>
+                <option value="2">2 цаг</option>
+                <option value="4" selected>4 цаг</option>
+                <option value="24">24 цаг</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="rule-card">
+            <div class="rule-card-title">💰 Төлбөрийн тохиргоо</div>
+            <div class="rule-field">
+              <div>
+                <div class="rule-field-label">Урьдчилгаа %</div>
+                <div class="rule-field-hint">Захиалга баталгаажуулахад шаардлагатай</div>
+              </div>
+              <input type="number" class="modal-input" id="ruleDeposit" value="20" min="0" max="100" style="width:80px;text-align:right;" />
+            </div>
+            <div class="rule-field">
+              <div>
+                <div class="rule-field-label">НӨАТ</div>
+                <div class="rule-field-hint">Үнэд тооцогдсон эсэх</div>
+              </div>
+              <select class="modal-select" id="ruleTax" style="width:130px;">
+                <option value="included">10% багтсан</option>
+                <option value="excluded">10% нэмэлт</option>
+                <option value="none">НӨАТ байхгүй</option>
+              </select>
+            </div>
+            <div class="rule-field">
+              <div>
+                <div class="rule-field-label">Ирээгүй тохиолдол</div>
+                <div class="rule-field-hint">Урьдчилгааг буцаах эсэх</div>
+              </div>
+              <select class="modal-select" id="ruleNoShow" style="width:130px;">
+                <option value="keep">100% хураана</option>
+                <option value="half">50% хураана</option>
+                <option value="refund">Буцааж өгнө</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="rule-card" style="grid-column:1/-1;">
+            <div class="rule-card-title">⏱ Завсрын цаг & хүчин чадал</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+              <div class="rule-field" style="flex-direction:column;align-items:flex-start;gap:6px;border:none;padding:0;">
+                <div>
+                  <div class="rule-field-label">Захиалгын завсар</div>
+                  <div class="rule-field-hint">Захиалгуудын хоорондох минут</div>
+                </div>
+                <select class="modal-select" id="ruleBuffer" style="width:100%;">
+                  <option value="0">0 минут</option>
+                  <option value="5">5 минут</option>
+                  <option value="10">10 минут</option>
+                  <option value="15" selected>15 минут</option>
+                  <option value="30">30 минут</option>
+                </select>
+              </div>
+              <div class="rule-field" style="flex-direction:column;align-items:flex-start;gap:6px;border:none;padding:0;">
+                <div>
+                  <div class="rule-field-label">Бэлтгэлийн цаг</div>
+                  <div class="rule-field-hint">Үйлчилгээний өмнөх бэлтгэл</div>
+                </div>
+                <select class="modal-select" id="rulePrep" style="width:100%;">
+                  <option value="0">0 минут</option>
+                  <option value="5">5 минут</option>
+                  <option value="10" selected>10 минут</option>
+                  <option value="15">15 минут</option>
+                  <option value="30">30 минут</option>
+                </select>
+              </div>
+              <div class="rule-field" style="flex-direction:column;align-items:flex-start;gap:6px;border:none;padding:0;">
+                <div>
+                  <div class="rule-field-label">Зэрэгцэх дээд тоо</div>
+                  <div class="rule-field-hint">Нэг цагт хийгдэх захиалгын дээд тоо</div>
+                </div>
+                <input type="number" class="modal-input" id="ruleSlotCap" value="1" min="1" max="50" style="width:100%;" />
+              </div>
+              <div class="rule-field" style="flex-direction:column;align-items:flex-start;gap:6px;border:none;padding:0;">
+                <div>
+                  <div class="rule-field-label">Захиалгын баталгааны төлбөр (₮)</div>
+                  <div class="rule-field-hint">QPay-ээр урьдчилж авах хэмжээ. Хоосон орхивол төлбөргүй.</div>
+                </div>
+                <input type="number" class="modal-input" id="ruleDepositAmount" value="" min="0" placeholder="Жишээ: 5000" style="width:100%;" />
+              </div>
+            </div>
+          </div>
+
+          <div class="rule-card" style="grid-column:1/-1;">
+            <div class="rule-card-title">🔔 Сануулгын тохиргоо</div>
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:4px;">
+              <div class="reminder-card on" id="rem1">
+                <div class="reminder-card-head">
+                  <div class="reminder-card-title">24 цагийн өмнө</div>
+                  <button class="toggle on" onclick="toggleReminder('rem1',this)"></button>
+                </div>
+                <div class="reminder-card-desc">И-мэйлээр сануулах</div>
+              </div>
+              <div class="reminder-card on" id="rem2">
+                <div class="reminder-card-head">
+                  <div class="reminder-card-title">2 цагийн өмнө</div>
+                  <button class="toggle on" onclick="toggleReminder('rem2',this)"></button>
+                </div>
+                <div class="reminder-card-desc">SMS-ээр сануулах</div>
+              </div>
+              <div class="reminder-card" id="rem3">
+                <div class="reminder-card-head">
+                  <div class="reminder-card-title">Дараагийн өдөр</div>
+                  <button class="toggle" onclick="toggleReminder('rem3',this)"></button>
+                </div>
+                <div class="reminder-card-desc">Үнэлгээ хүсэх</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+          <button class="btn btn-primary" onclick="saveRules()">Хадгалах</button>
+        </div>
+      </div>
+
+      <!-- ══ Tab: Staff ══ -->
+      <div class="tab-panel" id="tab-staff">
+        <div style="display:flex;justify-content:flex-end;margin-bottom:14px;">
+          <button class="btn btn-primary btn-sm" style="font-size:.8125rem;" onclick="openStaffModal()">
+            + Ажилтан нэмэх
+          </button>
+        </div>
+        <div class="staff-grid" id="staffGrid">
+          <div class="section-card" style="grid-column:1/-1;">
+            <div style="padding:40px 0;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;">
+              <div style="font-size:2rem;">👥</div>
+              <div style="font-size:1rem;font-weight:600;color:var(--gray-700);">Ажилтан байхгүй байна</div>
+              <div style="font-size:.8125rem;color:var(--gray-400);">«+ Ажилтан нэмэх» товч дарж ажилтнаа нэмнэ үү.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /page-content -->
+  </div><!-- /main-content -->
+</div><!-- /app-layout -->
+
+<!-- Staff Modal -->
+<div class="svc-modal-overlay" id="staffModal">
+  <div class="svc-modal">
+    <div class="svc-modal-title">
+      <span id="staffModalTitle">Ажилтан нэмэх</span>
+      <button class="icon-btn" onclick="closeStaffModal()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <input type="hidden" id="staffModalId" />
+    <div class="modal-form-group">
+      <label class="modal-label">Нэр <span style="color:var(--danger)">*</span></label>
+      <input type="text" class="modal-input" id="staffName" placeholder="жш: Оюунчимэг" />
+    </div>
+    <div class="modal-form-group">
+      <label class="modal-label">Мэргэжил / Үүрэг</label>
+      <input type="text" class="modal-input" id="staffRole" placeholder="жш: Үсчин" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeStaffModal()">Цуцлах</button>
+      <button class="btn btn-primary" onclick="saveStaff()">Хадгалах</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="js/supabase.min.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/icons.js"></script>
+<script>
+// ── State ──────────────────────────────────────────────────────────
+let _placeId  = null;
+let _services = [];
+let _hoursState = {}; // { [dayOfWeek]: { open, start, end, breakStart, breakEnd } }
+
+const DAYS_ORDER = [1,2,3,4,5,6,0]; // Mon-first display
+const DAYS_MN = [
+  { id: 0, full: 'Ням',    short: 'Ням', weekend: true  },
+  { id: 1, full: 'Даваа',  short: 'Дав', weekend: false },
+  { id: 2, full: 'Мягмар', short: 'Мяг', weekend: false },
+  { id: 3, full: 'Лхагва', short: 'Лха', weekend: false },
+  { id: 4, full: 'Пүрэв',  short: 'Пүр', weekend: false },
+  { id: 5, full: 'Баасан', short: 'Баа', weekend: false },
+  { id: 6, full: 'Бямба',  short: 'Бям', weekend: true  },
+];
+const DURATIONS_MN = [15,30,45,60,90,120,180];
+const BUFFERS_MN   = [0,5,10,15,30];
+
+// ── Init ───────────────────────────────────────────────────────────
+(async () => {
+  const auth = await requireAuth();
+  if (!auth) return;
+  const { user, biz } = auth;
+
+  if (biz) {
+    _placeId = biz.place_id || biz.id;
+    document.getElementById('sbBizName').textContent = biz.name || '...';
+    document.getElementById('sbBizType').textContent  = biz.type || 'МонМэп Бизнес';
+    const init = (biz.name || 'М')[0].toUpperCase();
+    document.getElementById('sbAvatar').textContent  = init;
+    document.getElementById('topAvatar').textContent = init;
+    if (!biz.verified) document.getElementById('verificationBanner').style.display = 'flex';
+  } else {
+    renderNoBizState();
+    return;
+  }
+
+  // Load place settings for Capacity tab
+  _sb.from('places')
+    .select('slot_capacity, deposit_amount')
+    .eq('place_id', _placeId)
+    .single()
+    .then(({ data }) => {
+      if (!data) return;
+      if (data.slot_capacity != null) document.getElementById('ruleSlotCap').value = data.slot_capacity;
+      if (data.deposit_amount != null) document.getElementById('ruleDepositAmount').value = data.deposit_amount;
+    })
+    .catch(() => {});
+
+  loadPendingCount();
+  await Promise.all([loadServices(), loadHours()]);
+})();
+
+function renderNoBizState() {
+  document.querySelector('.tab-strip').style.display = 'none';
+  document.querySelectorAll('.tab-panel').forEach(p => { p.style.display = 'none'; });
+  document.getElementById('verificationBanner').style.display = 'none';
+  document.querySelector('.page-content').insertAdjacentHTML('beforeend', `
+    <div class="section-card" style="text-align:center;padding:56px 24px;">
+      <h3 style="margin:0 0 8px;font-size:1.0625rem;font-weight:700;color:var(--gray-900);">Бизнес бүртгэгдээгүй байна</h3>
+      <p style="margin:8px auto 16px;font-size:0.875rem;color:var(--gray-500);max-width:440px;line-height:1.55;">
+        Үйлчилгээ болон ажлын цаг тохируулахын тулд эхлээд бизнесээ бүртгүүлнэ үү.
+      </p>
+      <a href="register.html" class="btn btn-primary btn-sm">Бизнес бүртгүүлэх →</a>
+    </div>
+  `);
+}
+
+async function loadPendingCount() {
+  if (!_placeId) return;
+  const { count } = await _sb.from('bookings')
+    .select('id', { count: 'exact', head: true })
+    .eq('place_id', _placeId).eq('status', 'pending');
+  const badge = document.getElementById('pendingBadge');
+  if (count > 0) { badge.textContent = count; badge.style.display = 'inline-flex'; }
+}
+
+// ── Tab switching ──────────────────────────────────────────────────
+function switchTab(id) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + id));
+}
+
+// ════════════════════════════════════════════════════════════════
+// SERVICES
+// ════════════════════════════════════════════════════════════════
+
+// ── Helpers ────────────────────────────────────────────────────────
+function fmtDuration(m) {
+  if (!m) return null;
+  if (m < 60) return m + 'мин';
+  const h = Math.floor(m / 60), rem = m % 60;
+  return h + 'ц' + (rem ? ' ' + rem + 'мин' : '');
+}
+function fmtPrice(n) { return Number(n).toLocaleString('mn-MN') + '₮'; }
+
+// ── Load from DB ────────────────────────────────────────────────────
+async function loadServices() {
+  if (!_placeId) { renderSvcCards(); return; }
+  const { data, error } = await _sb
+    .from('services')
+    .select('*')
+    .eq('place_id', _placeId)
+    .order('created_at');
+  if (error) { console.warn('[services]', error.message); renderSvcCards(); return; }
+  _services = data || [];
+  renderSvcCards();
+}
+
+// ── Render cards ────────────────────────────────────────────────────
+function renderSvcCards() {
+  const container = document.getElementById('svcCardsContainer');
+  document.getElementById('svcTabCount').textContent = _services.length;
+
+  if (_services.length === 0) {
+    container.innerHTML = `
+      <div class="svc-empty-state">
+        <div class="svc-empty-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <rect x="3" y="3" width="16" height="16" rx="3" stroke="var(--primary)" stroke-width="1.5"/>
+            <path d="M11 7v8M7 11h8" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="svc-empty-title">Үйлчилгээ нэмж эхлээрэй</div>
+        <div class="svc-empty-sub">Танай байгууллагын санал болгох үйлчилгээнүүдийг нэмж, тус бүрд нь үнэ, хугацаа, хүчин чадал тохируулна.</div>
+        <button class="btn btn-primary btn-sm" onclick="addSvcCard()">+ Анхны үйлчилгээ нэмэх</button>
+      </div>`;
+    document.getElementById('svcFooter').innerHTML = '';
+    return;
+  }
+
+  container.innerHTML = _services.map(s => svcCardHTML(s)).join('');
+
+  const active = _services.filter(s => s.is_active !== false).length;
+  document.getElementById('svcFooter').innerHTML =
+    `<span><strong>${active}</strong> идэвхтэй</span>
+     <span><strong>${_services.length - active}</strong> идэвхгүй</span>
+     <span><strong>${_services.length}</strong> нийт</span>`;
+
+  // Info banner
+  if (_services.length > 0 && !document.getElementById('svcInfoBanner')) {
+    container.insertAdjacentHTML('afterend', `
+      <div class="svc-info-banner" id="svcInfoBanner">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+          <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M7 4v3.5M7 9.5v.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        Үйлчилгээ бүрд тус тусын хугацаа, үнэ, зэрэгцэн орох хүний тоог тохируулах боломжтой.
+      </div>`);
+  }
+}
+
+function svcCardHTML(svc) {
+  const dur   = fmtDuration(svc.duration_minutes);
+  const price = svc.price ? fmtPrice(svc.price) : null;
+  const cap   = svc.max_capacity || 1;
+  const buf   = svc.buffer_minutes;
+  const isActive = svc.is_active !== false;
+
+  return `<div class="svc-card${isActive ? '' : ' inactive'}" id="svc-card-${svc.id}">
+    <div class="svc-card-header" onclick="toggleSvcExpand('${svc.id}')">
+      <div class="svc-card-grip" onclick="event.stopPropagation()">⠿</div>
+      <div class="svc-card-info">
+        <div class="svc-card-name">${svc.name ? escapeHtml(svc.name) : '<span class="svc-name-empty">Нэргүй үйлчилгээ</span>'}</div>
+        <div class="svc-card-pills">
+          ${dur   ? `<span class="svc-pill">${dur}</span>` : ''}
+          ${price ? `<span class="svc-pill">${price}</span>` : ''}
+          <span class="svc-pill">${cap} хүн</span>
+          ${buf   ? `<span class="svc-pill svc-pill-warn">+${buf} мин завсар</span>` : ''}
+        </div>
+      </div>
+      <div class="svc-card-meta" onclick="event.stopPropagation()">
+        <button class="toggle${isActive ? ' on' : ''}" title="${isActive ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх'}"
+                onclick="toggleSvcActive('${svc.id}', this)"></button>
+        <button class="icon-btn danger" onclick="deleteSvc('${svc.id}')" title="Устгах">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+          </svg>
+        </button>
+        <button class="svc-chevron" id="svc-chev-${svc.id}" title="Дэлгэх">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="svc-card-expand" id="svc-expand-${svc.id}" style="display:none;">
+      ${svcFormHTML(svc)}
+    </div>
+  </div>`;
+}
+
+function svcFormHTML(svc) {
+  const durOpts = DURATIONS_MN.map(d =>
+    `<option value="${d}" ${svc.duration_minutes == d ? 'selected' : ''}>${fmtDuration(d)}</option>`
+  ).join('');
+  const bufOpts = BUFFERS_MN.map(b =>
+    `<option value="${b}" ${(svc.buffer_minutes||0) == b ? 'selected' : ''}>${b === 0 ? 'Завсаргүй' : b + ' мин'}</option>`
+  ).join('');
+  return `
+    <div class="svc-form-group">
+      <div class="svc-form-label">Үйлчилгээний нэр</div>
+      <input type="text" class="svc-form-input" id="sf-name-${svc.id}"
+             value="${escapeHtml(svc.name || '')}" placeholder="жш: Эрэгтэй үс засалт" />
+    </div>
+    <div class="svc-form-row2">
+      <div class="svc-form-group" style="margin-bottom:0">
+        <div class="svc-form-label">Хугацаа <span class="svc-form-hint">Үргэлжлэх</span></div>
+        <select class="svc-form-select" id="sf-dur-${svc.id}">${durOpts}</select>
+      </div>
+      <div class="svc-form-group" style="margin-bottom:0">
+        <div class="svc-form-label">Үнэ <span class="svc-form-hint">Тугрик</span></div>
+        <div class="svc-form-input-wrap">
+          <input type="number" class="svc-form-input" id="sf-price-${svc.id}"
+                 value="${svc.price || ''}" placeholder="0" style="padding-right:26px;" />
+          <span class="svc-form-suffix">₮</span>
+        </div>
+      </div>
+    </div>
+    <div class="svc-form-row2" style="margin-top:13px;">
+      <div class="svc-form-group" style="margin-bottom:0">
+        <div class="svc-form-label">Зэрэгцэх захиалга <span class="svc-form-hint">Нэг цагт</span></div>
+        <div class="svc-stepper">
+          <button class="svc-stepper-btn" onclick="svcStepCap('${svc.id}',-1)" ${(svc.max_capacity||1)<=1?'disabled':''}>−</button>
+          <span class="svc-stepper-val" id="sf-cap-val-${svc.id}">${svc.max_capacity || 1}</span>
+          <button class="svc-stepper-btn" onclick="svcStepCap('${svc.id}',1)" ${(svc.max_capacity||1)>=20?'disabled':''}>+</button>
+        </div>
+        <input type="hidden" id="sf-cap-${svc.id}" value="${svc.max_capacity || 1}" />
+      </div>
+      <div class="svc-form-group" style="margin-bottom:0">
+        <div class="svc-form-label">Завсрын цаг <span class="svc-form-hint">Захиалга хооронд</span></div>
+        <select class="svc-form-select" id="sf-buf-${svc.id}">${bufOpts}</select>
+      </div>
+    </div>
+    <div class="svc-form-group" style="margin-top:13px;">
+      <div class="svc-form-label">Тайлбар <span class="svc-form-hint">Сонголтот</span></div>
+      <textarea class="svc-form-textarea" id="sf-desc-${svc.id}" rows="2"
+                placeholder="Үйлчилгээний талаар товч тайлбар...">${escapeHtml(svc.description || '')}</textarea>
+    </div>
+    <div class="svc-form-footer">
+      <button class="btn btn-ghost btn-sm" onclick="collapseCard('${svc.id}')">Цуцлах</button>
+      <button class="btn btn-primary btn-sm" onclick="saveInlineSvc('${svc.id}')">Хадгалах</button>
+    </div>`;
+}
+
+// ── Card expand/collapse ────────────────────────────────────────────
+function toggleSvcExpand(id) {
+  const expand = document.getElementById('svc-expand-' + id);
+  const card   = document.getElementById('svc-card-' + id);
+  const isOpen = expand.style.display !== 'none';
+  expand.style.display = isOpen ? 'none' : 'block';
+  card.classList.toggle('expanded', !isOpen);
+}
+function collapseCard(id) {
+  // If it's a new unsaved card, remove it
+  const card = document.getElementById('svc-card-' + id);
+  if (card && card.dataset.unsaved) { card.remove(); return; }
+  const expand = document.getElementById('svc-expand-' + id);
+  if (expand) expand.style.display = 'none';
+  if (card)   card.classList.remove('expanded');
+}
+
+// ── Stepper ─────────────────────────────────────────────────────────
+function svcStepCap(id, delta) {
+  const hidden = document.getElementById('sf-cap-' + id);
+  const val = document.getElementById('sf-cap-val-' + id);
+  let cur = parseInt(hidden.value) || 1;
+  cur = Math.min(20, Math.max(1, cur + delta));
+  hidden.value = cur;
+  val.textContent = cur;
+  // Update disabled state
+  const [dec, inc] = document.getElementById('svc-card-' + id).querySelectorAll('.svc-stepper-btn');
+  if (dec) dec.disabled = cur <= 1;
+  if (inc) inc.disabled = cur >= 20;
+}
+
+// ── Add new service (inline card) ──────────────────────────────────
+function addSvcCard() {
+  const tmpId = 'new_' + Date.now();
+  const container = document.getElementById('svcCardsContainer');
+
+  // Clear empty state if present
+  container.innerHTML = container.innerHTML.replace(/<div class="svc-empty-state"[\s\S]*?<\/div>\s*<\/div>/, '');
+
+  const newCard = document.createElement('div');
+  newCard.className = 'svc-card svc-card-new expanded';
+  newCard.id = 'svc-card-' + tmpId;
+  newCard.dataset.unsaved = '1';
+  newCard.innerHTML = `
+    <div class="svc-card-header" style="cursor:default;">
+      <div class="svc-card-grip">⠿</div>
+      <div class="svc-card-info">
+        <div class="svc-card-name" style="color:var(--gray-400);font-style:italic;">Шинэ үйлчилгээ</div>
+      </div>
+    </div>
+    <div class="svc-card-expand" style="display:block;">
+      ${svcFormHTML({ id: tmpId, name:'', duration_minutes:30, price:0, max_capacity:1, buffer_minutes:0, description:'' })}
+    </div>`;
+  container.prepend(newCard);
+  newCard.querySelector('.svc-form-input').focus();
+
+  // Override save to insert instead of update
+  const saveBtn = newCard.querySelector('.btn-primary');
+  saveBtn.onclick = () => insertNewSvc(tmpId);
+}
+
+async function insertNewSvc(tmpId) {
+  if (!_placeId) return;
+  const name  = document.getElementById('sf-name-' + tmpId).value.trim();
+  if (!name) { showToast('error','Алдаа','Үйлчилгээний нэрийг оруулна уу.'); return; }
+  const dur   = parseInt(document.getElementById('sf-dur-' + tmpId).value)   || 30;
+  const price = parseInt(document.getElementById('sf-price-' + tmpId).value) || 0;
+  const cap   = parseInt(document.getElementById('sf-cap-' + tmpId).value)   || 1;
+  const buf   = parseInt(document.getElementById('sf-buf-' + tmpId).value)   || 0;
+  const desc  = document.getElementById('sf-desc-' + tmpId).value.trim() || null;
+
+  const { error } = await _sb.from('services').insert({
+    place_id: _placeId, name, duration_minutes: dur, price, max_capacity: cap,
+    buffer_minutes: buf, description: desc, is_active: true,
+  });
+  if (error) { showToast('error','Алдаа', error.message); return; }
+  showToast('success','Нэмэгдлээ','Шинэ үйлчилгээ амжилттай нэмэгдлээ.');
+  await loadServices();
+}
+
+// ── Save inline edits ───────────────────────────────────────────────
+async function saveInlineSvc(id) {
+  const name  = document.getElementById('sf-name-' + id).value.trim();
+  if (!name) { showToast('error','Алдаа','Үйлчилгээний нэрийг оруулна уу.'); return; }
+  const dur   = parseInt(document.getElementById('sf-dur-' + id).value)   || 30;
+  const price = parseInt(document.getElementById('sf-price-' + id).value) || 0;
+  const cap   = parseInt(document.getElementById('sf-cap-' + id).value)   || 1;
+  const buf   = parseInt(document.getElementById('sf-buf-' + id).value)   || 0;
+  const desc  = document.getElementById('sf-desc-' + id).value.trim() || null;
+
+  const { error } = await _sb.from('services').update({
+    name, duration_minutes: dur, price, max_capacity: cap,
+    buffer_minutes: buf, description: desc,
+  }).eq('id', id);
+  if (error) { showToast('error','Алдаа', error.message); return; }
+  showToast('success','Хадгалагдлаа','Үйлчилгээ засварлагдлаа.');
+  await loadServices();
+}
+
+// ── Toggle active ────────────────────────────────────────────────────
+async function toggleSvcActive(id, btn) {
+  const svc = _services.find(s => s.id === id);
+  if (!svc) return;
+  const newVal = !(svc.is_active !== false);
+  const { error } = await _sb.from('services').update({ is_active: newVal }).eq('id', id);
+  if (error) { showToast('error','Алдаа', error.message); return; }
+  svc.is_active = newVal;
+  btn.classList.toggle('on', newVal);
+  document.getElementById('svc-card-' + id).classList.toggle('inactive', !newVal);
+  renderSvcCards();
+}
+
+// ── Delete ───────────────────────────────────────────────────────────
+async function deleteSvc(id) {
+  if (!confirm('Энэ үйлчилгээг устгах уу?')) return;
+  const { error } = await _sb.from('services').delete().eq('id', id);
+  if (error) { showToast('error','Алдаа', error.message); return; }
+  _services = _services.filter(s => s.id !== id);
+  showToast('success','Устгагдлаа','Үйлчилгээ амжилттай устгагдлаа.');
+  renderSvcCards();
+}
+
+// ════════════════════════════════════════════════════════════════
+// HOURS
+// ════════════════════════════════════════════════════════════════
+
+async function loadHours() {
+  // Seed defaults
+  DAYS_MN.forEach(d => {
+    _hoursState[d.id] = {
+      open:       !d.weekend,
+      start:      d.weekend ? '10:00' : '09:00',
+      end:        '18:00',
+      breakStart: '',
+      breakEnd:   '',
+    };
+  });
+
+  if (_placeId) {
+    const { data } = await _sb.from('business_hours')
+      .select('*').eq('place_id', _placeId).order('day_of_week');
+    if (data && data.length) {
+      data.forEach(row => {
+        _hoursState[row.day_of_week] = {
+          open:       !row.is_closed,
+          start:      (row.open_time  || '09:00').slice(0,5),
+          end:        (row.close_time || '18:00').slice(0,5),
+          breakStart: row.break_start ? row.break_start.slice(0,5) : '',
+          breakEnd:   row.break_end   ? row.break_end.slice(0,5)   : '',
+        };
+      });
+    }
+  }
+  renderHours();
+}
+
+function renderHours() {
+  document.getElementById('hoursGrid').innerHTML =
+    DAYS_ORDER.map(d => dayRowHTML(d)).join('');
+}
+
+function calcOpenHours(start, end, bStart, bEnd) {
+  const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+  let mins = toMin(end) - toMin(start);
+  if (bStart && bEnd) mins -= (toMin(bEnd) - toMin(bStart));
+  return Math.max(0, +(mins/60).toFixed(1));
+}
+
+function dayRowHTML(d) {
+  const day = DAYS_MN[d];
+  const s   = _hoursState[d];
+  const hrs = s.open ? calcOpenHours(s.start, s.end, s.breakStart, s.breakEnd) : 0;
+
+  return `<div class="hrs-day-card${s.open ? '' : ' hrs-day-closed'}" id="hrs-day-${d}">
+    <div class="hrs-day-header">
+      <button class="hrs-toggle${s.open ? ' on' : ''}" onclick="toggleHrsDay(${d})"></button>
+      <div class="hrs-day-label">
+        <div class="hrs-day-name${day.weekend ? ' hrs-weekend' : ''}">${day.full}</div>
+        <div class="hrs-day-status">${s.open ? hrs + ' ц нээлттэй' : 'Хаалттай'}</div>
+      </div>
+      ${s.open ? `
+        <div class="hrs-ranges">
+          <div class="hrs-range-row">
+            <input type="time" class="hrs-time-input" id="hrs-s-${d}" value="${s.start}" onchange="hrsSyncAndRedraw(${d})" />
+            <span class="hrs-sep">—</span>
+            <input type="time" class="hrs-time-input" id="hrs-e-${d}" value="${s.end}"  onchange="hrsSyncAndRedraw(${d})" />
+          </div>
+          ${s.breakStart ? `
+          <div class="hrs-range-row" style="margin-top:6px;">
+            <span class="hrs-break-badge">ЗАВСАР</span>
+            <input type="time" class="hrs-time-input" id="hrs-bs-${d}" value="${s.breakStart}" onchange="hrsSyncAndRedraw(${d})" />
+            <span class="hrs-sep">—</span>
+            <input type="time" class="hrs-time-input" id="hrs-be-${d}" value="${s.breakEnd}" onchange="hrsSyncAndRedraw(${d})" />
+            <button class="icon-btn danger" onclick="removeBreak(${d})" title="Завсар хасах">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>` : ''}
+        </div>
+        <div class="hrs-day-actions">
+          ${!s.breakStart ? `<button class="hrs-link-btn" onclick="addBreak(${d})">+ Завсар нэмэх</button>` : ''}
+          <button class="hrs-link-btn hrs-copy-btn" onclick="copyHoursToOpenDays(${d})" title="Бусад нээлттэй өдрүүдэд хуулах">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <rect x="1.5" y="1.5" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M4.5 4.5h6v6h-6" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+            </svg>
+            Хуулах
+          </button>
+        </div>
+      ` : `<div class="hrs-closed-label">Энэ өдөр хаалттай</div>`}
+    </div>
+  </div>`;
+}
+
+// Read current input values → update state → re-render row
+function hrsSyncAndRedraw(d) {
+  const s = _hoursState[d];
+  const sEl = document.getElementById('hrs-s-' + d);
+  const eEl = document.getElementById('hrs-e-' + d);
+  const bsEl = document.getElementById('hrs-bs-' + d);
+  const beEl = document.getElementById('hrs-be-' + d);
+  if (sEl) s.start = sEl.value;
+  if (eEl) s.end   = eEl.value;
+  if (bsEl) s.breakStart = bsEl.value;
+  if (beEl) s.breakEnd   = beEl.value;
+  // Redraw just this day's row
+  const row = document.getElementById('hrs-day-' + d);
+  if (row) row.outerHTML = dayRowHTML(d);
+}
+
+function toggleHrsDay(d) {
+  _hoursState[d].open = !_hoursState[d].open;
+  const row = document.getElementById('hrs-day-' + d);
+  if (row) row.outerHTML = dayRowHTML(d);
+}
+
+function addBreak(d) {
+  const s = _hoursState[d];
+  // Default break: halfway through the workday
+  const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+  const midMin = Math.floor((toMin(s.start) + toMin(s.end)) / 2);
+  const toStr = m => String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+  s.breakStart = toStr(midMin);
+  s.breakEnd   = toStr(Math.min(midMin + 60, toMin(s.end) - 30));
+  const row = document.getElementById('hrs-day-' + d);
+  if (row) row.outerHTML = dayRowHTML(d);
+}
+
+function removeBreak(d) {
+  _hoursState[d].breakStart = '';
+  _hoursState[d].breakEnd   = '';
+  const row = document.getElementById('hrs-day-' + d);
+  if (row) row.outerHTML = dayRowHTML(d);
+}
+
+function copyHoursToOpenDays(fromDay) {
+  const src = _hoursState[fromDay];
+  DAYS_MN.forEach(day => {
+    if (day.id !== fromDay && _hoursState[day.id].open) {
+      _hoursState[day.id] = { ..._hoursState[day.id], start: src.start, end: src.end, breakStart: src.breakStart, breakEnd: src.breakEnd };
+    }
+  });
+  renderHours();
+  showToast('success','Хуулагдлаа','Цаг бусад нээлттэй өдрүүдэд хуулагдлаа.');
+}
+
+function applyPreset(preset) {
+  DAYS_MN.forEach(day => {
+    if (preset === 'weekdays-9-18') {
+      _hoursState[day.id] = { open: !day.weekend, start: '09:00', end: '18:00', breakStart: '', breakEnd: '' };
+    } else if (preset === 'all-10-22') {
+      _hoursState[day.id] = { open: true, start: '10:00', end: '22:00', breakStart: '', breakEnd: '' };
+    } else if (preset === 'closed') {
+      _hoursState[day.id] = { open: false, start: '09:00', end: '18:00', breakStart: '', breakEnd: '' };
+    }
+  });
+  renderHours();
+}
+
+async function saveHours() {
+  if (!_placeId) { showToast('error','Алдаа','Байршлийн мэдээлэл олдсонгүй.'); return; }
+  const rows = DAYS_MN.map(day => {
+    const s = _hoursState[day.id];
+    return {
+      place_id:    _placeId,
+      day_of_week: day.id,
+      open_time:   s.open ? s.start : null,
+      close_time:  s.open ? s.end   : null,
+      break_start: s.open && s.breakStart ? s.breakStart : null,
+      break_end:   s.open && s.breakEnd   ? s.breakEnd   : null,
+      is_closed:   !s.open,
+    };
+  });
+  const { error } = await _sb.from('business_hours')
+    .upsert(rows, { onConflict: 'place_id,day_of_week' });
+  if (error) { showToast('error','Алдаа', error.message); return; }
+  showToast('success','Хадгалагдлаа','Ажлын цаг амжилттай хадгалагдлаа.');
+}
+
+// ════════════════════════════════════════════════════════════════
+// CAPACITY & RULES TAB
+// ════════════════════════════════════════════════════════════════
+function toggleReminder(cardId, btn) {
+  const card = document.getElementById(cardId);
+  const on = !btn.classList.contains('on');
+  btn.classList.toggle('on', on);
+  card.classList.toggle('on', on);
+}
+
+async function saveRules() {
+  const cap = parseInt(document.getElementById('ruleSlotCap').value) || 1;
+  const depositRaw = document.getElementById('ruleDepositAmount').value.trim();
+  const depositAmount = depositRaw === '' ? null : (parseInt(depositRaw, 10) || null);
+  if (_placeId) {
+    await _sb.from('places').update({ slot_capacity: cap, deposit_amount: depositAmount }).eq('place_id', _placeId);
+  }
+  showToast('success','Хадгалагдлаа','Тохиргоо хадгалагдлаа.');
+}
+
+// ════════════════════════════════════════════════════════════════
+// STAFF TAB (placeholder — tables will be added in a future sprint)
+// ════════════════════════════════════════════════════════════════
+function openStaffModal() {
+  document.getElementById('staffModal').classList.add('open');
+  document.getElementById('staffName').focus();
+}
+function closeStaffModal() {
+  document.getElementById('staffModal').classList.remove('open');
+}
+async function saveStaff() {
+  showToast('info','Удахгүй','Ажилтны удирдлага дараагийн шинэчлэлтэд орно.');
+  closeStaffModal();
+}
+
+// ── Mobile sidebar ────────────────────────────────────────────────
+document.getElementById('mobileMenuBtn').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarBackdrop').classList.toggle('open');
+});
+document.getElementById('sidebarBackdrop').addEventListener('click', () => {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebarBackdrop').classList.remove('open');
+});
+document.getElementById('staffModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeStaffModal();
+});
+</script>
+</body>
+</html>

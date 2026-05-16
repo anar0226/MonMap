@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.hcaptcha.com https://hcaptcha.com; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Самбар — МонМэп Бизнес Портал</title>
+  <link rel="stylesheet" href="css/style.css" />
+  <style>
+    .chart-bar-wrap { display: flex; align-items: flex-end; gap: 6px; height: 100px; }
+    .chart-bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+    .chart-bar {
+      width: 100%; border-radius: 4px 4px 0 0;
+      background: linear-gradient(to top, var(--primary), #60a5fa);
+      transition: height 0.4s ease;
+      min-height: 4px;
+    }
+    .chart-bar.dim { background: linear-gradient(to top, var(--gray-300), var(--gray-200)); }
+    .chart-bar.today { background: linear-gradient(to top, var(--secondary), #fbbf24); }
+    .chart-label { font-size: 0.6875rem; color: var(--gray-400); }
+    .quick-action {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px;
+      border-radius: var(--radius);
+      border: 2px solid var(--gray-200);
+      background: var(--white);
+      cursor: pointer;
+      transition: all var(--transition);
+      text-decoration: none;
+      color: var(--gray-800);
+    }
+    .quick-action:hover { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+    .quick-action .qa-icon { font-size: 1.375rem; }
+    .quick-action .qa-label { font-size: 0.875rem; font-weight: 600; }
+    .announce-card {
+      background: linear-gradient(135deg, var(--primary), #3b82f6);
+      border-radius: var(--radius-lg);
+      padding: 20px;
+      color: white;
+    }
+  </style>
+</head>
+<body>
+
+<div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+<div class="app-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <a href="index.html" class="sidebar-logo" aria-label="MONMAP">
+        <div class="logo-icon" aria-hidden="true"></div>
+        MONMAP
+      </a>
+    </div>
+
+    <div class="sidebar-business">
+      <div class="business-pill">
+        <div class="business-avatar" id="sbAvatar">М</div>
+        <div class="business-info">
+          <div class="business-name" id="sbBizName">МонМэп Бизнес</div>
+          <div class="business-type" id="sbBizType">—</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      <span class="nav-section-label">Үндсэн</span>
+      <a href="dashboard.html" class="active">
+        <span class="nav-icon" data-icon="home"></span> Самбар
+      </a>
+      <a href="bookings.html">
+        <span class="nav-icon" data-icon="calendar"></span> Захиалга
+        <span class="nav-badge" id="pendingBadge">0</span>
+      </a>
+
+      <span class="nav-section-label">Удирдлага</span>
+      <a href="profile.html">
+        <span class="nav-icon" data-icon="store"></span> Бизнесийн мэдээлэл
+      </a>
+      <a href="services.html">
+        <span class="nav-icon" data-icon="services"></span> Үйлчилгээ & Цаг
+      </a>
+      <a href="reports.html">
+        <span class="nav-icon" data-icon="chart"></span> Тайлан
+      </a>
+      <a href="customers.html">
+        <span class="nav-icon" data-icon="users"></span> Харилцагчид
+      </a>
+
+      <span class="nav-section-label">Тохиргоо</span>
+      <a href="notifications.html">
+        <span class="nav-icon" data-icon="bell"></span> Мэдэгдэл
+        <span class="nav-badge" id="notifBadge" style="display:none;">0</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a href="profile.html"><span class="nav-icon" data-icon="user"></span> Профайл</a>
+      <button type="button" class="nav-link" onclick="logout()"><span class="nav-icon" data-icon="logout"></span> Гарах</button>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <div class="main-content">
+    <div class="top-bar">
+      <div class="top-bar-left">
+        <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Цэс нээх" title="Цэс">☰</button>
+        <span class="page-title">Самбар</span>
+      </div>
+      <div class="top-bar-right">
+        <button class="theme-toggle" id="themeToggle" aria-label="Дэлгэцийн горим" title="Гэрэлтэй / Харанхуй горим">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+        </button>
+        <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл" onclick="showToast('info','Шинэ мэдэгдэл','2 захиалга баталгаажуулахыг хүлээж байна.')">
+          <span data-icon="bell" aria-hidden="true"></span>
+          <span class="notification-dot"></span>
+        </button>
+        <div class="top-bar-avatar" id="topAvatar" title="Профайл">Б</div>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- Verification status -->
+      <div class="verify-status verified" id="verifyBanner">
+        <span class="verify-icon">✅</span>
+        <div class="verify-info">
+          <div class="verify-title">Бизнес баталгаажсан</div>
+          <div class="verify-desc">Таны бизнес МонМэп платформд бүрэн баталгаажиж, харилцагч нарт харагдаж байна.</div>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="statsGrid">
+        <!-- Skeleton placeholders shown until JS replaces them with real KPI cards. -->
+        <div class="skel-stat"><span class="skel skel-line-sm"></span><span class="skel skel-title"></span><span class="skel skel-text"></span></div>
+        <div class="skel-stat"><span class="skel skel-line-sm"></span><span class="skel skel-title"></span><span class="skel skel-text"></span></div>
+        <div class="skel-stat"><span class="skel skel-line-sm"></span><span class="skel skel-title"></span><span class="skel skel-text"></span></div>
+        <div class="skel-stat"><span class="skel skel-line-sm"></span><span class="skel skel-title"></span><span class="skel skel-text"></span></div>
+      </div>
+
+      <!-- Two column -->
+      <div style="display:grid;grid-template-columns:1fr 340px;gap:24px;margin-bottom:24px;">
+
+        <!-- Today's schedule -->
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">📋 Өнөөдрийн хуваарь</span>
+            <a href="bookings.html" class="btn btn-outline btn-sm">Бүгдийг харах</a>
+          </div>
+          <div class="card-body" id="todaySchedule" style="padding:8px 24px;">
+            <!-- Skeleton rows for the first paint; JS replaces this block. -->
+            <div class="skel-row"><span class="skel skel-circle" style="width:36px;height:36px;flex-shrink:0;"></span><div style="flex:1"><span class="skel skel-line-lg"></span><span class="skel skel-line-sm"></span></div></div>
+            <div class="skel-row"><span class="skel skel-circle" style="width:36px;height:36px;flex-shrink:0;"></span><div style="flex:1"><span class="skel skel-line-lg"></span><span class="skel skel-line-sm"></span></div></div>
+            <div class="skel-row"><span class="skel skel-circle" style="width:36px;height:36px;flex-shrink:0;"></span><div style="flex:1"><span class="skel skel-line-lg"></span><span class="skel skel-line-sm"></span></div></div>
+          </div>
+        </div>
+
+        <!-- Right column -->
+        <div style="display:flex;flex-direction:column;gap:20px;">
+
+          <!-- Mini chart -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">📈 7 хоногийн захиалга</span>
+            </div>
+            <div class="card-body" style="padding-bottom:8px;">
+              <div class="chart-bar-wrap" id="weekChart">
+                <!-- filled by JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick actions -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">⚡ Хурдан үйлдэл</span>
+            </div>
+            <div class="card-body" style="display:flex;flex-direction:column;gap:8px;">
+              <a href="bookings.html" class="quick-action">
+                <span class="qa-icon">➕</span>
+                <span class="qa-label">Шинэ захиалга нэмэх</span>
+              </a>
+              <a href="bookings.html?filter=pending" class="quick-action">
+                <span class="qa-icon">✅</span>
+                <span class="qa-label">Хүлээгдэж буй батлах</span>
+              </a>
+              <a href="profile.html" class="quick-action">
+                <span class="qa-icon">🏪</span>
+                <span class="qa-label">Бизнес мэдээлэл засах</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent bookings table -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">🗓️ Сүүлийн захиалгууд</span>
+          <a href="bookings.html" class="btn btn-outline btn-sm">Бүгдийг харах →</a>
+        </div>
+        <div class="table-wrap">
+          <table id="recentTable">
+            <thead>
+              <tr>
+                <th>Харилцагч</th>
+                <th>Үйлчилгээ</th>
+                <th>Огноо & Цаг</th>
+                <th>Төлөв</th>
+                <th>Үйлдэл</th>
+              </tr>
+            </thead>
+            <tbody id="recentTableBody">
+              <!-- filled by JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- page-content -->
+  </div><!-- main-content -->
+</div><!-- app-layout -->
+
+<!-- Confirm booking modal -->
+<div class="modal-overlay" id="confirmModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="modal-title">Захиалга баталгаажуулах</span>
+      <button class="modal-close" onclick="closeModal('confirmModal')">✕</button>
+    </div>
+    <div class="modal-body" id="confirmModalBody"></div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('confirmModal')">Цуцлах</button>
+      <button class="btn btn-danger btn-sm" id="cancelBookingBtn">❌ Цуцлах</button>
+      <button class="btn btn-success" id="confirmBookingBtn">✅ Баталгаажуулах</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script src="js/supabase.min.js"></script>
+<script src="js/supabase-client.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/icons.js"></script>
+<script>
+  let _biz = null;
+  let _user = null;
+  let _bookings = [];
+  let selectedBookingId = null;
+
+  function showServicesModal() {
+    showToast('info', 'Тун удахгүй', 'Үйлчилгээ & Цаг хуваарийн удирдлага тун удахгүй нэмэгдэнэ.');
+  }
+
+  function renderStats() {
+    const today = todayStr();
+    const todayB  = _bookings.filter(b => b.date === today);
+    const pending = _bookings.filter(b => b.status === 'pending');
+    const now     = new Date();
+    const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
+    const thisWeek = _bookings.filter(b => new Date(b.date + 'T00:00:00') >= weekStart);
+    const uniqueClients = new Set(_bookings.map(b => b.phone || b.client)).size;
+
+    document.getElementById('statsGrid').innerHTML = `
+      <div class="stat-card">
+        <div class="stat-icon blue">📅</div>
+        <div class="stat-body">
+          <div class="stat-value">${todayB.length}</div>
+          <div class="stat-label">Өнөөдрийн захиалга</div>
+          <div class="stat-change up">↑ Өнөөдөр</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon amber">⏳</div>
+        <div class="stat-body">
+          <div class="stat-value">${pending.length}</div>
+          <div class="stat-label">Батлагдаагүй</div>
+          <div class="stat-change ${pending.length > 0 ? 'up' : 'down'}">${pending.length > 0 ? '⚠️ Хурдан батал' : '✓ Бүгд батлагдсан'}</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">✅</div>
+        <div class="stat-body">
+          <div class="stat-value">${thisWeek.length}</div>
+          <div class="stat-label">7 хоногт</div>
+          <div class="stat-change up">↑ Энэ 7 хоног</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple">👥</div>
+        <div class="stat-body">
+          <div class="stat-value">${uniqueClients}</div>
+          <div class="stat-label">Нийт харилцагч</div>
+          <div class="stat-change up">↑ Нийт</div>
+        </div>
+      </div>
+    `;
+
+    const p = pending.length;
+    document.getElementById('pendingBadge').textContent = p;
+    document.getElementById('pendingBadge').style.display = p ? '' : 'none';
+  }
+
+  function renderTodaySchedule() {
+    const todayB = _bookings.filter(b => b.date === todayStr()).sort((a, b) => a.time.localeCompare(b.time));
+    const el = document.getElementById('todaySchedule');
+    if (!todayB.length) {
+      el.innerHTML = '<div class="empty-state" style="padding:32px 0;"><div class="empty-icon">📭</div><h4>Өнөөдөр захиалга алга</h4><p>Шинэ захиалга ирвэл энд харагдана.</p></div>';
+      return;
+    }
+    // All `b.*` values originate from guest-controlled mobile-app input.
+    // Every interpolation that lands inside innerHTML must be escaped to
+    // prevent stored XSS via guest_name / service / note in the bookings table.
+    el.innerHTML = todayB.map(b => `
+      <div class="schedule-item">
+        <div class="schedule-time">${escapeHtml(b.time)}</div>
+        <div class="schedule-dot ${escapeHtml(b.status)}"></div>
+        <div class="schedule-info">
+          <div class="schedule-name">${escapeHtml(b.client)}</div>
+          <div class="schedule-service">${escapeHtml(b.service)} • ${escapeHtml(b.duration)} мин</div>
+        </div>
+        <div class="schedule-actions">
+          ${statusBadge(b.status)}
+          ${b.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="quickConfirm('${escapeHtml(b.id)}')">✓</button>` : ''}
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function renderWeekChart() {
+    const today = new Date();
+    const dayNames = ['Ня','Да','Мя','Лх','Пү','Ба','Бя'];
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today); d.setDate(today.getDate() - i);
+      const str = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+      days.push({ label: dayNames[d.getDay()], count: _bookings.filter(b => b.date === str).length, isToday: i === 0 });
+    }
+    const max = Math.max(...days.map(d => d.count), 1);
+    document.getElementById('weekChart').innerHTML = days.map(d => `
+      <div class="chart-bar-col">
+        <div style="font-size:0.6875rem;color:var(--gray-600);font-weight:600;">${d.count}</div>
+        <div class="chart-bar ${d.isToday ? 'today' : ''}" style="height:${Math.round((d.count/max)*80)+4}px;"></div>
+        <div class="chart-label">${d.label}</div>
+      </div>
+    `).join('');
+  }
+
+  function renderRecentTable() {
+    const recent = [..._bookings].sort((a, b) => (b.date + b.time).localeCompare(a.date + a.time)).slice(0, 8);
+    document.getElementById('recentTableBody').innerHTML = recent.map(b => `
+      <tr>
+        <td>
+          <div style="font-weight:600;">${escapeHtml(b.client)}</div>
+          <div style="font-size:0.8125rem;color:var(--gray-500);">${escapeHtml(b.phone)}</div>
+        </td>
+        <td>${escapeHtml(b.service)}</td>
+        <td>
+          <div style="font-weight:600;">${escapeHtml(relativeDate(b.date))}</div>
+          <div style="font-size:0.8125rem;color:var(--gray-500);">${escapeHtml(b.time)} • ${escapeHtml(b.duration)} мин</div>
+        </td>
+        <td>${statusBadge(b.status)}</td>
+        <td>
+          <button class="btn btn-ghost btn-sm" onclick="openBookingModal('${escapeHtml(b.id)}')">Харах</button>
+          ${b.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="quickConfirm('${escapeHtml(b.id)}')">✓ Батлах</button>` : ''}
+        </td>
+      </tr>
+    `).join('');
+  }
+
+  async function quickConfirm(id) {
+    const b = _bookings.find(x => x.id === id);
+    if (!b) return;
+    const err = await updateBookingStatus(id, 'confirmed');
+    if (err) { showToast('error', 'Алдаа', err.message); return; }
+    await render();
+    showToast('success', 'Баталгаажуулагдлаа', `${b.client}-ийн захиалга баталгаажлаа.`);
+  }
+
+  function bookingDetailHtml(b) {
+    // Mirror bookings.html — every `b.*` interpolation gets escapeHtml'd.
+    return `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Харилцагч</div><div class="font-semibold">${escapeHtml(b.client)}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Утас</div><div class="font-semibold">${escapeHtml(b.phone) || '—'}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Үйлчилгээ</div><div class="font-semibold">${escapeHtml(b.service)}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Хугацаа</div><div class="font-semibold">${escapeHtml(b.duration)} минут</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Огноо</div><div class="font-semibold">${escapeHtml(formatDate(b.date))}</div></div>
+        <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Цаг</div><div class="font-semibold">${escapeHtml(b.time)}</div></div>
+        <div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Төлөв</div>${statusBadge(b.status)}</div>
+        ${b.note ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Тэмдэглэл</div><div>${escapeHtml(b.note)}</div></div>` : ''}
+      </div>`;
+  }
+
+  function openBookingModal(id) {
+    const b = _bookings.find(x => x.id === id);
+    if (!b) return;
+    selectedBookingId = id;
+    document.getElementById('confirmModalBody').innerHTML = bookingDetailHtml(b);
+    document.getElementById('confirmBookingBtn').style.display = b.status === 'confirmed' ? 'none' : '';
+    document.getElementById('cancelBookingBtn').style.display  = (b.status === 'canceled' || b.status === 'cancelled') ? 'none' : '';
+    document.getElementById('confirmModal').classList.add('open');
+  }
+
+  document.getElementById('confirmBookingBtn').addEventListener('click', async () => {
+    const b = _bookings.find(x => x.id === selectedBookingId);
+    if (b) {
+      const err = await updateBookingStatus(b.id, 'confirmed');
+      if (!err) { await render(); showToast('success', 'Баталгаажуулагдлаа', `${b.client}-ийн захиалга баталгаажлаа.`); }
+      else showToast('error', 'Алдаа', err.message);
+    }
+    closeModal('confirmModal');
+  });
+
+  document.getElementById('cancelBookingBtn').addEventListener('click', async () => {
+    const b = _bookings.find(x => x.id === selectedBookingId);
+    if (b) {
+      const err = await updateBookingStatus(b.id, 'canceled');
+      if (!err) { await render(); showToast('warning', 'Цуцлагдлаа', `${b.client}-ийн захиалга цуцлагдлаа.`); }
+      else showToast('error', 'Алдаа', err.message);
+    }
+    closeModal('confirmModal');
+  });
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+  document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', function (e) { if (e.target === this) this.classList.remove('open'); });
+  });
+
+  async function render() {
+    if (!_biz) return;
+    _bookings = await getDashboardBookings(_biz.id);
+    renderStats();
+    renderTodaySchedule();
+    renderWeekChart();
+    renderRecentTable();
+  }
+
+  (async function init() {
+    const auth = await requireAuth();
+    if (!auth) return;
+    _user = auth.user;
+    _biz  = auth.biz;
+
+    const bizName = (_biz && _biz.name) || 'МонМэп Бизнес';
+    document.getElementById('sbBizName').textContent = bizName;
+    document.getElementById('sbBizType').textContent = _biz ? 'Бизнес' : '';
+    document.getElementById('sbAvatar').textContent  = bizName[0] || 'Б';
+    document.getElementById('topAvatar').textContent = (_user.email || 'Б')[0].toUpperCase();
+
+    // Verification banner
+    if (_biz && _biz.verified) {
+      document.getElementById('verifyBanner').className = 'verify-status verified';
+    } else {
+      const banner = document.getElementById('verifyBanner');
+      banner.className = 'verify-status pending';
+      banner.innerHTML = '<span class="verify-icon">⏳</span><div class="verify-info"><div class="verify-title">Баталгаажуулалт хүлээгдэж байна</div><div class="verify-desc">Таны бизнес МонМэп-ийн багийн хяналтад байна. 24 цагт и-мэйлээр мэдэгдэнэ.</div></div>';
+    }
+
+    initMobileSidebar();
+    wireThemeToggle('#themeToggle');
+    loadNotifBadge();
+    startNotifBadgePolling();
+
+    if (!_biz) {
+      document.getElementById('statsGrid').innerHTML = '<div class="empty-state" style="padding:32px;grid-column:1/-1;"><div class="empty-icon">🏪</div><h4>Бизнес бүртгэгдээгүй байна</h4><p><a href="register.html">Бизнесээ бүртгүүлэх →</a></p></div>';
+      return;
+    }
+
+    await render();
+  })();
+</script>
+</body>
+</html>

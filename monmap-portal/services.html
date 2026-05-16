@@ -2,9 +2,9 @@
 <html lang="mn">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; base-uri 'self'; form-action 'self';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co; img-src 'self' data: blob: https:; font-src 'self' data: https://fonts.gstatic.com; base-uri 'self'; form-action 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Үйлчилгээ & Цаг — МонМэп Бизнес Портал</title>
+  <title>Үйлчилгээ & Ажлын цаг — МонМэп Бизнес Портал</title>
   <link rel="stylesheet" href="css/style.css" />
   <style>
     /* ── Tab strip ── */
@@ -29,79 +29,70 @@
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
-    /* ── Filter bar (Services tab) ── */
-    .filter-bar {
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px;
+    /* ══════════════════════════════════════════
+       SERVICE CARDS
+    ══════════════════════════════════════════ */
+    .svc-action-bar {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 14px; gap: 10px; flex-wrap: wrap;
     }
-    .filter-pills {
-      display: flex; gap: 4px; padding: 4px;
-      background: var(--white); border: 1px solid var(--gray-200); border-radius: 9px;
-    }
-    .filter-pill {
-      padding: 6px 12px; border-radius: 6px; border: none; background: none;
-      font-size: 0.75rem; font-weight: 500; cursor: pointer; color: var(--gray-700);
-      transition: background .1s, color .1s;
-    }
-    .filter-pill.active { background: var(--primary); color: #fff; }
+    .svc-action-hint { font-size: .8125rem; color: var(--gray-400); }
 
-    /* Sort dropdown — matches .btn-outline.btn-sm height so it lines up with
-       the "+ Үйлчилгээ нэмэх" button on the right side of the filter bar. */
-    .sort-select {
-      height: 32px; padding: 0 28px 0 10px;
-      font-size: 0.8125rem; font-weight: 500; color: var(--gray-700);
-      background: var(--white) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'><path fill='%23475569' d='M1 3l4 4 4-4z'/></svg>") no-repeat right 10px center;
-      border: 1px solid var(--gray-300); border-radius: var(--radius-sm);
-      cursor: pointer; -webkit-appearance: none; appearance: none;
-      transition: border-color var(--transition), box-shadow var(--transition);
+    /* Card wrapper */
+    .svc-card {
+      background: #fff;
+      border: 1px solid var(--gray-200);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 10px;
+      transition: border-color .15s, box-shadow .15s;
     }
-    .sort-select:hover  { border-color: var(--gray-400); }
-    .sort-select:focus  { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,0.15); }
+    .svc-card.expanded {
+      border-color: #93b4f7;
+      box-shadow: 0 0 0 3px rgba(29,78,216,.07);
+    }
+    .svc-card.inactive { opacity: .6; }
 
-    /* ── Services table ── */
-    .svc-table-wrap {
-      background: var(--white); border-radius: var(--radius-lg);
-      border: 1px solid var(--gray-200); overflow: hidden;
+    /* Card collapsed header */
+    .svc-card-header {
+      display: flex; align-items: center; gap: 10px;
+      padding: 13px 14px 13px 8px;
+      cursor: pointer; user-select: none;
     }
-    .svc-table-head {
-      display: grid;
-      grid-template-columns: 1.8fr .65fr .8fr .65fr 90px 56px 56px;
-      padding: 10px 18px; gap: 14px;
-      background: #FAFAFB; border-bottom: 1px solid var(--gray-200);
-      font-size: 0.65rem; font-weight: 700; color: var(--gray-400);
-      letter-spacing: .09em; text-transform: uppercase;
+    .svc-card-grip {
+      width: 20px; display: flex; justify-content: center;
+      color: var(--gray-300); cursor: grab; font-size: 1rem;
+      flex-shrink: 0;
     }
-    .svc-row {
-      display: grid;
-      grid-template-columns: 1.8fr .65fr .8fr .65fr 90px 56px 56px;
-      padding: 13px 18px; gap: 14px; align-items: center;
-      border-bottom: 1px solid var(--gray-100);
-      transition: background .1s;
+    .svc-card-info { flex: 1; min-width: 0; }
+    .svc-card-name {
+      font-size: .9375rem; font-weight: 600; color: var(--gray-900);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    .svc-row:last-child { border-bottom: none; }
-    .svc-row:hover { background: #FAFAFA; }
-    .svc-row.inactive { opacity: .55; }
-    .svc-thumb {
-      width: 42px; height: 42px; border-radius: 8px;
-      background: var(--gray-100); display: flex; align-items: center;
-      justify-content: center; font-size: 1.25rem; flex-shrink: 0; overflow: hidden;
-    }
-    .svc-thumb img { width: 100%; height: 100%; object-fit: cover; }
-    .svc-name { font-size: 0.875rem; font-weight: 600; color: var(--gray-900); margin-bottom: 2px; }
-    .svc-cat-badge {
-      display: inline-flex; align-items: center;
-      font-size: 0.625rem; font-weight: 700; padding: 1px 7px;
-      border-radius: 4px; letter-spacing: .03em;
-    }
-    .staff-avatars { display: flex; }
-    .staff-avatar {
-      width: 24px; height: 24px; border-radius: 50%;
-      border: 2px solid #fff; display: flex; align-items: center;
-      justify-content: center; font-size: 0.625rem; font-weight: 700; color: #fff;
-      margin-left: -6px; flex-shrink: 0;
-    }
-    .staff-avatar:first-child { margin-left: 0; }
+    .svc-name-empty { color: var(--gray-400); font-style: italic; font-weight: 400; }
+    .svc-card-pills { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 5px; }
 
-    /* ── Toggle ── */
+    /* Pill badges */
+    .svc-pill {
+      display: inline-flex; align-items: center; gap: 3px;
+      padding: 3px 9px; border-radius: 999px;
+      background: var(--gray-100); color: var(--gray-600);
+      font-size: .75rem; font-weight: 500; white-space: nowrap;
+    }
+    .svc-pill-warn { background: #fef3c7; color: #92400e; }
+
+    .svc-card-meta { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
+    .svc-chevron {
+      width: 28px; height: 28px; border-radius: 7px; border: none;
+      background: none; display: flex; align-items: center; justify-content: center;
+      color: var(--gray-400); cursor: pointer; transition: background .1s;
+      flex-shrink: 0;
+    }
+    .svc-chevron:hover { background: var(--gray-100); }
+    .svc-chevron svg { transition: transform .18s; }
+    .svc-card.expanded .svc-chevron svg { transform: rotate(180deg); }
+
+    /* Toggle (reused from existing) */
     .toggle {
       width: 34px; height: 19px; border-radius: 10px;
       background: var(--gray-300); position: relative;
@@ -116,57 +107,228 @@
     }
     .toggle.on::after { left: 17px; }
 
-    /* ── Icon buttons ── */
     .icon-btn {
       width: 28px; height: 28px; border-radius: 6px; border: none;
       background: none; cursor: pointer; display: flex; align-items: center;
       justify-content: center; color: var(--gray-400); transition: background .1s, color .1s;
     }
     .icon-btn:hover { background: var(--gray-100); color: var(--gray-700); }
+    .icon-btn.danger:hover { background: #fef2f2; color: #dc2626; }
 
-    /* ── Empty state ── */
-    .empty-state {
-      padding: 56px 0; text-align: center;
-      display: flex; flex-direction: column; align-items: center; gap: 12px;
+    /* Expanded form body */
+    .svc-card-expand {
+      padding: 0 18px 18px;
+      border-top: 1px solid var(--gray-100);
+      padding-top: 16px;
+      background: #f8fafc;
     }
-    .empty-icon { font-size: 2.5rem; }
-    .empty-title { font-size: 1rem; font-weight: 600; color: var(--gray-700); }
-    .empty-sub { font-size: 0.8125rem; color: var(--gray-400); max-width: 320px; }
 
-    /* ── Hours grid ── */
-    .hours-grid { display: flex; flex-direction: column; gap: 0; }
-    .hours-row {
-      display: grid; grid-template-columns: 100px 1fr auto auto;
-      align-items: center; gap: 12px; padding: 12px 0;
-      border-bottom: 1px solid var(--gray-100);
+    .svc-form-group { margin-bottom: 13px; }
+    .svc-form-label {
+      display: flex; align-items: baseline; gap: 6px;
+      font-size: .75rem; font-weight: 600; color: var(--gray-700);
+      margin-bottom: 6px;
     }
-    .hours-row:last-child { border-bottom: none; }
-    .hours-day { font-size: 0.875rem; font-weight: 600; color: var(--gray-800); }
-    .hours-times { display: flex; align-items: center; gap: 8px; }
-    .hours-time-input {
-      width: 100px; padding: 6px 10px; border: 1px solid var(--gray-200);
-      border-radius: 8px; font-size: 0.8125rem; font-family: inherit;
-      background: var(--white); color: var(--gray-800);
+    .svc-form-hint { font-size: .6875rem; font-weight: 400; color: var(--gray-400); }
+    .svc-form-input, .svc-form-select, .svc-form-textarea {
+      width: 100%; box-sizing: border-box;
+      padding: 8px 11px; border: 1px solid var(--gray-200);
+      border-radius: 8px; font-family: inherit;
+      font-size: .875rem; color: var(--gray-900);
+      background: #fff; transition: border-color .12s, box-shadow .12s;
     }
-    .hours-time-input:disabled { background: var(--gray-50); color: var(--gray-400); }
-    .hours-sep { font-size: 0.8125rem; color: var(--gray-400); }
+    .svc-form-input:focus, .svc-form-select:focus, .svc-form-textarea:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(26,86,219,.12);
+    }
+    .svc-form-textarea { resize: vertical; min-height: 60px; }
+    .svc-form-select {
+      appearance: none;
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%2364748b' d='M0 0h10L5 6z'/></svg>");
+      background-repeat: no-repeat; background-position: right 10px center;
+      padding-right: 28px;
+    }
+    .svc-form-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 13px; }
+    .svc-form-input-wrap { position: relative; }
+    .svc-form-input-wrap .svc-form-input { padding-right: 28px; }
+    .svc-form-suffix {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      font-size: .8125rem; color: var(--gray-500); font-weight: 500; pointer-events: none;
+    }
 
-    /* ── Capacity ── */
-    .cap-row {
-      display: grid; grid-template-columns: 1.5fr 2fr 80px;
-      align-items: center; gap: 14px; padding: 12px 0;
-      border-bottom: 1px solid var(--gray-100);
+    /* Stepper */
+    .svc-stepper {
+      display: inline-flex; align-items: center; gap: 3px;
+      background: #f1f5f9; border: 1px solid var(--gray-200);
+      border-radius: 9px; padding: 3px; height: 38px; box-sizing: border-box;
     }
-    .cap-row:last-child { border-bottom: none; }
-    .cap-bar-track {
-      height: 8px; border-radius: 4px; background: var(--gray-100);
-      overflow: hidden;
+    .svc-stepper-btn {
+      width: 28px; height: 28px; border-radius: 6px;
+      border: 1px solid var(--gray-200); background: #fff;
+      font-size: 1rem; font-weight: 500; cursor: pointer; color: var(--gray-700);
+      display: flex; align-items: center; justify-content: center;
+      transition: background .1s;
     }
-    .cap-bar-fill { height: 100%; border-radius: 4px; background: var(--primary); transition: width .3s; }
-    .cap-num { font-size: 0.8125rem; color: var(--gray-500); text-align: right; }
-    .cap-num strong { color: var(--gray-900); }
+    .svc-stepper-btn:hover { background: var(--gray-100); }
+    .svc-stepper-btn:disabled { opacity: .45; cursor: default; }
+    .svc-stepper-val {
+      min-width: 32px; text-align: center;
+      font-size: .875rem; font-weight: 600; color: var(--gray-900);
+      font-variant-numeric: tabular-nums;
+    }
 
-    /* ── Rule cards ── */
+    .svc-form-footer {
+      display: flex; justify-content: flex-end; gap: 8px;
+      margin-top: 16px; padding-top: 14px;
+      border-top: 1px solid var(--gray-100);
+    }
+
+    /* New service card (unsaved) */
+    .svc-card-new { border: 1.5px dashed var(--gray-300); }
+    .svc-card-new.expanded { border-color: var(--primary); border-style: solid; }
+
+    /* Empty state */
+    .svc-empty-state {
+      border: 2px dashed var(--gray-200); border-radius: 14px;
+      padding: 40px 20px; text-align: center; background: #fff;
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .svc-empty-icon {
+      width: 48px; height: 48px; border-radius: 14px;
+      background: rgba(29,78,216,.06);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .svc-empty-title { font-size: .9375rem; font-weight: 600; color: var(--gray-800); }
+    .svc-empty-sub { font-size: .8125rem; color: var(--gray-400); max-width: 320px; line-height: 1.5; }
+
+    /* Add button (dashed) */
+    .svc-add-btn {
+      width: 100%; background: #fff;
+      border: 1.5px dashed var(--gray-300); border-radius: 12px;
+      padding: 13px; margin-top: 2px;
+      font-family: inherit; font-size: .875rem; font-weight: 600;
+      color: var(--primary); cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+      transition: background .12s, border-color .12s;
+    }
+    .svc-add-btn:hover { background: rgba(29,78,216,.04); border-color: var(--primary); }
+
+    /* Info banner */
+    .svc-info-banner {
+      margin-top: 12px; padding: 10px 13px;
+      background: rgba(29,78,216,.05);
+      border: 1px solid rgba(29,78,216,.15);
+      border-radius: 9px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: .75rem; color: var(--primary);
+    }
+
+    /* Footer summary */
+    .svc-footer { margin-top: 10px; display: flex; gap: 18px; font-size: .75rem; color: var(--gray-400); }
+    .svc-footer strong { color: var(--gray-700); }
+
+    /* ══════════════════════════════════════════
+       HOURS TAB
+    ══════════════════════════════════════════ */
+
+    /* Presets */
+    .hrs-presets-card {
+      background: rgba(29,78,216,.04);
+      border: 1px solid rgba(29,78,216,.15);
+      border-radius: 12px; padding: 13px 15px; margin-bottom: 14px;
+    }
+    .hrs-presets-label {
+      font-size: .6875rem; font-weight: 700; color: var(--primary);
+      letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px;
+    }
+    .hrs-presets-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .hrs-preset-chip {
+      background: #fff; border: 1px solid rgba(29,78,216,.25);
+      border-radius: 999px; padding: 5px 13px;
+      font-family: inherit; font-size: .75rem; font-weight: 500;
+      color: var(--primary); cursor: pointer;
+      transition: background .12s, color .12s;
+    }
+    .hrs-preset-chip:hover { background: var(--primary); color: #fff; }
+
+    /* Day card */
+    .hrs-day-card {
+      background: #fff; border: 1px solid var(--gray-200);
+      border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+      transition: opacity .15s;
+    }
+    .hrs-day-card.hrs-day-closed { opacity: .7; }
+
+    .hrs-day-header {
+      display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
+    }
+
+    .hrs-toggle {
+      width: 34px; height: 20px; border-radius: 999px; flex-shrink: 0;
+      background: var(--gray-300); border: none; padding: 0;
+      cursor: pointer; position: relative; transition: background .18s; margin-top: 2px;
+    }
+    .hrs-toggle.on { background: var(--primary); }
+    .hrs-toggle::after {
+      content: ''; position: absolute; top: 2px; left: 2px;
+      width: 16px; height: 16px; border-radius: 50%; background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: left .18s;
+    }
+    .hrs-toggle.on::after { left: 16px; }
+
+    .hrs-day-label { min-width: 110px; flex-shrink: 0; }
+    .hrs-day-name { font-size: .875rem; font-weight: 600; color: var(--gray-800); }
+    .hrs-weekend { color: #7c3aed; }
+    .hrs-day-status { font-size: .75rem; margin-top: 2px; font-weight: 500; }
+    .hrs-day-card:not(.hrs-day-closed) .hrs-day-status { color: #16a34a; }
+    .hrs-day-card.hrs-day-closed .hrs-day-status { color: var(--gray-400); }
+
+    .hrs-ranges { flex: 1; display: flex; flex-direction: column; gap: 0; min-width: 260px; }
+    .hrs-range-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .hrs-time-input {
+      height: 34px; padding: 0 9px;
+      background: #fff; border: 1px solid var(--gray-200); border-radius: 8px;
+      font-family: inherit; font-size: .875rem; font-weight: 500;
+      color: var(--gray-800); width: 100px;
+      font-variant-numeric: tabular-nums;
+      transition: border-color .12s;
+    }
+    .hrs-time-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,86,219,.1); }
+    .hrs-sep { color: var(--gray-400); font-size: .8125rem; }
+    .hrs-break-badge {
+      font-size: .625rem; font-weight: 700; letter-spacing: .04em;
+      color: #92400e; background: #fef3c7; padding: 2px 7px; border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    .hrs-day-actions {
+      display: flex; align-items: center; gap: 12px; flex-shrink: 0; flex-wrap: wrap; margin-top: 4px;
+    }
+    .hrs-link-btn {
+      background: none; border: none; padding: 0;
+      font-family: inherit; font-size: .75rem; font-weight: 600;
+      color: var(--primary); cursor: pointer;
+      display: inline-flex; align-items: center; gap: 4px;
+      transition: opacity .12s;
+    }
+    .hrs-link-btn:hover { opacity: .75; }
+    .hrs-copy-btn { color: var(--gray-500); }
+    .hrs-copy-btn:hover { color: var(--gray-800); }
+
+    .hrs-closed-label {
+      flex: 1; font-size: .8125rem; color: var(--gray-400); font-style: italic;
+      align-self: center;
+    }
+
+    /* Booking rules in hours tab */
+    .hrs-rules-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 600px) {
+      .hrs-rules-grid { grid-template-columns: 1fr; }
+      .svc-form-row2 { grid-template-columns: 1fr; }
+      .hrs-ranges { min-width: 0; }
+    }
+
+    /* Rule cards (kept for Capacity tab) */
     .rule-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .rule-card { background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--gray-200); padding: 18px; }
     .rule-card-title { font-size: 0.875rem; font-weight: 600; color: var(--gray-900); margin-bottom: 14px; }
@@ -174,7 +336,6 @@
     .rule-field:last-child { border-bottom: none; }
     .rule-field-label { flex: 1; font-size: 0.8125rem; font-weight: 500; color: var(--gray-700); }
     .rule-field-hint { font-size: 0.6875rem; color: var(--gray-400); margin-top: 2px; }
-    .rule-field-val { font-size: 0.8125rem; font-weight: 600; color: var(--primary); }
     .rule-field input, .rule-field select {
       width: 100px; padding: 6px 10px; border: 1px solid var(--gray-200);
       border-radius: 8px; font-size: 0.8125rem; font-family: inherit;
@@ -189,7 +350,7 @@
     .reminder-card-title { font-size: 0.8125rem; font-weight: 600; color: var(--gray-800); }
     .reminder-card-desc { font-size: 0.75rem; color: var(--gray-500); }
 
-    /* ── Staff cards ── */
+    /* Staff cards */
     .staff-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .staff-card { background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--gray-200); padding: 18px; }
     .staff-card-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
@@ -198,7 +359,6 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 1rem; font-weight: 700; color: #fff; flex-shrink: 0;
     }
-    .staff-big-avatar img { width: 100%; height: 100%; object-fit: cover; border-radius: 50%; }
     .staff-card-name { font-size: 0.875rem; font-weight: 600; color: var(--gray-900); }
     .staff-card-role { font-size: 0.75rem; color: var(--gray-500); margin-top: 2px; }
     .staff-svc-label {
@@ -211,7 +371,7 @@
       background: var(--gray-100); border-radius: 6px; color: var(--gray-700);
     }
 
-    /* ── Modals ── */
+    /* Modals */
     .svc-modal-overlay {
       display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45);
       z-index: 200; align-items: center; justify-content: center;
@@ -236,7 +396,7 @@
       width: 100%; padding: 9px 12px; border: 1px solid var(--gray-200);
       border-radius: 10px; font-size: 0.875rem; font-family: inherit;
       background: var(--white); color: var(--gray-900);
-      transition: border-color .12s;
+      transition: border-color .12s; box-sizing: border-box;
     }
     .modal-input:focus, .modal-select:focus, .modal-textarea:focus {
       outline: none; border-color: var(--primary);
@@ -245,18 +405,12 @@
     .modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 22px; }
 
-    /* ── Summary footer ── */
-    .svc-footer { margin-top: 12px; display: flex; gap: 20px; font-size: 0.75rem; color: var(--gray-400); }
-    .svc-footer strong { color: var(--gray-700); }
-
-    /* ── Misc ── */
+    /* Section card */
     .section-card { background: var(--white); border-radius: var(--radius-lg); border: 1px solid var(--gray-200); padding: 20px; }
     .section-card + .section-card { margin-top: 14px; }
     .section-card-title { font-size: 0.875rem; font-weight: 600; color: var(--gray-900); margin-bottom: 4px; }
     .section-card-sub { font-size: 0.75rem; color: var(--gray-400); margin-bottom: 16px; }
-    .cap-summary {
-      display: flex; align-items: baseline; gap: 6px; margin-bottom: 14px;
-    }
+    .cap-summary { display: flex; align-items: baseline; gap: 6px; margin-bottom: 14px; }
     .cap-summary-num { font-size: 2rem; font-weight: 700; color: var(--gray-900); letter-spacing: -.03em; }
     .cap-summary-label { font-size: 0.8125rem; color: var(--gray-500); }
   </style>
@@ -310,7 +464,7 @@
     <div class="top-bar">
       <div class="top-bar-left">
         <button class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Цэс">☰</button>
-        <span class="page-title">Үйлчилгээ & Цаг</span>
+        <span class="page-title">Үйлчилгээ & Ажлын цаг</span>
       </div>
       <div class="top-bar-right">
         <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл"><span data-icon="bell" aria-hidden="true"></span><span class="notification-dot"></span></button>
@@ -339,62 +493,65 @@
         </button>
       </div>
 
-      <!-- ══ Tab: Services ══ -->
+      <!-- ══ Tab: Services (Card-based) ══ -->
       <div class="tab-panel active" id="tab-services">
-        <div class="filter-bar">
-          <div class="filter-pills" id="filterPills">
-            <button class="filter-pill active" data-cat="all" onclick="setFilter('all')">Бүгд</button>
-          </div>
-          <div style="flex:1"></div>
-          <label for="svcSort" class="text-sm text-muted" style="font-size:.75rem;">Эрэмбэ:</label>
-          <select id="svcSort" class="sort-select" onchange="applySort(this.value)" aria-label="Үйлчилгээг эрэмбэлэх">
-            <option value="created_desc">Шинээр нэмсэн</option>
-            <option value="created_asc">Эртхэн нэмсэн</option>
-            <option value="name_asc">Нэрээр (А–Я)</option>
-            <option value="name_desc">Нэрээр (Я–А)</option>
-            <option value="price_desc">Үнэ (Их → Бага)</option>
-            <option value="price_asc">Үнэ (Бага → Их)</option>
-            <option value="duration_asc">Хугацаа (Богино → Урт)</option>
-            <option value="duration_desc">Хугацаа (Урт → Богино)</option>
-            <option value="active_first">Идэвхтэй эхэндээ</option>
-          </select>
-          <button class="btn btn-primary btn-sm" style="font-size:.8125rem;" onclick="openSvcModal()">
+        <div class="svc-action-bar">
+          <span class="svc-action-hint">Засахын тулд карт дарна уу</span>
+          <button class="btn btn-primary btn-sm" style="font-size:.8125rem;" onclick="addSvcCard()">
             + Үйлчилгээ нэмэх
           </button>
         </div>
-
-        <div class="svc-table-wrap">
-          <div class="svc-table-head">
-            <span>Үйлчилгээ</span>
-            <span>Хугацаа</span>
-            <span>Үнэ</span>
-            <span>Урьдчилгаа</span>
-            <span>Ажилтан</span>
-            <span style="text-align:center">Идэвхтэй</span>
-            <span></span>
-          </div>
-          <div id="svcTableBody">
-            <div class="empty-state">
-              <div class="empty-icon">⚙️</div>
-              <div class="empty-title">Үйлчилгээ байхгүй байна</div>
-              <div class="empty-sub">«+ Үйлчилгээ нэмэх» товч дарж эхний үйлчилгээгээ нэмнэ үү.</div>
-            </div>
-          </div>
-        </div>
+        <div id="svcCardsContainer"></div>
         <div class="svc-footer" id="svcFooter"></div>
       </div>
 
-      <!-- ══ Tab: Hours ══ -->
+      <!-- ══ Tab: Hours (New design) ══ -->
       <div class="tab-panel" id="tab-hours">
-        <div class="section-card">
-          <div class="section-card-title">Ажлын цаг</div>
-          <div class="section-card-sub">7 хоногийн ажлын цагаа тохируулна уу</div>
-          <div class="hours-grid" id="hoursGrid">
-            <!-- filled by JS -->
+
+        <!-- Quick presets -->
+        <div class="hrs-presets-card">
+          <div class="hrs-presets-label">Хурдан тохиргоо</div>
+          <div class="hrs-presets-row">
+            <button class="hrs-preset-chip" onclick="applyPreset('weekdays-9-18')">Ажлын өдөр 9–18, Амралт хаалттай</button>
+            <button class="hrs-preset-chip" onclick="applyPreset('all-10-22')">Долоо хоног 10–22</button>
+            <button class="hrs-preset-chip" onclick="applyPreset('closed')">Бүгд хаалттай</button>
           </div>
-          <div style="display:flex;justify-content:flex-end;margin-top:18px;">
-            <button class="btn btn-primary" onclick="saveHours()">Хадгалах</button>
+        </div>
+
+        <!-- Day rows (rendered by JS) -->
+        <div id="hoursGrid"></div>
+
+        <!-- Booking rules -->
+        <div class="section-card" style="margin-top:14px;">
+          <div class="section-card-title">Захиалгын дүрэм</div>
+          <div class="hrs-rules-grid" style="margin-top:12px;">
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:600;color:var(--gray-600);margin-bottom:6px;">
+                Захиалгын хугацаа <span style="font-weight:400;color:var(--gray-400);">— Хичнээн хол урагшаа</span>
+              </label>
+              <select class="modal-select" id="hrsMaxAdvance">
+                <option value="30">30 өдрийн өмнөх хүртэл</option>
+                <option value="60" selected>60 өдрийн өмнөх хүртэл</option>
+                <option value="90">90 өдрийн өмнөх хүртэл</option>
+                <option value="180">6 сарын өмнөх хүртэл</option>
+              </select>
+            </div>
+            <div>
+              <label style="display:block;font-size:.75rem;font-weight:600;color:var(--gray-600);margin-bottom:6px;">
+                Урьдчилсан хугацаа <span style="font-weight:400;color:var(--gray-400);">— Хамгийн багадаа</span>
+              </label>
+              <select class="modal-select" id="hrsLeadTime">
+                <option value="0">Ямар ч үед</option>
+                <option value="1" selected>1 цагийн өмнө</option>
+                <option value="2">2 цагийн өмнө</option>
+                <option value="24">1 өдрийн өмнө</option>
+              </select>
+            </div>
           </div>
+        </div>
+
+        <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+          <button class="btn btn-primary" onclick="saveHours()">Хадгалах</button>
         </div>
       </div>
 
@@ -565,10 +722,10 @@
         </div>
         <div class="staff-grid" id="staffGrid">
           <div class="section-card" style="grid-column:1/-1;">
-            <div class="empty-state">
-              <div class="empty-icon">👥</div>
-              <div class="empty-title">Ажилтан байхгүй байна</div>
-              <div class="empty-sub">«+ Ажилтан нэмэх» товч дарж ажилтнаа нэмнэ үү.</div>
+            <div style="padding:40px 0;text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px;">
+              <div style="font-size:2rem;">👥</div>
+              <div style="font-size:1rem;font-weight:600;color:var(--gray-700);">Ажилтан байхгүй байна</div>
+              <div style="font-size:.8125rem;color:var(--gray-400);">«+ Ажилтан нэмэх» товч дарж ажилтнаа нэмнэ үү.</div>
             </div>
           </div>
         </div>
@@ -578,58 +735,7 @@
   </div><!-- /main-content -->
 </div><!-- /app-layout -->
 
-<!-- ══ Service Modal ══ -->
-<div class="svc-modal-overlay" id="svcModal">
-  <div class="svc-modal">
-    <div class="svc-modal-title">
-      <span id="svcModalTitle">Үйлчилгээ нэмэх</span>
-      <button class="icon-btn" onclick="closeSvcModal()">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-    </div>
-    <input type="hidden" id="svcModalId" />
-    <div class="modal-form-group">
-      <label class="modal-label">Үйлчилгээний нэр <span style="color:var(--danger)">*</span></label>
-      <input type="text" class="modal-input" id="svcName" placeholder="жш: Эмэгтэй үс засалт" />
-    </div>
-    <div class="modal-form-group">
-      <label class="modal-label">Монгол нэр</label>
-      <input type="text" class="modal-input" id="svcNameMn" placeholder="жш: Эмэгтэй үс засалт" />
-    </div>
-    <div class="modal-row">
-      <div class="modal-form-group">
-        <label class="modal-label">Үргэлжлэх хугацаа (мин)</label>
-        <input type="number" class="modal-input" id="svcDuration" placeholder="60" min="5" max="480" />
-      </div>
-      <div class="modal-form-group">
-        <label class="modal-label">Үнэ (₮)</label>
-        <input type="number" class="modal-input" id="svcPrice" placeholder="50000" min="0" />
-      </div>
-    </div>
-    <div class="modal-row">
-      <div class="modal-form-group">
-        <label class="modal-label">Урьдчилгаа (₮)</label>
-        <input type="number" class="modal-input" id="svcDeposit" placeholder="0" min="0" />
-      </div>
-      <div class="modal-form-group">
-        <label class="modal-label">Зэрэгцэх захиалга</label>
-        <input type="number" class="modal-input" id="svcCapacity" placeholder="1" min="1" max="50" />
-      </div>
-    </div>
-    <div class="modal-form-group">
-      <label class="modal-label">Ажилтнууд</label>
-      <div id="svcStaffCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;min-height:32px;">
-        <span style="font-size:.8125rem;color:var(--gray-400);">Эхлээд ажилтан нэмнэ үү</span>
-      </div>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-ghost" onclick="closeSvcModal()">Цуцлах</button>
-      <button class="btn btn-primary" onclick="saveSvc()">Хадгалах</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══ Staff Modal ══ -->
+<!-- Staff Modal -->
 <div class="svc-modal-overlay" id="staffModal">
   <div class="svc-modal">
     <div class="svc-modal-title">
@@ -656,36 +762,38 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js" integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae" crossorigin="anonymous"></script>
+<script src="js/supabase.min.js"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/icons.js"></script>
 <script>
-// ── State ──────────────────────────────────────────────────────
-let _bizId    = null;  // businesses.id (legacy table, owner_id = auth.uid())
-let _placeId  = null;  // business_owners.place_id
+// ── State ──────────────────────────────────────────────────────────
+let _placeId  = null;
 let _services = [];
-let _staff    = [];
-let _hours    = [];    // [{ day_of_week, open_time, close_time, is_closed }] 0=Sun…6=Sat
-let _svcFilter = 'all';
+let _hoursState = {}; // { [dayOfWeek]: { open, start, end, breakStart, breakEnd } }
 
-const DAY_LABELS = ['Ням','Даваа','Мягмар','Лхагва','Пүрэв','Баасан','Бямба'];
-const AVATAR_COLORS = ['#0053A3','#EC4899','#10B981','#6366F1','#F59E0B','#EF4444','#8B5CF6','#14B8A6'];
+const DAYS_ORDER = [1,2,3,4,5,6,0]; // Mon-first display
+const DAYS_MN = [
+  { id: 0, full: 'Ням',    short: 'Ням', weekend: true  },
+  { id: 1, full: 'Даваа',  short: 'Дав', weekend: false },
+  { id: 2, full: 'Мягмар', short: 'Мяг', weekend: false },
+  { id: 3, full: 'Лхагва', short: 'Лха', weekend: false },
+  { id: 4, full: 'Пүрэв',  short: 'Пүр', weekend: false },
+  { id: 5, full: 'Баасан', short: 'Баа', weekend: false },
+  { id: 6, full: 'Бямба',  short: 'Бям', weekend: true  },
+];
+const DURATIONS_MN = [15,30,45,60,90,120,180];
+const BUFFERS_MN   = [0,5,10,15,30];
 
-// ── Init ────────────────────────────────────────────────────────
-// Use requireAuth() (defined in utils.js) instead of raw getSession() so
-// the 30-min idle-timeout check is enforced uniformly with the rest of the
-// portal (dashboard, bookings, customers, profile). Previously this page
-// silently bypassed the timeout — anyone who left a tab open overnight
-// would resume here without re-authenticating.
+// ── Init ───────────────────────────────────────────────────────────
 (async () => {
   const auth = await requireAuth();
   if (!auth) return;
   const { user, biz } = auth;
 
   if (biz) {
-    _placeId = biz.id;
-    document.getElementById('sbBizName').textContent = biz.name;
+    _placeId = biz.place_id || biz.id;
+    document.getElementById('sbBizName').textContent = biz.name || '...';
     document.getElementById('sbBizType').textContent  = biz.type || 'МонМэп Бизнес';
     const init = (biz.name || 'М')[0].toUpperCase();
     document.getElementById('sbAvatar').textContent  = init;
@@ -696,78 +804,35 @@ const AVATAR_COLORS = ['#0053A3','#EC4899','#10B981','#6366F1','#F59E0B','#EF444
     return;
   }
 
-  // Get or create businesses row (legacy table used for services/staff/hours FK)
-  _bizId = await getOrCreateBizRow(user.id, biz);
-
-  // Load pending badge
-  loadPendingCount();
-
-  // Load place settings (slot_capacity + deposit_amount) into the Rules tab
+  // Load place settings for Capacity tab
   _sb.from('places')
     .select('slot_capacity, deposit_amount')
     .eq('place_id', _placeId)
     .single()
     .then(({ data }) => {
       if (!data) return;
-      if (data.slot_capacity != null) {
-        document.getElementById('ruleSlotCap').value = data.slot_capacity;
-      }
-      if (data.deposit_amount != null) {
-        document.getElementById('ruleDepositAmount').value = data.deposit_amount;
-      }
+      if (data.slot_capacity != null) document.getElementById('ruleSlotCap').value = data.slot_capacity;
+      if (data.deposit_amount != null) document.getElementById('ruleDepositAmount').value = data.deposit_amount;
     })
     .catch(() => {});
 
-  // Load data
-  await Promise.all([loadServices(), loadStaff(), loadHours()]);
+  loadPendingCount();
+  await Promise.all([loadServices(), loadHours()]);
 })();
 
-// ── No-business empty state ──────────────────────────────────────
-// Hide every service/staff/hours/rules tab and prompt the user to register
-// their business first. Mirrors customers.html and bookings.html so the
-// onboarding CTA stays consistent across the portal.
 function renderNoBizState() {
-  const tabStrip = document.querySelector('.tab-strip');
-  if (tabStrip) tabStrip.style.display = 'none';
-  document.querySelectorAll('.tab-panel').forEach(p => { p.style.display = 'none'; p.innerHTML = ''; });
-  const banner = document.getElementById('verificationBanner');
-  if (banner) banner.style.display = 'none';
-
-  const host = document.querySelector('.page-content');
-  if (!host) return;
-  host.insertAdjacentHTML('beforeend', `
+  document.querySelector('.tab-strip').style.display = 'none';
+  document.querySelectorAll('.tab-panel').forEach(p => { p.style.display = 'none'; });
+  document.getElementById('verificationBanner').style.display = 'none';
+  document.querySelector('.page-content').insertAdjacentHTML('beforeend', `
     <div class="section-card" style="text-align:center;padding:56px 24px;">
-      <div class="empty-icon" data-icon="store" style="margin:0 auto 14px;width:48px;height:48px;color:var(--gray-400);"></div>
       <h3 style="margin:0 0 8px;font-size:1.0625rem;font-weight:700;color:var(--gray-900);">Бизнес бүртгэгдээгүй байна</h3>
       <p style="margin:8px auto 16px;font-size:0.875rem;color:var(--gray-500);max-width:440px;line-height:1.55;">
-        Үйлчилгээ, ажилтан, ажлын цаг тохируулахын тулд эхлээд бизнесээ бүртгүүлнэ үү.
+        Үйлчилгээ болон ажлын цаг тохируулахын тулд эхлээд бизнесээ бүртгүүлнэ үү.
       </p>
       <a href="register.html" class="btn btn-primary btn-sm">Бизнес бүртгүүлэх →</a>
     </div>
   `);
-  if (window.MMIcons) window.MMIcons.apply(host);
-}
-
-// ── Get/create businesses row ────────────────────────────────────
-async function getOrCreateBizRow(userId, biz) {
-  const { data: existing } = await _sb
-    .from('businesses')
-    .select('id')
-    .eq('owner_id', userId)
-    .maybeSingle();
-  if (existing) return existing.id;
-
-  // Create a stub business row so services/staff FK works
-  const { data: created, error } = await _sb
-    .from('businesses')
-    .insert({ owner_id: userId, name: (biz && biz.name) || 'Миний бизнес' })
-    .select('id')
-    .single();
-  if (error) {
-    console.warn('[services] could not create businesses row:', error.message);
-    return null;
-  }
-  return created.id;
 }
 
 async function loadPendingCount() {
@@ -779,370 +844,326 @@ async function loadPendingCount() {
   if (count > 0) { badge.textContent = count; badge.style.display = 'inline-flex'; }
 }
 
-// ── Tab switching ───────────────────────────────────────────────
+// ── Tab switching ──────────────────────────────────────────────────
 function switchTab(id) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === id));
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + id));
 }
 
-// ── Services ────────────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// SERVICES
+// ════════════════════════════════════════════════════════════════
+
+// ── Helpers ────────────────────────────────────────────────────────
+function fmtDuration(m) {
+  if (!m) return null;
+  if (m < 60) return m + 'мин';
+  const h = Math.floor(m / 60), rem = m % 60;
+  return h + 'ц' + (rem ? ' ' + rem + 'мин' : '');
+}
+function fmtPrice(n) { return Number(n).toLocaleString('mn-MN') + '₮'; }
+
+// ── Load from DB ────────────────────────────────────────────────────
 async function loadServices() {
-  if (!_bizId) { renderServices(); return; }
+  if (!_placeId) { renderSvcCards(); return; }
   const { data, error } = await _sb
     .from('services')
-    .select('*, staff_services(staff_id)')
-    .eq('business_id', _bizId)
+    .select('*')
+    .eq('place_id', _placeId)
     .order('created_at');
-  if (error) { console.warn('[services]', error.message); return; }
-  _services = (data || []).map(s => ({
-    ...s,
-    staffIds: (s.staff_services || []).map(r => r.staff_id),
-  }));
-  // applySort() calls renderServices() after ordering, so we don't need to
-  // call it separately. The dropdown also gets synced to the saved mode here.
-  applySort();
-  buildFilterPills();
+  if (error) { console.warn('[services]', error.message); renderSvcCards(); return; }
+  _services = data || [];
+  renderSvcCards();
 }
 
-function buildFilterPills() {
-  // Derive categories from services (using first word of name as proxy category)
-  // In a richer schema you'd have a category field; for now show All only
-  // since services table has no category column
+// ── Render cards ────────────────────────────────────────────────────
+function renderSvcCards() {
+  const container = document.getElementById('svcCardsContainer');
   document.getElementById('svcTabCount').textContent = _services.length;
-}
 
-function setFilter(cat) {
-  _svcFilter = cat;
-  document.querySelectorAll('.filter-pill').forEach(p => p.classList.toggle('active', p.dataset.cat === cat));
-  renderServices();
-}
-
-// Current sort mode — persisted to localStorage so the dropdown choice
-// survives navigation between portal pages.
-const SVC_SORT_KEY = 'mm_svc_sort';
-let _svcSort = (function () {
-  try { return localStorage.getItem(SVC_SORT_KEY) || 'created_desc'; }
-  catch (_) { return 'created_desc'; }
-})();
-
-function applySort(mode) {
-  if (mode) _svcSort = mode;
-  try { localStorage.setItem(SVC_SORT_KEY, _svcSort); } catch (_) {}
-  // Reflect the saved choice in the dropdown if it exists (e.g. after page load).
-  const sel = document.getElementById('svcSort');
-  if (sel && sel.value !== _svcSort) sel.value = _svcSort;
-
-  const toNum = v => (v == null || v === '' ? null : Number(v));
-  const cmpName = (a, b) => (a.name || '').localeCompare(b.name || '', 'mn');
-  const cmpDate = (a, b) =>
-    new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
-
-  // Sort *in place* so the next renderServices() picks up the new order.
-  // Each sort places nulls last so empty prices/durations don't pollute the top.
-  _services.sort((a, b) => {
-    switch (_svcSort) {
-      case 'name_asc':       return cmpName(a, b);
-      case 'name_desc':      return -cmpName(a, b);
-      case 'price_asc':      { const av = toNum(a.price), bv = toNum(b.price);
-                               if (av === null) return 1; if (bv === null) return -1;
-                               return av - bv; }
-      case 'price_desc':     { const av = toNum(a.price), bv = toNum(b.price);
-                               if (av === null) return 1; if (bv === null) return -1;
-                               return bv - av; }
-      case 'duration_asc':   { const av = toNum(a.duration_minutes), bv = toNum(b.duration_minutes);
-                               if (av === null) return 1; if (bv === null) return -1;
-                               return av - bv; }
-      case 'duration_desc':  { const av = toNum(a.duration_minutes), bv = toNum(b.duration_minutes);
-                               if (av === null) return 1; if (bv === null) return -1;
-                               return bv - av; }
-      case 'active_first':   if (!!a.is_active === !!b.is_active) return cmpName(a, b);
-                             return a.is_active ? -1 : 1;
-      case 'created_asc':    return -cmpDate(a, b);
-      case 'created_desc':
-      default:               return cmpDate(a, b);
-    }
-  });
-  renderServices();
-}
-
-function renderServices() {
-  const list = _svcFilter === 'all' ? _services : _services.filter(s => s._cat === _svcFilter);
-  const body = document.getElementById('svcTableBody');
-
-  if (!list.length) {
-    body.innerHTML = `<div class="empty-state">
-      <div class="empty-icon">⚙️</div>
-      <div class="empty-title">Үйлчилгээ байхгүй байна</div>
-      <div class="empty-sub">«+ Үйлчилгээ нэмэх» товч дарж эхний үйлчилгээгээ нэмнэ үү.</div>
-    </div>`;
+  if (_services.length === 0) {
+    container.innerHTML = `
+      <div class="svc-empty-state">
+        <div class="svc-empty-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <rect x="3" y="3" width="16" height="16" rx="3" stroke="var(--primary)" stroke-width="1.5"/>
+            <path d="M11 7v8M7 11h8" stroke="var(--primary)" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="svc-empty-title">Үйлчилгээ нэмж эхлээрэй</div>
+        <div class="svc-empty-sub">Танай байгууллагын санал болгох үйлчилгээнүүдийг нэмж, тус бүрд нь үнэ, хугацаа, хүчин чадал тохируулна.</div>
+        <button class="btn btn-primary btn-sm" onclick="addSvcCard()">+ Анхны үйлчилгээ нэмэх</button>
+      </div>`;
     document.getElementById('svcFooter').innerHTML = '';
     return;
   }
 
-  body.innerHTML = list.map(s => {
-    const staffHtml = s.staffIds && s.staffIds.length
-      ? '<div class="staff-avatars">' + s.staffIds.slice(0,4).map((sid, i) => {
-          const m = _staff.find(p => p.id === sid);
-          const initials = m ? m.name.slice(0,2).toUpperCase() : '?';
-          const color = AVATAR_COLORS[_staff.indexOf(m) % AVATAR_COLORS.length];
-          return `<div class="staff-avatar" style="background:${color}" title="${m ? m.name : ''}">${initials}</div>`;
-        }).join('') + (s.staffIds.length > 4 ? `<div class="staff-avatar" style="background:var(--gray-300);color:var(--gray-600)">+${s.staffIds.length-4}</div>` : '') + '</div>'
-      : '<span style="font-size:.75rem;color:var(--gray-400)">—</span>';
+  container.innerHTML = _services.map(s => svcCardHTML(s)).join('');
 
-    const dur = s.duration_minutes
-      ? (s.duration_minutes < 60 ? s.duration_minutes + ' мин' : Math.floor(s.duration_minutes/60) + ' цаг' + (s.duration_minutes%60 ? ' ' + s.duration_minutes%60 + ' мин' : ''))
-      : '—';
-    const price = s.price ? Number(s.price).toLocaleString('mn-MN') + '₮' : '—';
-    const deposit = s.deposit ? Number(s.deposit).toLocaleString('mn-MN') + '₮' : '—';
-
-    return `<div class="svc-row${s.is_active ? '' : ' inactive'}">
-      <div style="display:flex;align-items:center;gap:12px;min-width:0">
-        <div class="svc-thumb" style="background:rgba(0,83,163,.1);color:var(--primary)">
-          ${s.is_active ? '⚙️' : '⛔'}
-        </div>
-        <div style="min-width:0">
-          <div class="svc-name">${escapeHtml(s.name)}</div>
-          ${s.name_mn && s.name_mn !== s.name ? `<div style="font-size:.75rem;color:var(--gray-400)">${escapeHtml(s.name_mn)}</div>` : ''}
-        </div>
-      </div>
-      <div style="font-size:.8125rem;color:var(--gray-700)">${dur}</div>
-      <div style="font-size:.8125rem;font-weight:600;color:var(--gray-900)">${price}</div>
-      <div style="font-size:.8125rem;color:var(--gray-500)">${deposit}</div>
-      <div>${staffHtml}</div>
-      <div style="display:flex;justify-content:center">
-        <button class="toggle${s.is_active ? ' on' : ''}" onclick="toggleSvc('${s.id}',this)"></button>
-      </div>
-      <div style="display:flex;justify-content:flex-end;gap:2px">
-        <button class="icon-btn" onclick='editSvc(${JSON.stringify(s).replace(/'/g,"&#39;")})' title="Засах">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>
-        </button>
-        <button class="icon-btn" onclick="deleteSvc('${s.id}')" title="Устгах">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
-        </button>
-      </div>
-    </div>`;
-  }).join('');
-
-  const active = list.filter(s => s.is_active).length;
+  const active = _services.filter(s => s.is_active !== false).length;
   document.getElementById('svcFooter').innerHTML =
     `<span><strong>${active}</strong> идэвхтэй</span>
-     <span><strong>${list.length - active}</strong> идэвхгүй</span>
-     <span><strong>${list.length}</strong> нийт</span>`;
-}
+     <span><strong>${_services.length - active}</strong> идэвхгүй</span>
+     <span><strong>${_services.length}</strong> нийт</span>`;
 
-async function toggleSvc(id, btn) {
-  const svc = _services.find(s => s.id === id);
-  if (!svc) return;
-  const newVal = !svc.is_active;
-  const { error } = await _sb.from('services').update({ is_active: newVal }).eq('id', id);
-  if (error) { showToast('error', 'Алдаа', error.message); return; }
-  svc.is_active = newVal;
-  btn.classList.toggle('on', newVal);
-  btn.closest('.svc-row').classList.toggle('inactive', !newVal);
-}
-
-async function deleteSvc(id) {
-  if (!confirm('Энэ үйлчилгээг устгах уу?')) return;
-  const { error } = await _sb.from('services').delete().eq('id', id);
-  if (error) { showToast('error', 'Алдаа', error.message); return; }
-  _services = _services.filter(s => s.id !== id);
-  document.getElementById('svcTabCount').textContent = _services.length;
-  renderServices();
-  showToast('success', 'Устгагдлаа', 'Үйлчилгээ амжилттай устгагдлаа.');
-}
-
-// ── Service Modal ────────────────────────────────────────────────
-function openSvcModal(svc) {
-  document.getElementById('svcModalTitle').textContent = svc ? 'Үйлчилгээ засах' : 'Үйлчилгээ нэмэх';
-  document.getElementById('svcModalId').value   = svc ? svc.id : '';
-  document.getElementById('svcName').value      = svc ? svc.name : '';
-  document.getElementById('svcNameMn').value    = svc ? (svc.name_mn || '') : '';
-  document.getElementById('svcDuration').value  = svc ? (svc.duration_minutes || '') : '';
-  document.getElementById('svcPrice').value     = svc ? (svc.price || '') : '';
-  document.getElementById('svcDeposit').value   = svc ? (svc.deposit || '') : '';
-  document.getElementById('svcCapacity').value  = svc ? (svc.max_capacity || 1) : 1;
-
-  // Staff checkboxes
-  const checkedIds = svc ? (svc.staffIds || []) : [];
-  const box = document.getElementById('svcStaffCheckboxes');
-  if (!_staff.length) {
-    box.innerHTML = '<span style="font-size:.8125rem;color:var(--gray-400);">Эхлээд ажилтан нэмнэ үү</span>';
-  } else {
-    box.innerHTML = _staff.map((m, i) => {
-      const color = AVATAR_COLORS[i % AVATAR_COLORS.length];
-      return `<label style="display:flex;align-items:center;gap:7px;cursor:pointer;font-size:.8125rem;padding:5px 10px;border-radius:8px;border:1px solid var(--gray-200);background:${checkedIds.includes(m.id) ? 'rgba(0,83,163,.07)' : '#fff'};">
-        <input type="checkbox" value="${m.id}" ${checkedIds.includes(m.id) ? 'checked' : ''} style="accent-color:var(--primary);" />
-        <div class="staff-avatar" style="background:${color};width:20px;height:20px;font-size:.5rem">${m.name.slice(0,2).toUpperCase()}</div>
-        ${escapeHtml(m.name)}
-      </label>`;
-    }).join('');
+  // Info banner
+  if (_services.length > 0 && !document.getElementById('svcInfoBanner')) {
+    container.insertAdjacentHTML('afterend', `
+      <div class="svc-info-banner" id="svcInfoBanner">
+        <svg width="13" height="13" viewBox="0 0 14 14" fill="none">
+          <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.3"/>
+          <path d="M7 4v3.5M7 9.5v.1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+        Үйлчилгээ бүрд тус тусын хугацаа, үнэ, зэрэгцэн орох хүний тоог тохируулах боломжтой.
+      </div>`);
   }
-
-  document.getElementById('svcModal').classList.add('open');
-  document.getElementById('svcName').focus();
 }
 
-function editSvc(svc) { openSvcModal(svc); }
-function closeSvcModal() { document.getElementById('svcModal').classList.remove('open'); }
+function svcCardHTML(svc) {
+  const dur   = fmtDuration(svc.duration_minutes);
+  const price = svc.price ? fmtPrice(svc.price) : null;
+  const cap   = svc.max_capacity || 1;
+  const buf   = svc.buffer_minutes;
+  const isActive = svc.is_active !== false;
 
-async function saveSvc() {
-  if (!_bizId) { showToast('error', 'Алдаа', 'Бизнесийн мэдээлэл олдсонгүй.'); return; }
-  const id       = document.getElementById('svcModalId').value;
-  const name     = document.getElementById('svcName').value.trim();
-  const name_mn  = document.getElementById('svcNameMn').value.trim() || null;
-  const duration = parseInt(document.getElementById('svcDuration').value) || null;
-  const price    = parseFloat(document.getElementById('svcPrice').value) || null;
-  const deposit  = parseFloat(document.getElementById('svcDeposit').value) || null;
-  const capacity = parseInt(document.getElementById('svcCapacity').value) || 1;
+  return `<div class="svc-card${isActive ? '' : ' inactive'}" id="svc-card-${svc.id}">
+    <div class="svc-card-header" onclick="toggleSvcExpand('${svc.id}')">
+      <div class="svc-card-grip" onclick="event.stopPropagation()">⠿</div>
+      <div class="svc-card-info">
+        <div class="svc-card-name">${svc.name ? escapeHtml(svc.name) : '<span class="svc-name-empty">Нэргүй үйлчилгээ</span>'}</div>
+        <div class="svc-card-pills">
+          ${dur   ? `<span class="svc-pill">${dur}</span>` : ''}
+          ${price ? `<span class="svc-pill">${price}</span>` : ''}
+          <span class="svc-pill">${cap} хүн</span>
+          ${buf   ? `<span class="svc-pill svc-pill-warn">+${buf} мин завсар</span>` : ''}
+        </div>
+      </div>
+      <div class="svc-card-meta" onclick="event.stopPropagation()">
+        <button class="toggle${isActive ? ' on' : ''}" title="${isActive ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх'}"
+                onclick="toggleSvcActive('${svc.id}', this)"></button>
+        <button class="icon-btn danger" onclick="deleteSvc('${svc.id}')" title="Устгах">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+          </svg>
+        </button>
+        <button class="svc-chevron" id="svc-chev-${svc.id}" title="Дэлгэх">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M6 9l6 6 6-6"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="svc-card-expand" id="svc-expand-${svc.id}" style="display:none;">
+      ${svcFormHTML(svc)}
+    </div>
+  </div>`;
+}
 
-  if (!name) { showToast('error', 'Алдаа', 'Үйлчилгээний нэрийг оруулна уу.'); return; }
+function svcFormHTML(svc) {
+  const durOpts = DURATIONS_MN.map(d =>
+    `<option value="${d}" ${svc.duration_minutes == d ? 'selected' : ''}>${fmtDuration(d)}</option>`
+  ).join('');
+  const bufOpts = BUFFERS_MN.map(b =>
+    `<option value="${b}" ${(svc.buffer_minutes||0) == b ? 'selected' : ''}>${b === 0 ? 'Завсаргүй' : b + ' мин'}</option>`
+  ).join('');
+  return `
+    <div class="svc-form-group">
+      <div class="svc-form-label">Үйлчилгээний нэр</div>
+      <input type="text" class="svc-form-input" id="sf-name-${svc.id}"
+             value="${escapeHtml(svc.name || '')}" placeholder="жш: Эрэгтэй үс засалт" />
+    </div>
+    <div class="svc-form-row2">
+      <div class="svc-form-group" style="margin-bottom:0">
+        <div class="svc-form-label">Хугацаа <span class="svc-form-hint">Үргэлжлэх</span></div>
+        <select class="svc-form-select" id="sf-dur-${svc.id}">${durOpts}</select>
+      </div>
+      <div class="svc-form-group" style="margin-bottom:0">
+        <div class="svc-form-label">Үнэ <span class="svc-form-hint">Тугрик</span></div>
+        <div class="svc-form-input-wrap">
+          <input type="number" class="svc-form-input" id="sf-price-${svc.id}"
+                 value="${svc.price || ''}" placeholder="0" style="padding-right:26px;" />
+          <span class="svc-form-suffix">₮</span>
+        </div>
+      </div>
+    </div>
+    <div class="svc-form-row2" style="margin-top:13px;">
+      <div class="svc-form-group" style="margin-bottom:0">
+        <div class="svc-form-label">Зэрэгцэх захиалга <span class="svc-form-hint">Нэг цагт</span></div>
+        <div class="svc-stepper">
+          <button class="svc-stepper-btn" onclick="svcStepCap('${svc.id}',-1)" ${(svc.max_capacity||1)<=1?'disabled':''}>−</button>
+          <span class="svc-stepper-val" id="sf-cap-val-${svc.id}">${svc.max_capacity || 1}</span>
+          <button class="svc-stepper-btn" onclick="svcStepCap('${svc.id}',1)" ${(svc.max_capacity||1)>=20?'disabled':''}>+</button>
+        </div>
+        <input type="hidden" id="sf-cap-${svc.id}" value="${svc.max_capacity || 1}" />
+      </div>
+      <div class="svc-form-group" style="margin-bottom:0">
+        <div class="svc-form-label">Завсрын цаг <span class="svc-form-hint">Захиалга хооронд</span></div>
+        <select class="svc-form-select" id="sf-buf-${svc.id}">${bufOpts}</select>
+      </div>
+    </div>
+    <div class="svc-form-group" style="margin-top:13px;">
+      <div class="svc-form-label">Тайлбар <span class="svc-form-hint">Сонголтот</span></div>
+      <textarea class="svc-form-textarea" id="sf-desc-${svc.id}" rows="2"
+                placeholder="Үйлчилгээний талаар товч тайлбар...">${escapeHtml(svc.description || '')}</textarea>
+    </div>
+    <div class="svc-form-footer">
+      <button class="btn btn-ghost btn-sm" onclick="collapseCard('${svc.id}')">Цуцлах</button>
+      <button class="btn btn-primary btn-sm" onclick="saveInlineSvc('${svc.id}')">Хадгалах</button>
+    </div>`;
+}
 
-  const payload = { business_id: _bizId, name, name_mn, duration_minutes: duration, price, deposit, max_capacity: capacity };
+// ── Card expand/collapse ────────────────────────────────────────────
+function toggleSvcExpand(id) {
+  const expand = document.getElementById('svc-expand-' + id);
+  const card   = document.getElementById('svc-card-' + id);
+  const isOpen = expand.style.display !== 'none';
+  expand.style.display = isOpen ? 'none' : 'block';
+  card.classList.toggle('expanded', !isOpen);
+}
+function collapseCard(id) {
+  // If it's a new unsaved card, remove it
+  const card = document.getElementById('svc-card-' + id);
+  if (card && card.dataset.unsaved) { card.remove(); return; }
+  const expand = document.getElementById('svc-expand-' + id);
+  if (expand) expand.style.display = 'none';
+  if (card)   card.classList.remove('expanded');
+}
 
-  let svcId = id;
-  if (id) {
-    const { error } = await _sb.from('services').update(payload).eq('id', id);
-    if (error) { showToast('error', 'Алдаа', error.message); return; }
-  } else {
-    const { data, error } = await _sb.from('services').insert(payload).select('id').single();
-    if (error) { showToast('error', 'Алдаа', error.message); return; }
-    svcId = data.id;
-  }
+// ── Stepper ─────────────────────────────────────────────────────────
+function svcStepCap(id, delta) {
+  const hidden = document.getElementById('sf-cap-' + id);
+  const val = document.getElementById('sf-cap-val-' + id);
+  let cur = parseInt(hidden.value) || 1;
+  cur = Math.min(20, Math.max(1, cur + delta));
+  hidden.value = cur;
+  val.textContent = cur;
+  // Update disabled state
+  const [dec, inc] = document.getElementById('svc-card-' + id).querySelectorAll('.svc-stepper-btn');
+  if (dec) dec.disabled = cur <= 1;
+  if (inc) inc.disabled = cur >= 20;
+}
 
-  // Staff assignments
-  const checked = [...document.querySelectorAll('#svcStaffCheckboxes input[type=checkbox]:checked')].map(c => c.value);
-  await _sb.from('staff_services').delete().eq('service_id', svcId);
-  if (checked.length) {
-    await _sb.from('staff_services').insert(checked.map(sid => ({ staff_id: sid, service_id: svcId })));
-  }
+// ── Add new service (inline card) ──────────────────────────────────
+function addSvcCard() {
+  const tmpId = 'new_' + Date.now();
+  const container = document.getElementById('svcCardsContainer');
 
-  closeSvcModal();
-  showToast('success', 'Хадгалагдлаа', id ? 'Үйлчилгээ засварлагдлаа.' : 'Шинэ үйлчилгээ нэмэгдлээ.');
+  // Clear empty state if present
+  container.innerHTML = container.innerHTML.replace(/<div class="svc-empty-state"[\s\S]*?<\/div>\s*<\/div>/, '');
+
+  const newCard = document.createElement('div');
+  newCard.className = 'svc-card svc-card-new expanded';
+  newCard.id = 'svc-card-' + tmpId;
+  newCard.dataset.unsaved = '1';
+  newCard.innerHTML = `
+    <div class="svc-card-header" style="cursor:default;">
+      <div class="svc-card-grip">⠿</div>
+      <div class="svc-card-info">
+        <div class="svc-card-name" style="color:var(--gray-400);font-style:italic;">Шинэ үйлчилгээ</div>
+      </div>
+    </div>
+    <div class="svc-card-expand" style="display:block;">
+      ${svcFormHTML({ id: tmpId, name:'', duration_minutes:30, price:0, max_capacity:1, buffer_minutes:0, description:'' })}
+    </div>`;
+  container.prepend(newCard);
+  newCard.querySelector('.svc-form-input').focus();
+
+  // Override save to insert instead of update
+  const saveBtn = newCard.querySelector('.btn-primary');
+  saveBtn.onclick = () => insertNewSvc(tmpId);
+}
+
+async function insertNewSvc(tmpId) {
+  if (!_placeId) return;
+  const name  = document.getElementById('sf-name-' + tmpId).value.trim();
+  if (!name) { showToast('error','Алдаа','Үйлчилгээний нэрийг оруулна уу.'); return; }
+  const dur   = parseInt(document.getElementById('sf-dur-' + tmpId).value)   || 30;
+  const price = parseInt(document.getElementById('sf-price-' + tmpId).value) || 0;
+  const cap   = parseInt(document.getElementById('sf-cap-' + tmpId).value)   || 1;
+  const buf   = parseInt(document.getElementById('sf-buf-' + tmpId).value)   || 0;
+  const desc  = document.getElementById('sf-desc-' + tmpId).value.trim() || null;
+
+  const { error } = await _sb.from('services').insert({
+    place_id: _placeId, name, duration_minutes: dur, price, max_capacity: cap,
+    buffer_minutes: buf, description: desc, is_active: true,
+  });
+  if (error) { showToast('error','Алдаа', error.message); return; }
+  showToast('success','Нэмэгдлээ','Шинэ үйлчилгээ амжилттай нэмэгдлээ.');
   await loadServices();
 }
 
-// ── Staff ────────────────────────────────────────────────────────
-async function loadStaff() {
-  if (!_bizId) { renderStaff(); return; }
-  const { data, error } = await _sb
-    .from('staff')
-    .select('*, staff_services(service_id)')
-    .eq('business_id', _bizId)
-    .order('created_at');
-  if (error) { console.warn('[staff]', error.message); return; }
-  _staff = (data || []).map(m => ({
-    ...m,
-    serviceIds: (m.staff_services || []).map(r => r.service_id),
-  }));
-  document.getElementById('staffTabCount').textContent = _staff.length;
-  renderStaff();
+// ── Save inline edits ───────────────────────────────────────────────
+async function saveInlineSvc(id) {
+  const name  = document.getElementById('sf-name-' + id).value.trim();
+  if (!name) { showToast('error','Алдаа','Үйлчилгээний нэрийг оруулна уу.'); return; }
+  const dur   = parseInt(document.getElementById('sf-dur-' + id).value)   || 30;
+  const price = parseInt(document.getElementById('sf-price-' + id).value) || 0;
+  const cap   = parseInt(document.getElementById('sf-cap-' + id).value)   || 1;
+  const buf   = parseInt(document.getElementById('sf-buf-' + id).value)   || 0;
+  const desc  = document.getElementById('sf-desc-' + id).value.trim() || null;
+
+  const { error } = await _sb.from('services').update({
+    name, duration_minutes: dur, price, max_capacity: cap,
+    buffer_minutes: buf, description: desc,
+  }).eq('id', id);
+  if (error) { showToast('error','Алдаа', error.message); return; }
+  showToast('success','Хадгалагдлаа','Үйлчилгээ засварлагдлаа.');
+  await loadServices();
 }
 
-function renderStaff() {
-  const grid = document.getElementById('staffGrid');
-  if (!_staff.length) {
-    grid.innerHTML = `<div class="section-card" style="grid-column:1/-1">
-      <div class="empty-state">
-        <div class="empty-icon">👥</div>
-        <div class="empty-title">Ажилтан байхгүй байна</div>
-        <div class="empty-sub">«+ Ажилтан нэмэх» товч дарж ажилтнаа нэмнэ үү.</div>
-      </div></div>`;
-    return;
-  }
-  grid.innerHTML = _staff.map((m, i) => {
-    const color = AVATAR_COLORS[i % AVATAR_COLORS.length];
-    const svcNames = m.serviceIds.map(sid => _services.find(s => s.id === sid)?.name).filter(Boolean);
-    return `<div class="staff-card">
-      <div class="staff-card-head">
-        <div class="staff-big-avatar" style="background:${color}">${m.name.slice(0,2).toUpperCase()}</div>
-        <div style="flex:1;min-width:0">
-          <div class="staff-card-name">${escapeHtml(m.name)}</div>
-          <div class="staff-card-role">${escapeHtml(m.role || '—')}</div>
-        </div>
-        <button class="toggle${m.is_active ? ' on' : ''}" onclick="toggleStaff('${m.id}',this)"></button>
-      </div>
-      <div class="staff-svc-label">Үйлчилгээнүүд (${svcNames.length})</div>
-      <div class="staff-svc-chips">
-        ${svcNames.length ? svcNames.map(n => `<span class="staff-svc-chip">${escapeHtml(n)}</span>`).join('') : '<span style="font-size:.75rem;color:var(--gray-400)">Оноогдоогүй</span>'}
-      </div>
-      <div style="display:flex;gap:6px;margin-top:14px;border-top:1px solid var(--gray-100);padding-top:12px;">
-        <button class="btn btn-ghost btn-sm" style="font-size:.75rem;" onclick='editStaff(${JSON.stringify(m).replace(/'/g,"&#39;")})'>Засах</button>
-        <button class="btn btn-ghost btn-sm" style="font-size:.75rem;color:var(--danger);" onclick="deleteStaff('${m.id}')">Устгах</button>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-async function toggleStaff(id, btn) {
-  const m = _staff.find(s => s.id === id);
-  if (!m) return;
-  const newVal = !m.is_active;
-  const { error } = await _sb.from('staff').update({ is_active: newVal }).eq('id', id);
-  if (error) { showToast('error', 'Алдаа', error.message); return; }
-  m.is_active = newVal;
+// ── Toggle active ────────────────────────────────────────────────────
+async function toggleSvcActive(id, btn) {
+  const svc = _services.find(s => s.id === id);
+  if (!svc) return;
+  const newVal = !(svc.is_active !== false);
+  const { error } = await _sb.from('services').update({ is_active: newVal }).eq('id', id);
+  if (error) { showToast('error','Алдаа', error.message); return; }
+  svc.is_active = newVal;
   btn.classList.toggle('on', newVal);
+  document.getElementById('svc-card-' + id).classList.toggle('inactive', !newVal);
+  renderSvcCards();
 }
 
-async function deleteStaff(id) {
-  if (!confirm('Энэ ажилтныг устгах уу?')) return;
-  const { error } = await _sb.from('staff').delete().eq('id', id);
-  if (error) { showToast('error', 'Алдаа', error.message); return; }
-  _staff = _staff.filter(m => m.id !== id);
-  document.getElementById('staffTabCount').textContent = _staff.length;
-  renderStaff();
-  showToast('success', 'Устгагдлаа', 'Ажилтан амжилттай устгагдлаа.');
+// ── Delete ───────────────────────────────────────────────────────────
+async function deleteSvc(id) {
+  if (!confirm('Энэ үйлчилгээг устгах уу?')) return;
+  const { error } = await _sb.from('services').delete().eq('id', id);
+  if (error) { showToast('error','Алдаа', error.message); return; }
+  _services = _services.filter(s => s.id !== id);
+  showToast('success','Устгагдлаа','Үйлчилгээ амжилттай устгагдлаа.');
+  renderSvcCards();
 }
 
-function openStaffModal(m) {
-  document.getElementById('staffModalTitle').textContent = m ? 'Ажилтан засах' : 'Ажилтан нэмэх';
-  document.getElementById('staffModalId').value = m ? m.id : '';
-  document.getElementById('staffName').value    = m ? m.name : '';
-  document.getElementById('staffRole').value    = m ? (m.role || '') : '';
-  document.getElementById('staffModal').classList.add('open');
-  document.getElementById('staffName').focus();
-}
-function editStaff(m) { openStaffModal(m); }
-function closeStaffModal() { document.getElementById('staffModal').classList.remove('open'); }
+// ════════════════════════════════════════════════════════════════
+// HOURS
+// ════════════════════════════════════════════════════════════════
 
-async function saveStaff() {
-  if (!_bizId) { showToast('error', 'Алдаа', 'Бизнесийн мэдээлэл олдсонгүй.'); return; }
-  const id   = document.getElementById('staffModalId').value;
-  const name = document.getElementById('staffName').value.trim();
-  const role = document.getElementById('staffRole').value.trim() || null;
-  if (!name) { showToast('error', 'Алдаа', 'Ажилтны нэрийг оруулна уу.'); return; }
-
-  const payload = { business_id: _bizId, name, role };
-  if (id) {
-    const { error } = await _sb.from('staff').update(payload).eq('id', id);
-    if (error) { showToast('error', 'Алдаа', error.message); return; }
-  } else {
-    const { error } = await _sb.from('staff').insert(payload);
-    if (error) { showToast('error', 'Алдаа', error.message); return; }
-  }
-  closeStaffModal();
-  showToast('success', 'Хадгалагдлаа', id ? 'Ажилтан засварлагдлаа.' : 'Шинэ ажилтан нэмэгдлээ.');
-  await loadStaff();
-  // Refresh service modal staff checkboxes if open
-}
-
-// ── Hours ─────────────────────────────────────────────────────────
 async function loadHours() {
-  // Default hours (Mon-Fri 09:00-18:00, Sat 10:00-16:00, Sun closed)
-  _hours = [0,1,2,3,4,5,6].map(d => ({
-    day_of_week: d,
-    open_time:   d === 0 ? '10:00' : '09:00',
-    close_time:  d === 0 ? '16:00' : d === 7 ? '16:00' : '18:00',
-    is_closed:   d === 6, // Sunday closed by default
-    id: null,
-  }));
+  // Seed defaults
+  DAYS_MN.forEach(d => {
+    _hoursState[d.id] = {
+      open:       !d.weekend,
+      start:      d.weekend ? '10:00' : '09:00',
+      end:        '18:00',
+      breakStart: '',
+      breakEnd:   '',
+    };
+  });
 
-  if (_bizId) {
+  if (_placeId) {
     const { data } = await _sb.from('business_hours')
-      .select('*').eq('business_id', _bizId).order('day_of_week');
+      .select('*').eq('place_id', _placeId).order('day_of_week');
     if (data && data.length) {
       data.forEach(row => {
-        const h = _hours.find(h => h.day_of_week === row.day_of_week);
-        if (h) Object.assign(h, row);
+        _hoursState[row.day_of_week] = {
+          open:       !row.is_closed,
+          start:      (row.open_time  || '09:00').slice(0,5),
+          end:        (row.close_time || '18:00').slice(0,5),
+          breakStart: row.break_start ? row.break_start.slice(0,5) : '',
+          breakEnd:   row.break_end   ? row.break_end.slice(0,5)   : '',
+        };
       });
     }
   }
@@ -1150,68 +1171,152 @@ async function loadHours() {
 }
 
 function renderHours() {
-  const grid = document.getElementById('hoursGrid');
-  // Show Mon-Sun (day 1 first, then 2..6, then 0=Sun)
-  const order = [1,2,3,4,5,6,0];
-  grid.innerHTML = order.map(d => {
-    const h = _hours.find(r => r.day_of_week === d);
-    const closed = h ? h.is_closed : false;
-    const open   = h ? (h.open_time  || '09:00').slice(0,5) : '09:00';
-    const close  = h ? (h.close_time || '18:00').slice(0,5) : '18:00';
-    return `<div class="hours-row">
-      <div class="hours-day">${DAY_LABELS[d]}</div>
-      <div class="hours-times">
-        <input type="time" class="hours-time-input" id="open-${d}" value="${open}" ${closed ? 'disabled' : ''} />
-        <span class="hours-sep">—</span>
-        <input type="time" class="hours-time-input" id="close-${d}" value="${close}" ${closed ? 'disabled' : ''} />
+  document.getElementById('hoursGrid').innerHTML =
+    DAYS_ORDER.map(d => dayRowHTML(d)).join('');
+}
+
+function calcOpenHours(start, end, bStart, bEnd) {
+  const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+  let mins = toMin(end) - toMin(start);
+  if (bStart && bEnd) mins -= (toMin(bEnd) - toMin(bStart));
+  return Math.max(0, +(mins/60).toFixed(1));
+}
+
+function dayRowHTML(d) {
+  const day = DAYS_MN[d];
+  const s   = _hoursState[d];
+  const hrs = s.open ? calcOpenHours(s.start, s.end, s.breakStart, s.breakEnd) : 0;
+
+  return `<div class="hrs-day-card${s.open ? '' : ' hrs-day-closed'}" id="hrs-day-${d}">
+    <div class="hrs-day-header">
+      <button class="hrs-toggle${s.open ? ' on' : ''}" onclick="toggleHrsDay(${d})"></button>
+      <div class="hrs-day-label">
+        <div class="hrs-day-name${day.weekend ? ' hrs-weekend' : ''}">${day.full}</div>
+        <div class="hrs-day-status">${s.open ? hrs + ' ц нээлттэй' : 'Хаалттай'}</div>
       </div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:.8125rem;color:var(--gray-600);cursor:pointer;white-space:nowrap;">
-        <input type="checkbox" id="closed-${d}" ${closed ? 'checked' : ''} style="accent-color:var(--primary);" onchange="toggleDayClosed(${d})" />
-        Амралтын өдөр
-      </label>
-      <button class="icon-btn" title="Энэ цагийг бусад өдөрт хуулах" onclick="copyHours(${d})" ${closed ? 'disabled' : ''}>
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-      </button>
-    </div>`;
-  }).join('');
+      ${s.open ? `
+        <div class="hrs-ranges">
+          <div class="hrs-range-row">
+            <input type="time" class="hrs-time-input" id="hrs-s-${d}" value="${s.start}" onchange="hrsSyncAndRedraw(${d})" />
+            <span class="hrs-sep">—</span>
+            <input type="time" class="hrs-time-input" id="hrs-e-${d}" value="${s.end}"  onchange="hrsSyncAndRedraw(${d})" />
+          </div>
+          ${s.breakStart ? `
+          <div class="hrs-range-row" style="margin-top:6px;">
+            <span class="hrs-break-badge">ЗАВСАР</span>
+            <input type="time" class="hrs-time-input" id="hrs-bs-${d}" value="${s.breakStart}" onchange="hrsSyncAndRedraw(${d})" />
+            <span class="hrs-sep">—</span>
+            <input type="time" class="hrs-time-input" id="hrs-be-${d}" value="${s.breakEnd}" onchange="hrsSyncAndRedraw(${d})" />
+            <button class="icon-btn danger" onclick="removeBreak(${d})" title="Завсар хасах">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                <path d="M2 2l8 8M10 2l-8 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>` : ''}
+        </div>
+        <div class="hrs-day-actions">
+          ${!s.breakStart ? `<button class="hrs-link-btn" onclick="addBreak(${d})">+ Завсар нэмэх</button>` : ''}
+          <button class="hrs-link-btn hrs-copy-btn" onclick="copyHoursToOpenDays(${d})" title="Бусад нээлттэй өдрүүдэд хуулах">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+              <rect x="1.5" y="1.5" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/>
+              <path d="M4.5 4.5h6v6h-6" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/>
+            </svg>
+            Хуулах
+          </button>
+        </div>
+      ` : `<div class="hrs-closed-label">Энэ өдөр хаалттай</div>`}
+    </div>
+  </div>`;
 }
 
-function toggleDayClosed(d) {
-  const closed = document.getElementById('closed-' + d).checked;
-  document.getElementById('open-'  + d).disabled = closed;
-  document.getElementById('close-' + d).disabled = closed;
+// Read current input values → update state → re-render row
+function hrsSyncAndRedraw(d) {
+  const s = _hoursState[d];
+  const sEl = document.getElementById('hrs-s-' + d);
+  const eEl = document.getElementById('hrs-e-' + d);
+  const bsEl = document.getElementById('hrs-bs-' + d);
+  const beEl = document.getElementById('hrs-be-' + d);
+  if (sEl) s.start = sEl.value;
+  if (eEl) s.end   = eEl.value;
+  if (bsEl) s.breakStart = bsEl.value;
+  if (beEl) s.breakEnd   = beEl.value;
+  // Redraw just this day's row
+  const row = document.getElementById('hrs-day-' + d);
+  if (row) row.outerHTML = dayRowHTML(d);
 }
 
-function copyHours(fromDay) {
-  const open  = document.getElementById('open-'  + fromDay).value;
-  const close = document.getElementById('close-' + fromDay).value;
-  [0,1,2,3,4,5,6].forEach(d => {
-    const closedEl = document.getElementById('closed-' + d);
-    if (!closedEl.checked) {
-      document.getElementById('open-'  + d).value = open;
-      document.getElementById('close-' + d).value = close;
+function toggleHrsDay(d) {
+  _hoursState[d].open = !_hoursState[d].open;
+  const row = document.getElementById('hrs-day-' + d);
+  if (row) row.outerHTML = dayRowHTML(d);
+}
+
+function addBreak(d) {
+  const s = _hoursState[d];
+  // Default break: halfway through the workday
+  const toMin = t => { const [h,m] = t.split(':').map(Number); return h*60+m; };
+  const midMin = Math.floor((toMin(s.start) + toMin(s.end)) / 2);
+  const toStr = m => String(Math.floor(m/60)).padStart(2,'0') + ':' + String(m%60).padStart(2,'0');
+  s.breakStart = toStr(midMin);
+  s.breakEnd   = toStr(Math.min(midMin + 60, toMin(s.end) - 30));
+  const row = document.getElementById('hrs-day-' + d);
+  if (row) row.outerHTML = dayRowHTML(d);
+}
+
+function removeBreak(d) {
+  _hoursState[d].breakStart = '';
+  _hoursState[d].breakEnd   = '';
+  const row = document.getElementById('hrs-day-' + d);
+  if (row) row.outerHTML = dayRowHTML(d);
+}
+
+function copyHoursToOpenDays(fromDay) {
+  const src = _hoursState[fromDay];
+  DAYS_MN.forEach(day => {
+    if (day.id !== fromDay && _hoursState[day.id].open) {
+      _hoursState[day.id] = { ..._hoursState[day.id], start: src.start, end: src.end, breakStart: src.breakStart, breakEnd: src.breakEnd };
     }
   });
-  showToast('success', 'Хуулагдлаа', 'Цаг бусад өдөрт хуулагдлаа.');
+  renderHours();
+  showToast('success','Хуулагдлаа','Цаг бусад нээлттэй өдрүүдэд хуулагдлаа.');
+}
+
+function applyPreset(preset) {
+  DAYS_MN.forEach(day => {
+    if (preset === 'weekdays-9-18') {
+      _hoursState[day.id] = { open: !day.weekend, start: '09:00', end: '18:00', breakStart: '', breakEnd: '' };
+    } else if (preset === 'all-10-22') {
+      _hoursState[day.id] = { open: true, start: '10:00', end: '22:00', breakStart: '', breakEnd: '' };
+    } else if (preset === 'closed') {
+      _hoursState[day.id] = { open: false, start: '09:00', end: '18:00', breakStart: '', breakEnd: '' };
+    }
+  });
+  renderHours();
 }
 
 async function saveHours() {
-  if (!_bizId) { showToast('error', 'Алдаа', 'Бизнесийн мэдээлэл олдсонгүй.'); return; }
-  const rows = [0,1,2,3,4,5,6].map(d => ({
-    business_id:  _bizId,
-    day_of_week:  d,
-    open_time:    document.getElementById('open-'   + d).value || null,
-    close_time:   document.getElementById('close-'  + d).value || null,
-    is_closed:    document.getElementById('closed-' + d).checked,
-  }));
-
+  if (!_placeId) { showToast('error','Алдаа','Байршлийн мэдээлэл олдсонгүй.'); return; }
+  const rows = DAYS_MN.map(day => {
+    const s = _hoursState[day.id];
+    return {
+      place_id:    _placeId,
+      day_of_week: day.id,
+      open_time:   s.open ? s.start : null,
+      close_time:  s.open ? s.end   : null,
+      break_start: s.open && s.breakStart ? s.breakStart : null,
+      break_end:   s.open && s.breakEnd   ? s.breakEnd   : null,
+      is_closed:   !s.open,
+    };
+  });
   const { error } = await _sb.from('business_hours')
-    .upsert(rows, { onConflict: 'business_id,day_of_week' });
-  if (error) { showToast('error', 'Алдаа', error.message); return; }
-  showToast('success', 'Хадгалагдлаа', 'Ажлын цаг амжилттай хадгалагдлаа.');
+    .upsert(rows, { onConflict: 'place_id,day_of_week' });
+  if (error) { showToast('error','Алдаа', error.message); return; }
+  showToast('success','Хадгалагдлаа','Ажлын цаг амжилттай хадгалагдлаа.');
 }
 
-// ── Rules & Reminders ───────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// CAPACITY & RULES TAB
+// ════════════════════════════════════════════════════════════════
 function toggleReminder(cardId, btn) {
   const card = document.getElementById(cardId);
   const on = !btn.classList.contains('on');
@@ -1224,12 +1329,27 @@ async function saveRules() {
   const depositRaw = document.getElementById('ruleDepositAmount').value.trim();
   const depositAmount = depositRaw === '' ? null : (parseInt(depositRaw, 10) || null);
   if (_placeId) {
-    await _sb.from('places').update({ slot_capacity: cap, deposit_amount: depositAmount }).eq('id', _placeId);
+    await _sb.from('places').update({ slot_capacity: cap, deposit_amount: depositAmount }).eq('place_id', _placeId);
   }
-  showToast('success', 'Хадгалагдлаа', 'Тохиргоо хадгалагдлаа.');
+  showToast('success','Хадгалагдлаа','Тохиргоо хадгалагдлаа.');
 }
 
-// ── Sidebar mobile ───────────────────────────────────────────────
+// ════════════════════════════════════════════════════════════════
+// STAFF TAB (placeholder — tables will be added in a future sprint)
+// ════════════════════════════════════════════════════════════════
+function openStaffModal() {
+  document.getElementById('staffModal').classList.add('open');
+  document.getElementById('staffName').focus();
+}
+function closeStaffModal() {
+  document.getElementById('staffModal').classList.remove('open');
+}
+async function saveStaff() {
+  showToast('info','Удахгүй','Ажилтны удирдлага дараагийн шинэчлэлтэд орно.');
+  closeStaffModal();
+}
+
+// ── Mobile sidebar ────────────────────────────────────────────────
 document.getElementById('mobileMenuBtn').addEventListener('click', () => {
   document.getElementById('sidebar').classList.toggle('open');
   document.getElementById('sidebarBackdrop').classList.toggle('open');
@@ -1238,12 +1358,9 @@ document.getElementById('sidebarBackdrop').addEventListener('click', () => {
   document.getElementById('sidebar').classList.remove('open');
   document.getElementById('sidebarBackdrop').classList.remove('open');
 });
-
-// Close modals on backdrop click
-document.getElementById('svcModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeSvcModal(); });
-document.getElementById('staffModal').addEventListener('click', e => { if (e.target === e.currentTarget) closeStaffModal(); });
-
-// logout() is provided by utils.js — duplicate definition removed.
+document.getElementById('staffModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeStaffModal();
+});
 </script>
 </body>
 </html>

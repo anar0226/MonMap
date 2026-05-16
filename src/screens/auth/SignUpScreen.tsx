@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -104,9 +105,29 @@ export default function SignUpScreen({ navigation }: Props) {
       options: { data: { full_name: trimmedName }, captchaToken },
     });
     setLoading(false);
-    if (authError && !authError.message.includes('already registered')) {
-      setError('Бүртгүүлэхэд алдаа гарлаа');
-      return;
+    if (authError) {
+      const msg = authError.message ?? '';
+      // "already registered" → masked as success to prevent email enumeration
+      if (msg.includes('already registered')) {
+        // fall through to navigate — same UX as a fresh signup
+      } else if (/captcha|expired|verification/i.test(msg)) {
+        // hCaptcha token timed out before reaching Supabase. The next submit
+        // opens a fresh captcha modal, generating a new token.
+        setError('Аюулгүй байдлын баталгаажуулалт хугацаа дууссан. Дахин оролдоно уу.');
+        return;
+      } else if (/rate.?limit|too many/i.test(msg)) {
+        setError('Хэт олон оролдлого. Хэдэн минутын дараа дахин оролдоно уу.');
+        return;
+      } else if (/password/i.test(msg)) {
+        setError(`Нууц үгний шаардлага хангахгүй байна: ${msg}`);
+        return;
+      } else if (/network|fetch|connect/i.test(msg)) {
+        setError('Сүлжээний алдаа. Интернет холболтоо шалгаад дахин оролдоно уу.');
+        return;
+      } else {
+        setError(`Бүртгүүлэхэд алдаа гарлаа: ${msg}`);
+        return;
+      }
     }
     // Navigate on both success and "already registered" — same UX prevents email enumeration
     navigation.navigate('VerifyOtp', {
@@ -126,9 +147,7 @@ export default function SignUpScreen({ navigation }: Props) {
               <Pressable onPress={() => navigation.goBack()} style={s.backBtn} hitSlop={8}>
                 <Ionicons name="arrow-back" size={20} color={colors.textSec} />
               </Pressable>
-              <LinearGradient colors={gradientPrimary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.brandTile}>
-                <Text style={s.brandLetter}>M</Text>
-              </LinearGradient>
+              <Image source={require('../../../assets/icon.png')} style={s.brandTile} />
               <View style={{ marginLeft: 10 }}>
                 <Text style={s.appName}>MONMAP</Text>
                 <Text style={s.pageTitle}>Шинээр бүртгүүлэх</Text>
@@ -136,11 +155,11 @@ export default function SignUpScreen({ navigation }: Props) {
             </View>
 
             {/* Name */}
-            <Text style={s.label}>НЭР</Text>
+            <Text style={s.label}>НЭВТРЭХ НЭР</Text>
             <View style={[s.inputWrap, focused === 'name' && s.inputFocused]}>
               <TextInput
                 style={s.input}
-                placeholder="Таны нэр"
+                placeholder="Таны нэвтрэх нэр"
                 placeholderTextColor={colors.textMuted}
                 value={name}
                 onChangeText={setName}

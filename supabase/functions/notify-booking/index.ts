@@ -12,19 +12,27 @@ const SUPPORT_PHONE             = Deno.env.get('SUPPORT_PHONE') ?? '+976 9414-21
 
 // Best-effort audit log. Never let a logging failure cascade to the caller —
 // the SMS itself is the durable side-effect; this row is observability.
+//
+// `intendedStatus` freezes the booking state at the moment we dispatched the
+// notification. On retry the portal passes this back as `overrideStatus` so
+// the re-sent SMS matches the original intent (e.g. retrying a "new booking"
+// failure for a booking that has since been cancelled still sends the
+// new-booking message, not the cancellation message).
 async function logAttempt(
   db: ReturnType<typeof createClient>,
   bookingId: number | string,
   channel: 'sms_owner' | 'sms_guest' | 'push_guest',
   status: 'ok' | 'error',
   errorText: string | null,
+  intendedStatus: string | null,
 ): Promise<void> {
   try {
     await db.from('notification_attempts').insert({
-      booking_id: bookingId,
+      booking_id:      bookingId,
       channel,
       status,
-      error_text: errorText,
+      error_text:      errorText,
+      intended_status: intendedStatus,
     })
   } catch (e) {
     console.error('notification_attempts insert failed:', e)
@@ -54,8 +62,16 @@ Deno.serve(async (req) => {
       callerId = userData.user.id
     }
 
-    const { bookingId } = await req.json()
+    const { bookingId, overrideStatus } = await req.json()
     if (!bookingId) return new Response('Missing bookingId', { status: 400 })
+    // Whitelist the override values to prevent template injection via a
+    // malformed retry payload. Only the statuses with templates below are
+    // accepted; anything else falls back to the live booking status.
+    const ALLOWED_OVERRIDE = new Set(['pending', 'confirmed', 'cancelled', 'expired'])
+    const safeOverride: string | null =
+      typeof overrideStatus === 'string' && ALLOWED_OVERRIDE.has(overrideStatus)
+        ? overrideStatus
+        : null
 
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -85,12 +101,14 @@ Deno.serve(async (req) => {
     const businessPhone = place?.phone_intl ?? place?.phone_national
     const placeName = place?.name ?? 'Газар'
 
-    // Notify the business owner. Message content depends on booking status:
-    // - pending   → new request, action required
-    // - cancelled → customer cancelled, no action needed
+    // Notify the business owner. Message content depends on the intended
+    // status — `safeOverride` lets the retry path replay the original
+    // intent (see top-of-function note on the parameter). For fresh
+    // dispatches, falls back to the live booking status.
+    const effectiveStatus = safeOverride ?? booking.status
     let anyDelivered = false
     if (businessPhone) {
-      const isCancelled = booking.status === 'cancelled' || booking.status === 'canceled'
+      const isCancelled = effectiveStatus === 'cancelled' || effectiveStatus === 'canceled'
       const lines = isCancelled
         ? [
             '❌ MonMap: Захиалга цуцлагдлаа',
@@ -113,7 +131,7 @@ Deno.serve(async (req) => {
         .then(() => ({ ok: true, err: null as string | null }))
         .catch((e) => ({ ok: false, err: String(e?.message ?? e) }))
       anyDelivered = anyDelivered || ownerSms.ok
-      await logAttempt(db, bookingId, 'sms_owner', ownerSms.ok ? 'ok' : 'error', ownerSms.err)
+      await logAttempt(db, bookingId, 'sms_owner', ownerSms.ok ? 'ok' : 'error', ownerSms.err, effectiveStatus)
     }
 
     // Fire Web Push to any portal browser tabs the owner has subscribed.

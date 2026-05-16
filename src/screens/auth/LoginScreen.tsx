@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -58,9 +59,23 @@ export default function LoginScreen({ navigation }: Props) {
     });
     setLoading(false);
     if (authError) {
-      const msg = authError.message;
-      if (msg.includes('Invalid login credentials')) setError('Имэйл эсвэл нууц үг буруу байна');
-      else setError('Нэвтрэхэд алдаа гарлаа');
+      const msg = authError.message ?? '';
+      // hCaptcha tokens TTL ~2 minutes. If the user solved the captcha and
+      // then the round-trip stalls (slow network, app backgrounded), the
+      // token can be expired by the time Supabase verifies it. Detect this
+      // explicitly so the user knows it's a retry-with-fresh-captcha
+      // problem, not a credentials problem.
+      if (/captcha|expired|verification/i.test(msg)) {
+        setError('Аюулгүй байдлын баталгаажуулалт хугацаа дууссан. Дахин оролдоно уу.');
+      } else if (msg.includes('Invalid login credentials')) {
+        setError('Имэйл эсвэл нууц үг буруу байна');
+      } else if (/email not confirmed|not confirmed/i.test(msg)) {
+        setError('Имэйл хаягаа баталгаажуулна уу. Имэйл шалгана уу.');
+      } else if (/rate.?limit|too many/i.test(msg)) {
+        setError('Хэт олон оролдлого. Хэдэн минутын дараа дахин оролдоно уу.');
+      } else {
+        setError('Нэвтрэхэд алдаа гарлаа');
+      }
     }
   }
 
@@ -71,9 +86,7 @@ export default function LoginScreen({ navigation }: Props) {
           <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
             {/* Brand header */}
             <View style={s.header}>
-              <LinearGradient colors={gradientPrimary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.brandTile}>
-                <Text style={s.brandLetter}>M</Text>
-              </LinearGradient>
+              <Image source={require('../../../assets/icon.png')} style={s.brandTile} />
               <Text style={s.appName}>MONMAP</Text>
               <Text style={s.title}>Тавтай морил</Text>
               <Text style={s.subtitle}>Та дансандаа нэвтэрнэ үү</Text>
@@ -167,9 +180,19 @@ export default function LoginScreen({ navigation }: Props) {
             {/* Legal */}
             <Text style={s.legal}>
               Нэвтрэснээр та манай{' '}
-              <Text style={s.legalLink}>Үйлчилгээний нөхцөл</Text>
+              <Text
+                style={s.legalLink}
+                onPress={() => navigation.navigate('Legal', { kind: 'terms' })}
+              >
+                Үйлчилгээний нөхцөл
+              </Text>
               {' '}болон{' '}
-              <Text style={s.legalLink}>Нууцлалын бодлого</Text>
+              <Text
+                style={s.legalLink}
+                onPress={() => navigation.navigate('Legal', { kind: 'privacy' })}
+              >
+                Нууцлалын бодлого
+              </Text>
               -той зөвшөөрч байна.
             </Text>
           </ScrollView>

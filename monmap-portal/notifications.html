@@ -203,7 +203,7 @@
 
 <div class="toast-container" id="toastContainer"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js" integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae" crossorigin="anonymous"></script>
+<script src="js/supabase.min.js"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/icons.js"></script>
@@ -358,6 +358,11 @@
       const bookedAt = formatDate(r.booked_date) + ' ' + (r.time_slot || '');
       const ago = relativeTime(r.attempted_at);
       const errSnippet = (r.error_text || 'Шалтгаан тодорхойгүй').slice(0, 200);
+      // If the booking status moved between the failure and now, the retry
+      // will replay the *original* intent (via overrideStatus). Surface this
+      // so the owner isn't surprised by an SMS that doesn't reflect the
+      // booking's current state.
+      const statusDrifted = r.intended_status && r.booking_status && r.intended_status !== r.booking_status;
 
       return `
         <div class="notif-row" data-resolved="${resolved}">
@@ -373,12 +378,16 @@
             ${resolved
               ? '<div class="notif-sub" style="color:var(--success);margin-top:4px;">✓ Энэхүү мэдэгдэл дараа нь амжилттай хүрсэн</div>'
               : `<div class="notif-error">${escapeHtml(errSnippet)}</div>`}
+            ${!resolved && statusDrifted ? `
+              <div class="notif-sub" style="color:var(--warning);margin-top:4px;">
+                ⚠ Энэхүү мэдэгдэл анх '<b>${escapeHtml(r.intended_status)}</b>' төлөвт зориулагдсан. Дахин илгээхэд анхны зорилгоор илгээгдэнэ.
+              </div>` : ''}
           </div>
           <div class="notif-actions">
             <div class="notif-time" title="${escapeHtml(r.attempted_at)}">${escapeHtml(ago)}</div>
             ${resolved ? '' : `
               <button class="btn btn-primary btn-sm retry-btn"
-                onclick="retry('${r.attempt_id}', '${r.channel}', ${r.booking_id}, this)">
+                onclick="retry('${r.attempt_id}', '${r.channel}', ${r.booking_id}, ${r.intended_status ? "'" + escapeHtml(r.intended_status) + "'" : 'null'}, this)">
                 ↻ Дахин илгээх
               </button>`}
           </div>
@@ -404,21 +413,38 @@
   // The function bodies already enforce ownership for user JWTs, so this is
   // the same code path the original delivery would have used — no risk of
   // sending to the wrong guest.
-  async function retry(attemptId, channel, bookingId, btn) {
+  //
+  // We pass `overrideStatus` (the intended_status frozen at the original
+  // attempt) so retries replay the original intent. Without this, retrying
+  // a "new booking" SMS for a since-cancelled booking would re-send as a
+  // "cancellation" SMS — the owner clicked retry on a specific notification
+  // and expects that same notification, not a new one.
+  async function retry(attemptId, channel, bookingId, intendedStatus, btn) {
     btn.disabled = true;
     btn.textContent = 'Илгээж байна...';
     try {
       const fnName = (CHANNEL[channel] || {}).fn;
       if (!fnName) throw new Error(`Unknown channel: ${channel}`);
 
-      const { data, error } = await _sb.functions.invoke(fnName, {
-        body: { bookingId },
-      });
+      const body = { bookingId };
+      // Pass-through only when we have a frozen intent. Older rows without
+      // intended_status (logged before migration 20260518000001) fall back
+      // to the current-status path, which is the legacy behaviour.
+      if (intendedStatus) body.overrideStatus = intendedStatus;
+
+      const { data, error } = await _sb.functions.invoke(fnName, { body });
       if (error) throw error;
 
-      // `delivered` is the edge function's own flag — true means at least
-      // one channel acknowledged. If false, the same upstream is still down.
-      if (data && data.delivered === false) {
+      // Three possible outcomes:
+      //   delivered=true  → at least one channel succeeded ✓
+      //   delivered=false → external service still down (Twilio/Expo)
+      //   skipped=<status>→ notify-guest had no template for this status,
+      //                     which means the booking is in a state we don't
+      //                     guest-notify on (typically 'pending').
+      if (data && data.skipped) {
+        showToast('warning', 'Илгээх боломжгүй',
+          `Энэ захиалга '${data.skipped}' төлөвт байгаа тул зочинд мэдэгдэл илгээх боломжгүй.`);
+      } else if (data && data.delivered === false) {
         showToast('warning', 'Дахин амжилтгүй', 'Гадаад үйлчилгээ хариу өгсөнгүй. Дараа дахин оролдоно уу.');
       } else {
         showToast('success', 'Илгээгдлээ', 'Мэдэгдэл дахин илгээгдлээ.');

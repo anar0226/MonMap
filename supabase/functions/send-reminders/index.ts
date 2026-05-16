@@ -64,7 +64,10 @@ Deno.serve(async (req) => {
 
   const placeMap = new Map((places ?? []).map((p) => [p.place_id, p]))
 
-  const smsJobs = toRemind.flatMap((b) => {
+  // Owner-bound SMS: business gets a "next-up" heads-up. The portal already
+  // shows the same info on the dashboard; the SMS is the redundant channel
+  // for owners who don't keep the dashboard open all day.
+  const ownerJobs = toRemind.flatMap((b) => {
     const place = placeMap.get(b.place_id)
     const phone = place?.phone_intl ?? place?.phone_national
     if (!phone) return []
@@ -77,12 +80,32 @@ Deno.serve(async (req) => {
     return [sendSMS(phone, lines.join('\n'))]
   })
 
-  await Promise.allSettled(smsJobs)
+  // Guest-bound SMS: previously guests relied entirely on the device-local
+  // push reminder scheduled by PlaceDetailCard, which silently fails when
+  // the device is off, the app is force-closed, or push permission is
+  // denied. The server-side SMS is the durable fallback — costs ~1 SMS per
+  // booking but guarantees the reminder lands.
+  const guestJobs = toRemind.flatMap((b) => {
+    if (!b.guest_phone) return []
+    const place = placeMap.get(b.place_id)
+    const placeName = place?.name ?? 'газартай'
+    const lines = [
+      `⏰ MonMap: ${placeName} газартай 1 цагийн дараа уулзалт!`,
+      `${b.booked_date} ${b.time_slot} · ${b.party_size} хүн`,
+    ]
+    return [sendSMS(b.guest_phone, lines.join('\n'))]
+  })
+
+  await Promise.allSettled([...ownerJobs, ...guestJobs])
 
   const remindedIds = toRemind.map((b) => b.id)
   await db.from('bookings').update({ reminder_sent: true }).in('id', remindedIds)
 
-  return new Response(JSON.stringify({ reminded: remindedIds.length }), {
+  return new Response(JSON.stringify({
+    reminded:    remindedIds.length,
+    ownerSmsCount: ownerJobs.length,
+    guestSmsCount: guestJobs.length,
+  }), {
     headers: { 'Content-Type': 'application/json' },
   })
 })

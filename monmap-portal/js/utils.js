@@ -147,16 +147,17 @@ async function requireAuth() {
   if (!biz || biz.claim_status === undefined) {
     const { data } = await _sb
       .from('business_owners')
-      .select('place_id, claim_status, places(name, primary_category)')
+      .select('place_id, claim_status, rejected_reason, places(name, primary_category)')
       .eq('user_id', session.user.id)
       .maybeSingle();
     if (data) {
       biz = {
-        id:           data.place_id,
-        name:         (data.places && data.places.name) || data.place_id,
-        type:         (data.places && data.places.primary_category) || 'Бизнес',
-        claim_status: data.claim_status,
-        verified:     data.claim_status === 'verified',
+        id:              data.place_id,
+        name:            (data.places && data.places.name) || data.place_id,
+        type:            (data.places && data.places.primary_category) || 'Бизнес',
+        claim_status:    data.claim_status,
+        verified:        data.claim_status === 'verified',
+        rejected_reason: data.rejected_reason || null,
       };
       localStorage.setItem('mm_biz', JSON.stringify(biz));
     }

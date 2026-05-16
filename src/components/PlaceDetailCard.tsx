@@ -14,6 +14,7 @@ import {
   Share,
 } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import MapboxGL from '@rnmapbox/maps';
 import type { Place } from '../types/place';
@@ -78,6 +79,19 @@ const { height: SCREEN_H } = Dimensions.get('window');
 
 const COLLAPSED_H = 182;
 const EXPANDED_H = Math.min(Math.round(SCREEN_H * 0.80), 640);
+
+const AR_TEAL = '#00d4a8';
+const AR_NEARBY_THRESHOLD = 20; // meters
+
+function haversineMeters([lng1, lat1]: [number, number], [lng2, lat2]: [number, number]): number {
+  const R = 6371000;
+  const φ1 = (lat1 * Math.PI) / 180;
+  const φ2 = (lat2 * Math.PI) / 180;
+  const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+  const Δλ = ((lng2 - lng1) * Math.PI) / 180;
+  const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 // ── Design tokens ─────────────────────────────────────────────────────────────
 const C = {
@@ -144,6 +158,97 @@ const InfoRow = ({
 );
 
 const Div = () => <View style={s.divider} />;
+
+// ── AR Live View ─────────────────────────────────────────────────────────────
+
+const ARLiveViewSection = ({
+  nearby,
+  distanceM,
+  walkMins,
+  onPress,
+}: {
+  nearby: boolean;
+  distanceM: number;
+  walkMins: number;
+  onPress: () => void;
+}) => {
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const liveAnim  = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!nearby) {
+      pulseAnim.setValue(1);
+      liveAnim.setValue(1);
+      return;
+    }
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.65, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1,    duration: 600,  useNativeDriver: true }),
+      ]),
+    );
+    const live = Animated.loop(
+      Animated.sequence([
+        Animated.timing(liveAnim, { toValue: 0.3, duration: 800, useNativeDriver: true }),
+        Animated.timing(liveAnim, { toValue: 1,   duration: 800, useNativeDriver: true }),
+      ]),
+    );
+    pulse.start();
+    live.start();
+    return () => { pulse.stop(); live.stop(); };
+  }, [nearby]);
+
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      disabled={!nearby}
+      activeOpacity={0.82}
+      style={[s.arRow, nearby && s.arRowActive]}
+      accessibilityRole="button"
+      accessibilityLabel="AR чиглүүлэгч"
+    >
+      <View style={s.arIconBox}>
+        {nearby && (
+          <Animated.View style={[s.arRing, { transform: [{ scale: pulseAnim }] }]} />
+        )}
+        {nearby ? (
+          <LinearGradient
+            colors={['#00e0b8', '#00a890']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={s.arIconInner}
+          >
+            <Ionicons name="scan-outline" size={20} color="#fff" />
+          </LinearGradient>
+        ) : (
+          <View style={[s.arIconInner, s.arIconInnerDim]}>
+            <Ionicons name="scan-outline" size={20} color={AR_TEAL} />
+          </View>
+        )}
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <Text style={[s.arTitle, !nearby && { color: AR_TEAL }]}>AR чиглүүлэгч</Text>
+          {nearby && (
+            <Animated.View style={[s.arBadge, { opacity: liveAnim }]}>
+              <Text style={s.arBadgeText}>LIVE</Text>
+            </Animated.View>
+          )}
+        </View>
+        <Text style={s.arHint}>
+          {nearby
+            ? `${Math.round(distanceM)}м · AR навигаци идэвхтэй`
+            : isFinite(distanceM)
+              ? `${Math.round(distanceM)}м зайтай · 20м-ийн дотор ороорой`
+              : '20м-ийн дотор ойртвол идэвхжинэ'}
+        </Text>
+      </View>
+
+      {nearby && <Ionicons name="chevron-forward" size={16} color={C.textSec} />}
+    </TouchableOpacity>
+  );
+};
 
 const QuickBtn = ({
   icon, label, highlight, onPress,
@@ -243,24 +348,30 @@ const InfoTab = ({ place, openStatus }: { place: Place; openStatus: OpenStatus |
       <PlaceMiniMap place={place} />
 
       {hoursLines.length > 0 && (
-        <TouchableOpacity
-          style={s.reportBtn}
-          activeOpacity={0.6}
-          disabled={confirmed || confirmSubmitting}
-          onPress={() => confirmOpen()}
-        >
-          {confirmSubmitting
-            ? <ActivityIndicator size="small" color={C.textMuted} />
-            : <Ionicons
-                name={confirmed ? 'checkmark-circle-outline' : 'thumbs-up-outline'}
-                size={13}
-                color={confirmed ? C.green : C.textMuted}
-              />
-          }
-          <Text style={[s.reportBtnText, confirmed && { color: C.green }]}>
-            {confirmed ? 'Баталгаажуулсан — баярлалаа' : 'Цагаар нээлттэй байна'}
-          </Text>
-        </TouchableOpacity>
+        confirmed ? (
+          <View style={s.confirmBanner}>
+            <Ionicons name="checkmark-circle" size={15} color={C.green} />
+            <Text style={[s.confirmBannerText, { color: C.green }]}>
+              Нээлттэй байгааг баталгаажууллаа — баярлалаа!
+            </Text>
+          </View>
+        ) : (
+          <View style={s.confirmCta}>
+            <Text style={s.confirmCtaQuestion}>Одоо нээлттэй байна уу?</Text>
+            <TouchableOpacity
+              style={s.confirmCtaBtn}
+              activeOpacity={0.7}
+              disabled={confirmSubmitting}
+              onPress={() => confirmOpen()}
+            >
+              {confirmSubmitting
+                ? <ActivityIndicator size="small" color={C.green} />
+                : <Ionicons name="thumbs-up-outline" size={14} color={C.green} />
+              }
+              <Text style={s.confirmCtaBtnText}>Тийм, нээлттэй байна</Text>
+            </TouchableOpacity>
+          </View>
+        )
       )}
 
       <TouchableOpacity
@@ -287,6 +398,7 @@ const InfoTab = ({ place, openStatus }: { place: Place; openStatus: OpenStatus |
 
 const PlaceMiniMap = ({ place }: { place: Place }) => {
   const coord: [number, number] = [place.lng, place.lat];
+  const pinColor = CATEGORY_COLORS[place.primary_category ?? ''] ?? FALLBACK_COLOR;
   return (
     <View style={s.miniMap}>
       <MapboxGL.MapView
@@ -310,14 +422,14 @@ const PlaceMiniMap = ({ place }: { place: Place }) => {
           id="basemap"
           existing
           config={{
-            showPointOfInterestLabels: 'false' as any,
-            showTransitLabels: 'false' as any,
-            showPlaceLabels: 'false' as any,
+            showPointOfInterestLabels: false,
+            showTransitLabels: false,
+            showPlaceLabels: false,
           }}
         />
         <MapboxGL.PointAnnotation id={`mini-${place.place_id}`} coordinate={coord}>
-          <View style={s.miniMapPin}>
-            <Ionicons name="location" size={14} color="#fff" />
+          <View style={[s.miniMapPin, { backgroundColor: pinColor }]}>
+            <Ionicons name="location" size={16} color="#fff" />
           </View>
         </MapboxGL.PointAnnotation>
       </MapboxGL.MapView>
@@ -377,10 +489,43 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     if (isBookable) fetchSlots(place.place_id, today, timeSlots, slotCapacity);
   }, [place.place_id, isBookable]);
 
+  // Re-fetch slots when the user expands the booking form, and every 60s
+  // while it's open. Without this, a user who takes 5 minutes to fill in
+  // name/phone is acting on stale capacity data — another user could have
+  // taken the slot in the meantime. The 60s cadence + on-expand refresh
+  // balances accuracy with Supabase RPC quota.
+  useEffect(() => {
+    if (!isBookable || !showForm) return;
+    // Refresh once immediately on expand.
+    fetchSlots(place.place_id, today, timeSlots, slotCapacity);
+    const id = setInterval(() => {
+      fetchSlots(place.place_id, today, timeSlots, slotCapacity);
+    }, 60_000);
+    return () => clearInterval(id);
+    // timeSlots is derived from booking hours (stable) + slotDurationMinutes
+    // (category-derived, also stable) — we deliberately do not list it as a
+    // dep to avoid a re-fetch storm on every render. slotCapacity is also
+    // stable per place. The interval will pick up new slots if the user
+    // re-opens the card for a different place.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBookable, showForm, place.place_id, today]);
+
   // Request notification permissions when user opens the booking tab.
+  // We surface the *result* in the form copy below so a user with denied
+  // permissions sees a hint that the reminder won't fire — silently failing
+  // is worse than declining to schedule.
+  const [notifPermission, setNotifPermission] = useState<'granted' | 'denied' | 'undetermined'>('undetermined');
   useEffect(() => {
     if (!isBookable) return;
-    Notifications.requestPermissionsAsync().catch(() => {});
+    Notifications.requestPermissionsAsync()
+      .then(res => {
+        // iOS returns granted/denied/undetermined; Android collapses to granted/denied on API 33+.
+        const s = res.status === 'granted' ? 'granted'
+                : res.status === 'denied'  ? 'denied'
+                : 'undetermined';
+        setNotifPermission(s);
+      })
+      .catch(() => setNotifPermission('undetermined'));
   }, [isBookable]);
 
   const handleConfirm = async () => {
@@ -419,15 +564,32 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
 
     if (ok) {
       // Schedule a local push notification 1 hour before the appointment.
+      // This is best-effort: if the device is off, the app is force-closed,
+      // or permissions are denied, the user gets no reminder. We surface the
+      // permission state in the form copy and fall back to the server-side
+      // SMS reminder (send-reminders cron, which now notifies the guest too).
+      if (notifPermission !== 'granted') {
+        // Permission denied — server-side SMS reminder (via send-reminders
+        // cron + guest_phone) is the only fallback. Do not silently no-op
+        // the schedule; the user already knows from the form hint.
+        return;
+      }
       const trigger = reminderDate(today, slot.slot);
       if (trigger) {
-        Notifications.scheduleNotificationAsync({
-          content: {
-            title: 'Захиалга ойртож байна! 🍽️',
-            body: `${place.name} · ${slot.slot} цагт ${partySize} хүн`,
-          },
-          trigger: { date: trigger } as any,
-        }).catch(() => {});
+        try {
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: 'Захиалга ойртож байна! 🍽️',
+              body: `${place.name} · ${slot.slot} цагт ${partySize} хүн`,
+            },
+            trigger: { date: trigger } as any,
+          });
+        } catch (e) {
+          // Scheduling can fail on iOS if too many notifications are pending
+          // (64 limit) or on Android with battery optimizations engaged.
+          // Don't block the booking confirmation; the SMS path will cover it.
+          console.warn('scheduleNotificationAsync failed:', e);
+        }
       }
     }
   };
@@ -628,6 +790,28 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
             value={guestPhone}
             onChangeText={setGuestPhone}
           />
+          {/* If push permission was denied we tell the user explicitly that
+              the 1-hour reminder won't appear. The send-reminders cron will
+              still SMS them on the number above 60–90 min before — provided
+              they entered one. */}
+          {notifPermission === 'denied' && (
+            <View style={s.permHint}>
+              <Ionicons name="notifications-off-outline" size={13} color={C.amber} />
+              <Text style={s.permHintText}>
+                Push мэдэгдэл хаагдсан байна. {guestPhone.trim()
+                  ? 'Та утсаар санамж SMS хүлээж авна.'
+                  : 'Утасны дугаараа оруулбал SMS санамж хүлээж авна.'}
+              </Text>
+            </View>
+          )}
+          {notifPermission === 'granted' && !guestPhone.trim() && (
+            <View style={s.permHint}>
+              <Ionicons name="information-circle-outline" size={13} color={C.textSec} />
+              <Text style={[s.permHintText, { color: C.textSec }]}>
+                Утсаа оруулбал SMS санамж нэмж хүлээн авна.
+              </Text>
+            </View>
+          )}
           <TouchableOpacity
             style={[s.ctaPrimary, (!selectedSlot?.available || submitting || initiatingPayment) && { opacity: 0.5 }]}
             activeOpacity={0.85}
@@ -815,9 +999,11 @@ interface PlaceDetailCardProps {
   loading: boolean;
   onClose: () => void;
   onRequestDirections?: (place: Place) => void;
+  userLocation?: [number, number] | null;
+  onRequestAR?: (place: Place) => void;
 }
 
-export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }: PlaceDetailCardProps) {
+export function PlaceDetailCard({ place, loading, onClose, onRequestDirections, userLocation, onRequestAR }: PlaceDetailCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [tab, setTab] = useState<'info' | 'book' | 'reviews'>('info');
   const { isSaved, toggle: toggleSaved } = useSavedPlaces();
@@ -866,8 +1052,14 @@ export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }
   const catColor = CATEGORY_COLORS[place?.primary_category ?? ''] ?? FALLBACK_COLOR;
   const catLabel = (CATEGORY_LABELS[place?.primary_category ?? ''] ?? place?.primary_category ?? '').toUpperCase();
   const openStatus: OpenStatus | null = place ? getOpenStatus(place) : null;
-  const isBookable = BOOKABLE_CATEGORIES.has(place?.primary_category ?? '');
+  const isBookable = place?.booking_enabled === true;
   const phone = place?.phone_national ?? place?.phone_intl;
+
+  const distanceM = (userLocation && place)
+    ? haversineMeters(userLocation, [place.lng, place.lat])
+    : Infinity;
+  const nearbyAR = isFinite(distanceM) && distanceM <= AR_NEARBY_THRESHOLD;
+  const walkMins = nearbyAR ? Math.max(1, Math.round(distanceM / 70)) : 0;
 
   const TABS = [
     { id: 'info' as const,    label: 'Мэдээлэл' },
@@ -900,10 +1092,10 @@ export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }
             <View style={s.metaRow}>
               <CategoryIcon category={place.primary_category} size={22} />
               <Text style={s.catLabel}>{catLabel}</Text>
-              {catLabel && openStatus && openStatus.kind !== 'unknown' && (
+              {catLabel && openStatus && (
                 <Text style={s.metaDot}>·</Text>
               )}
-              {openStatus && openStatus.kind !== 'unknown' && (
+              {openStatus && (
                 <View style={[s.statusBadge, { backgroundColor: openStatus.badgeBg }]}>
                   <Text style={[s.statusText, { color: openStatus.textColor }]}>
                     {openStatus.label}
@@ -962,10 +1154,16 @@ export function PlaceDetailCard({ place, loading, onClose, onRequestDirections }
         <View style={s.expandedContent}>
           <Div />
 
-          <View style={[s.cover, { backgroundColor: catColor + '22' }]}>
-            <CategoryIcon category={place.primary_category} size={44} />
-            <Text style={s.coverLabel}>Одоогоор зураг байршуулаагүй байна</Text>
-          </View>
+          {place.has_ar_navigation && (
+            <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>
+              <ARLiveViewSection
+                nearby={nearbyAR}
+                distanceM={distanceM}
+                walkMins={walkMins}
+                onPress={() => onRequestAR?.(place)}
+              />
+            </View>
+          )}
 
           <View style={s.tabBar}>
             {TABS.map(t => (
@@ -1130,16 +1328,73 @@ const s = StyleSheet.create({
     backgroundColor: C.borderSub,
     marginHorizontal: -0,
   },
-  cover: {
-    height: 130,
+  arRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,212,168,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,212,168,0.14)',
+  },
+  arRowActive: {
+    backgroundColor: 'rgba(0,212,168,0.11)',
+    borderColor: 'rgba(0,212,168,0.32)',
+    shadowColor: '#00d4a8',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.22,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  arIconBox: {
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
+    position: 'relative',
   },
-  coverLabel: {
+  arRing: {
+    position: 'absolute',
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,212,168,0.22)',
+  },
+  arIconInner: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arIconInnerDim: {
+    borderWidth: 1,
+    borderColor: 'rgba(0,212,168,0.22)',
+    backgroundColor: 'rgba(0,212,168,0.08)',
+  },
+  arTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: C.text,
+    letterSpacing: -0.2,
+  },
+  arHint: {
     fontSize: 12,
-    color: C.textMuted,
-    letterSpacing: 0.2,
+    color: C.textSec,
+    marginTop: 2,
+  },
+  arBadge: {
+    backgroundColor: '#00d4a8',
+    borderRadius: 999,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+  },
+  arBadgeText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.5,
   },
 
   tabBar: {
@@ -1193,12 +1448,19 @@ const s = StyleSheet.create({
     overflow: 'hidden',
   },
   miniMapPin: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: C.primary,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2.5,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.35,
+    shadowRadius: 4,
+    elevation: 5,
   },
   miniMapLabel: {
     fontSize: 9,
@@ -1374,6 +1636,23 @@ const s = StyleSheet.create({
     color: C.text,
   },
 
+  // Inline hint under the phone input — explains the reminder fallback path
+  // when push permission is denied, or nudges the user to enter a phone
+  // number so they get the SMS path. Compact and non-blocking by design.
+  permHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 4,
+    marginTop: -4,
+  },
+  permHintText: {
+    flex: 1,
+    fontSize: 11,
+    color: C.amber,
+    lineHeight: 15,
+  },
+
   ratingSummary: {
     flexDirection: 'row',
     gap: 20,
@@ -1486,5 +1765,47 @@ const s = StyleSheet.create({
   reportBtnText: {
     fontSize: 12,
     color: C.textMuted,
+  },
+
+  confirmCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: 'rgba(16,185,129,0.07)',
+    borderWidth: 1,
+    borderColor: 'rgba(16,185,129,0.18)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  confirmCtaQuestion: {
+    fontSize: 12,
+    color: C.textSec,
+    fontWeight: '500',
+  },
+  confirmCtaBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(16,185,129,0.14)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  confirmCtaBtnText: {
+    fontSize: 12,
+    color: C.green,
+    fontWeight: '600',
+  },
+  confirmBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    justifyContent: 'center',
+    paddingVertical: 8,
+  },
+  confirmBannerText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });

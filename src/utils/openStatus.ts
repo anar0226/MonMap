@@ -86,7 +86,12 @@ export function getOpenStatus(place: Place, now = new Date()): OpenStatus {
     };
   }
 
-  return { kind: 'unknown', label: '', badgeBg: 'transparent', textColor: 'transparent' };
+  return {
+    kind: 'unknown',
+    label: 'ЦАГ МЭДЭГДЭХГҮЙ',
+    badgeBg: 'rgba(255,255,255,0.07)',
+    textColor: 'rgba(255,255,255,0.35)',
+  };
 }
 
 export function isStaleStatus(kind: OpenStatusKind): boolean {

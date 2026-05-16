@@ -20,19 +20,25 @@ const SUPPORT_PHONE             = Deno.env.get('SUPPORT_PHONE') ?? '+976 9414-21
 
 // Best-effort audit log. Never let a logging failure cascade to the caller —
 // the SMS/push itself is the durable side-effect; this row is observability.
+//
+// `intendedStatus` freezes the template that drove this attempt. On retry
+// the portal passes this back as overrideStatus so the message matches the
+// original intent rather than reflecting current booking state.
 async function logAttempt(
   db: ReturnType<typeof createClient>,
   bookingId: number | string,
   channel: 'sms_owner' | 'sms_guest' | 'push_guest',
   status: 'ok' | 'error',
   errorText: string | null,
+  intendedStatus: string | null,
 ): Promise<void> {
   try {
     await db.from('notification_attempts').insert({
-      booking_id: bookingId,
+      booking_id:      bookingId,
       channel,
       status,
-      error_text: errorText,
+      error_text:      errorText,
+      intended_status: intendedStatus,
     })
   } catch (e) {
     console.error('notification_attempts insert failed:', e)
@@ -102,8 +108,17 @@ async function sendExpoPush(
 
 Deno.serve(async (req) => {
   try {
-    const { bookingId } = await req.json()
+    const { bookingId, overrideStatus } = await req.json()
     if (!bookingId) return new Response('Missing bookingId', { status: 400 })
+
+    // Whitelist override values to prevent template injection. Only the
+    // statuses with TEMPLATES below are valid; anything else falls through
+    // to the live booking status.
+    const ALLOWED_OVERRIDE = new Set(Object.keys(TEMPLATES))
+    const safeOverride: string | null =
+      typeof overrideStatus === 'string' && ALLOWED_OVERRIDE.has(overrideStatus)
+        ? overrideStatus
+        : null
 
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -117,12 +132,16 @@ Deno.serve(async (req) => {
       return new Response('Booking not found', { status: 404 })
     }
 
-    // Pick the template by status — silently no-op for any status we don't
-    // notify on (e.g. 'pending' would mean the cron hasn't fired yet).
-    const tpl = TEMPLATES[booking.status]
+    // Pick the template by effective status (override wins, then live).
+    // No template means we have nothing to send — this happens when called
+    // for a 'pending' booking (no guest-side message until owner acts) and
+    // is also the no-op path for retries against bookings whose status has
+    // since reverted. We surface `skipped` so the portal can show a warning.
+    const effectiveStatus = safeOverride ?? booking.status
+    const tpl = TEMPLATES[effectiveStatus]
     if (!tpl) {
-      console.log(`notify-guest: no template for status='${booking.status}', skipping`)
-      return new Response(JSON.stringify({ ok: true, skipped: booking.status }), {
+      console.log(`notify-guest: no template for status='${effectiveStatus}', skipping`)
+      return new Response(JSON.stringify({ ok: true, skipped: effectiveStatus }), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
@@ -136,25 +155,36 @@ Deno.serve(async (req) => {
 
     let anyDelivered = false
 
-    // Push to the guest's mobile device, if logged in and a token is on file.
+    // Push to the guest's mobile device, if logged in, a token is on file,
+    // and the user has not opted out of push / booking notifications.
     if (booking.user_id) {
-      const { data: tokenRow } = await db
-        .from('user_push_tokens')
-        .select('token')
-        .eq('user_id', booking.user_id)
-        .maybeSingle()
+      const [{ data: tokenRow }, { data: prefs }] = await Promise.all([
+        db.from('user_push_tokens')
+          .select('token')
+          .eq('user_id', booking.user_id)
+          .maybeSingle(),
+        db.from('user_notification_prefs')
+          .select('push_enabled, booking_enabled')
+          .eq('user_id', booking.user_id)
+          .maybeSingle(),
+      ])
 
-      if (tokenRow?.token) {
+      // Default to opted-in when no row exists (new user who has never
+      // opened Settings) so they still receive their first booking push.
+      const pushAllowed    = prefs?.push_enabled    ?? true
+      const bookingAllowed = prefs?.booking_enabled ?? true
+
+      if (tokenRow?.token && pushAllowed && bookingAllowed) {
         const push = await sendExpoPush(
           tokenRow.token,
           tpl.pushTitle,
           tpl.pushBody(placeName, booking.booked_date, booking.time_slot, booking.party_size),
-          { bookingId: String(bookingId), status: booking.status },
+          { bookingId: String(bookingId), status: effectiveStatus },
         )
           .then(() => ({ ok: true, err: null as string | null }))
           .catch((e) => ({ ok: false, err: String(e?.message ?? e) }))
         anyDelivered = anyDelivered || push.ok
-        await logAttempt(db, bookingId, 'push_guest', push.ok ? 'ok' : 'error', push.err)
+        await logAttempt(db, bookingId, 'push_guest', push.ok ? 'ok' : 'error', push.err, effectiveStatus)
       }
     }
 
@@ -167,7 +197,7 @@ Deno.serve(async (req) => {
         .then(() => ({ ok: true, err: null as string | null }))
         .catch((e) => ({ ok: false, err: String(e?.message ?? e) }))
       anyDelivered = anyDelivered || sms.ok
-      await logAttempt(db, bookingId, 'sms_guest', sms.ok ? 'ok' : 'error', sms.err)
+      await logAttempt(db, bookingId, 'sms_guest', sms.ok ? 'ok' : 'error', sms.err, effectiveStatus)
     }
 
     // Stamp guest_notified_at only when at least one channel acknowledged.
@@ -179,7 +209,7 @@ Deno.serve(async (req) => {
         .eq('id', bookingId)
     }
 
-    return new Response(JSON.stringify({ ok: true, status: booking.status, delivered: anyDelivered }), {
+    return new Response(JSON.stringify({ ok: true, status: effectiveStatus, delivered: anyDelivered }), {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (err) {

@@ -27,6 +27,28 @@
       border-radius: 999px;
       display: flex; align-items: center; justify-content: center;
       font-size: 0.75rem; cursor: pointer;
+      transition: opacity .15s;
+    }
+    /* When .uploading is on, the pencil becomes a spinner and the entire
+       avatar dims so the owner can see something is in flight. We avoid
+       a separate progress bar because Supabase storage upload doesn't
+       expose progress events without going to the raw XHR layer. */
+    .profile-avatar-wrap.uploading .profile-avatar { opacity: .55; }
+    .profile-avatar-wrap.uploading .profile-avatar-edit {
+      pointer-events: none;
+      background: var(--gray-400);
+    }
+    .profile-avatar-wrap.uploading .profile-avatar-edit::after {
+      content: '';
+      width: 12px; height: 12px;
+      border: 2px solid white;
+      border-top-color: transparent;
+      border-radius: 999px;
+      animation: spin .8s linear infinite;
+    }
+    .profile-avatar-wrap.uploading .profile-avatar-edit { font-size: 0; }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
     .section-card { background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); border: 1px solid var(--gray-100); margin-bottom: 24px; overflow: hidden; }
     .section-card-header { padding: 18px 24px; border-bottom: 1px solid var(--gray-100); display: flex; align-items: center; justify-content: space-between; }
@@ -106,6 +128,7 @@
         <button class="tab" onclick="switchTab('account',this)">👤 Бүртгэлийн мэдээлэл</button>
         <button class="tab" onclick="switchTab('hours',this)">🕐 Ажлын цаг</button>
         <button class="tab" onclick="switchTab('notifications',this)">🔔 Мэдэгдэл</button>
+        <button class="tab" onclick="switchTab('wallet',this)">💰 Хэтэвч</button>
       </div>
 
       <!-- Tab: Business -->
@@ -443,13 +466,128 @@
 
       </div>
 
+      <!-- Tab: Wallet -->
+      <div id="tab-wallet" class="tab-content hidden">
+
+        <!-- Balance hero -->
+        <div class="section-card" style="background:linear-gradient(135deg,var(--primary),#3b82f6);border:none;margin-bottom:24px;">
+          <div class="section-card-body" style="padding:28px 24px;">
+            <div style="color:rgba(255,255,255,0.7);font-size:0.875rem;font-weight:600;margin-bottom:8px;">Боломжтой үлдэгдэл</div>
+            <div id="walletAvail" style="color:#fff;font-size:2.5rem;font-weight:800;letter-spacing:-1px;">₮0</div>
+            <div style="display:flex;gap:28px;margin-top:16px;">
+              <div>
+                <div style="color:rgba(255,255,255,0.6);font-size:0.75rem;">Хүлээгдэж буй</div>
+                <div id="walletPending" style="color:rgba(255,255,255,0.9);font-size:1rem;font-weight:700;margin-top:2px;">₮0</div>
+              </div>
+              <div>
+                <div style="color:rgba(255,255,255,0.6);font-size:0.75rem;">Нийт олсон</div>
+                <div id="walletLifetime" style="color:rgba(255,255,255,0.9);font-size:1rem;font-weight:700;margin-top:2px;">₮0</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stats row -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+          <div class="section-card" style="margin-bottom:0;">
+            <div class="section-card-body">
+              <div style="font-size:0.8125rem;color:var(--gray-500);font-weight:600;margin-bottom:6px;">Өнөөдрийн орлого</div>
+              <div id="walletToday" style="font-size:1.25rem;font-weight:700;color:var(--gray-800);">₮0</div>
+              <div style="font-size:0.75rem;color:var(--gray-400);margin-top:2px;">хамгийн ихдээ ₮2,000/өдөр</div>
+              <div style="height:6px;background:var(--gray-100);border-radius:999px;margin-top:12px;overflow:hidden;">
+                <div id="walletTodayBar" style="height:100%;background:var(--success);border-radius:999px;width:0%;transition:width .4s ease;"></div>
+              </div>
+            </div>
+          </div>
+          <div class="section-card" style="margin-bottom:0;">
+            <div class="section-card-body">
+              <div style="font-size:0.8125rem;color:var(--gray-500);font-weight:600;margin-bottom:6px;">Шилжүүлэг хүртэл</div>
+              <div id="walletNeeded" style="font-size:1.25rem;font-weight:700;color:var(--gray-800);">₮50,000</div>
+              <div style="font-size:0.75rem;color:var(--gray-400);margin-top:2px;">₮50,000-аас шилжүүлэх боломжтой</div>
+              <div style="height:6px;background:var(--gray-100);border-radius:999px;margin-top:12px;overflow:hidden;">
+                <div id="walletThreshBar" style="height:100%;background:var(--primary);border-radius:999px;width:0%;transition:width .4s ease;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- KYC notice -->
+        <div id="walletKycBanner" class="alert alert-warning hidden" style="margin-bottom:24px;">
+          <span class="alert-icon">⚠️</span>
+          <div>
+            <strong>KYC баталгаажуулалт шаардлагатай</strong><br>
+            <span style="font-size:0.875rem;">Банк руу шилжүүлэхийн тулд иргэний үнэмлэхийн баталгаажуулалт хийнэ үү. Энэ функц удахгүй нэмэгдэнэ.</span>
+          </div>
+        </div>
+
+        <!-- Payout form -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <span class="section-card-title">🏦 Банк руу шилжүүлэх</span>
+          </div>
+          <div class="section-card-body">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Банк <span class="required">*</span></label>
+                <select class="form-control" id="payoutBank">
+                  <option value="">— Сонгох —</option>
+                  <option value="Khan">Хаан банк</option>
+                  <option value="Golomt">Голомт банк</option>
+                  <option value="TDB">Худалдаа хөгжлийн банк</option>
+                  <option value="Xac">ХАС банк</option>
+                  <option value="State">Төрийн банк</option>
+                  <option value="Capitron">Капитрон банк</option>
+                  <option value="Ulaanbaatar">Улаанбаатар банк</option>
+                  <option value="Bogd">Богд банк</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Дансны дугаар <span class="required">*</span></label>
+                <input type="text" class="form-control" id="payoutAccNum" placeholder="1234567890" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Дансны эзний нэр <span class="required">*</span></label>
+                <input type="text" class="form-control" id="payoutAccName" placeholder="БОЛД ГАНТУЛГА" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Шилжүүлэх дүн (₮) <span class="required">*</span></label>
+                <input type="number" class="form-control" id="payoutAmount" min="50000" step="1000" placeholder="50000" />
+                <span class="form-hint">Доод хэмжээ: ₮50,000</span>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:flex-end;">
+              <button class="btn btn-primary btn-lg" id="payoutBtn" onclick="requestPayout()">💸 Шилжүүлэх хүсэлт гаргах</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transaction history -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <span class="section-card-title">📋 Гүйлгээний түүх</span>
+          </div>
+          <div class="section-card-body" style="padding:0;">
+            <div id="walletLedger">
+              <div style="padding:32px;text-align:center;color:var(--gray-400);font-size:0.875rem;">Ачаалж байна…</div>
+            </div>
+          </div>
+        </div>
+
+        <p style="font-size:0.8125rem;color:var(--gray-400);line-height:1.6;margin-top:8px;margin-bottom:32px;">
+          Замын түгжрэлийн орлого: минут тутамд ₮20, өдөрт хамгийн ихдээ ₮2,000. ₮50,000-аас банк руу шилжүүлэх боломжтой. KYC баталгаажуулалт хийгдсний дараа шилжүүлэг 72 цагийн дотор боловсруулагдана.
+        </p>
+
+      </div>
+
     </div>
   </div>
 </div>
 
 <div class="toast-container" id="toastContainer"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js" integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae" crossorigin="anonymous"></script>
+<script src="js/supabase.min.js"></script>
 <script src="js/supabase-client.js"></script>
 <script src="js/utils.js"></script>
 <script src="js/icons.js"></script>
@@ -464,7 +602,8 @@
     document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.getElementById('tab-' + name).classList.remove('hidden');
     btn.classList.add('active');
-    if (name === 'hours') loadAndBuildHoursEditor();
+    if (name === 'hours')  loadAndBuildHoursEditor();
+    if (name === 'wallet') loadWallet();
   }
 
   // ── Hours editor ──
@@ -678,7 +817,16 @@
     const rand = Math.random().toString(36).slice(2, 8);
     const path = `${_bizId}/${Date.now()}-${rand}.${ext}`;
 
-    showToast('info', 'Илгээж байна...', 'Зургийг түр хадгалж байна.');
+    // Show a spinner over the avatar so the owner can see the upload is in
+    // flight. Supabase's storage client doesn't expose XHR progress events
+    // here, so a binary in-flight indicator is the most we can give without
+    // dropping to fetch+ReadableStream. For a 4–5 MB upload on 3G this is
+    // the difference between "the page is frozen" and "something is happening".
+    const wrap = document.querySelector('.profile-avatar-wrap');
+    if (wrap) wrap.classList.add('uploading');
+    // Use a sized hint based on file size so the user has rough expectations.
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    showToast('info', 'Илгээж байна...', `Зурагнаас ${sizeMb}МБ илгээж байна.`);
 
     const { error: uploadErr } = await _sb.storage.from(LOGO_BUCKET).upload(path, file, {
       cacheControl: '3600',
@@ -686,6 +834,7 @@
       contentType:  file.type,
     });
     if (uploadErr) {
+      if (wrap) wrap.classList.remove('uploading');
       console.error('[profile] logo upload:', uploadErr);
       const msg = (uploadErr.message || '').toLowerCase().includes('bucket')
         ? 'Storage багц олдсонгүй. Бид бэлдэж дуустал түр хүлээнэ үү.'
@@ -697,6 +846,7 @@
     const { data: pub } = _sb.storage.from(LOGO_BUCKET).getPublicUrl(path);
     const publicUrl = pub && pub.publicUrl;
     if (!publicUrl) {
+      if (wrap) wrap.classList.remove('uploading');
       showToast('error', 'Алдаа', 'Зургийн URL үүсгэхэд алдаа гарлаа.');
       return;
     }
@@ -719,10 +869,16 @@
       dbErr = rawErr;
     }
     if (dbErr) {
+      if (wrap) wrap.classList.remove('uploading');
       console.error('[profile] persist logo_url:', dbErr);
       showToast('error', 'Алдаа', 'Логоны хаягийг хадгалахад алдаа гарлаа.');
       return;
     }
+
+    // All clear — drop the spinner before swapping in the new image so the
+    // transition is: spinner → final logo. Skipping this would briefly show
+    // the spinner *over* the new logo.
+    if (wrap) wrap.classList.remove('uploading');
 
     // Repaint the avatar tiles with the new image.
     const url = `url("${publicUrl}")`;
@@ -923,6 +1079,138 @@
     setTimeout(() => { window.location.href = 'index.html'; }, 1200);
   }
 
+  // ── Wallet ──
+  const WALLET_WITHDRAW_MNT = 50_000;
+  const WALLET_DAILY_CAP    = 2_000;
+
+  const LEDGER_KIND_LABELS = {
+    traffic_earning: 'Замын түгжрэлийн орлого',
+    referral_bonus:  'Урилгын урамшуулал',
+    spend_booking:   'Захиалгад зарцуулсан',
+    payout:          'Банк руу шилжүүлсэн',
+    reversal:        'Буцаалт',
+  };
+
+  function fmtMnt(n) {
+    return '₮' + Number(n).toLocaleString('en-US');
+  }
+
+  async function loadWallet() {
+    if (!_user) return;
+    const today = new Date().toISOString().slice(0, 10);
+    const [{ data: bal }, { data: rows }, { data: counter }] = await Promise.all([
+      _sb.from('wallet_balances')
+         .select('available_mnt, pending_mnt, lifetime_earned_mnt, kyc_verified')
+         .eq('user_id', _user.id).maybeSingle(),
+      _sb.from('wallet_ledger')
+         .select('id, delta_mnt, kind, created_at, metadata')
+         .eq('user_id', _user.id)
+         .order('created_at', { ascending: false })
+         .limit(50),
+      _sb.from('daily_earning_counters')
+         .select('earned_mnt')
+         .eq('user_id', _user.id)
+         .eq('ymd', today).maybeSingle(),
+    ]);
+
+    const avail    = bal?.available_mnt        ?? 0;
+    const pending  = bal?.pending_mnt          ?? 0;
+    const lifetime = bal?.lifetime_earned_mnt  ?? 0;
+    const kycOk    = bal?.kyc_verified         ?? false;
+    const todayMnt = counter?.earned_mnt       ?? 0;
+
+    document.getElementById('walletAvail').textContent    = fmtMnt(avail);
+    document.getElementById('walletPending').textContent  = fmtMnt(pending);
+    document.getElementById('walletLifetime').textContent = fmtMnt(lifetime);
+    document.getElementById('walletToday').textContent    = fmtMnt(todayMnt) + ' / ' + fmtMnt(WALLET_DAILY_CAP);
+    document.getElementById('walletNeeded').textContent   =
+      avail >= WALLET_WITHDRAW_MNT ? '✅ Бэлэн' : fmtMnt(WALLET_WITHDRAW_MNT - avail) + ' үлдсэн';
+
+    document.getElementById('walletTodayBar').style.width  =
+      Math.min(100, (todayMnt / WALLET_DAILY_CAP) * 100) + '%';
+    document.getElementById('walletThreshBar').style.width =
+      Math.min(100, (avail / WALLET_WITHDRAW_MNT) * 100) + '%';
+
+    document.getElementById('walletKycBanner').classList.toggle('hidden', kycOk);
+
+    const payoutBtn = document.getElementById('payoutBtn');
+    if (payoutBtn) payoutBtn.disabled = avail < WALLET_WITHDRAW_MNT || !kycOk;
+
+    const amtEl = document.getElementById('payoutAmount');
+    if (amtEl && avail >= WALLET_WITHDRAW_MNT) amtEl.value = avail;
+
+    renderWalletLedger(rows || []);
+  }
+
+  function renderWalletLedger(rows) {
+    const el = document.getElementById('walletLedger');
+    if (!rows.length) {
+      el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--gray-400);font-size:0.875rem;">Гүйлгээ байхгүй байна.</div>';
+      return;
+    }
+    el.innerHTML = `
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Гүйлгээний төрөл</th>
+              <th>Огноо</th>
+              <th style="text-align:right;">Дүн</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map(r => {
+              const label = LEDGER_KIND_LABELS[r.kind] || r.kind;
+              const d     = new Date(r.created_at);
+              const date  = d.toLocaleDateString('mn-MN', { year: 'numeric', month: 'short', day: 'numeric' });
+              const time  = d.toLocaleTimeString('mn-MN', { hour: '2-digit', minute: '2-digit' });
+              const color = r.delta_mnt >= 0 ? 'var(--success)' : 'var(--danger)';
+              const sign  = r.delta_mnt >= 0 ? '+' : '';
+              return `<tr>
+                <td>${label}</td>
+                <td style="color:var(--gray-500);font-size:0.8125rem;">${date} ${time}</td>
+                <td style="text-align:right;font-weight:700;color:${color};">${sign}${fmtMnt(r.delta_mnt)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
+  async function requestPayout() {
+    if (!_user) return;
+    const bank      = document.getElementById('payoutBank').value;
+    const accNum    = document.getElementById('payoutAccNum').value.trim();
+    const accName   = document.getElementById('payoutAccName').value.trim();
+    const amountMnt = parseInt(document.getElementById('payoutAmount').value, 10);
+
+    if (!bank)    { showToast('error', 'Алдаа', 'Банк сонгоно уу.');                            return; }
+    if (!accNum)  { showToast('error', 'Алдаа', 'Дансны дугаар оруулна уу.');                   return; }
+    if (!accName) { showToast('error', 'Алдаа', 'Дансны эзний нэр оруулна уу.');                return; }
+    if (!amountMnt || amountMnt < WALLET_WITHDRAW_MNT) {
+      showToast('error', 'Алдаа', `Доод хэмжээ ${fmtMnt(WALLET_WITHDRAW_MNT)}.`);
+      return;
+    }
+
+    const btn = document.getElementById('payoutBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Илгээж байна…'; }
+
+    const { data, error } = await _sb.functions.invoke('wallet-payout-request', {
+      method: 'POST',
+      body: { amountMnt, bankAccount: { bank, accountNumber: accNum, accountName: accName } },
+    });
+
+    if (btn) { btn.disabled = false; btn.textContent = '💸 Шилжүүлэх хүсэлт гаргах'; }
+
+    if (error || !data?.status) {
+      showToast('error', 'Алдаа', error?.message || 'Хүсэлт илгээхэд алдаа гарлаа.');
+      return;
+    }
+
+    showToast('success', 'Хүсэлт илгээгдлээ', `72 цагийн дотор боловсруулагдана. Данс: ${bank} ${accNum}`);
+    await loadWallet();
+  }
+
   // ── Init ──
   (async function init() {
     const auth = await requireAuth();
@@ -1032,12 +1320,13 @@
         </div>
         <span class="badge badge-success" style="margin-left:auto;flex-shrink:0;">Баталгаажсан</span>`;
     } else if (status === 'rejected') {
+      const reason = escapeHtml(biz.rejected_reason || '');
       banner.className = 'verify-status rejected mb-24';
       banner.innerHTML = `
         <span class="verify-icon">⛔</span>
         <div class="verify-info">
           <div class="verify-title">Баталгаажуулалт татгалзсан</div>
-          <div class="verify-desc">Бидэнтэй холбогдож дэлгэрэнгүй мэдээллийг авна уу.</div>
+          <div class="verify-desc">${reason ? `Шалтгаан: ${reason}<br>` : ''}Дахин оролдох эсвэл бидэнтэй холбогдоно уу: <a href="mailto:support@monmap.mn" style="color:inherit;font-weight:600;">support@monmap.mn</a></div>
         </div>
         <span class="badge badge-danger" style="margin-left:auto;flex-shrink:0;">Татгалзсан</span>`;
     } else {

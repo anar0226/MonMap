@@ -11,14 +11,17 @@ import ProfileScreen from '../screens/profile/ProfileScreen';
 import SettingsScreen from '../screens/profile/SettingsScreen';
 import SavedPlacesScreen from '../screens/profile/SavedPlacesScreen';
 import BookingsScreen from '../screens/profile/BookingsScreen';
+import WalletScreen from '../screens/profile/WalletScreen';
 import ContactScreen from '../screens/profile/ContactScreen';
 import AboutScreen from '../screens/profile/AboutScreen';
 import HelpScreen from '../screens/profile/HelpScreen';
 import FeedbackScreen from '../screens/profile/FeedbackScreen';
 import VerifyOtpScreen from '../screens/auth/VerifyOtpScreen';
 import PhoneLoginScreen from '../screens/auth/PhoneLoginScreen';
+import CompleteProfileScreen from '../screens/auth/CompleteProfileScreen';
 import LegalScreen from '../screens/LegalScreen';
 import SplashScreen from '../screens/SplashScreen';
+import IndoorNavScreen from '../screens/IndoorNavScreen';
 import { colors } from '../theme';
 
 type LegalParams = { kind: 'terms' | 'privacy' };
@@ -38,11 +41,18 @@ export type AppStackParamList = {
   Settings: undefined;
   SavedPlaces: undefined;
   Bookings: undefined;
+  Wallet: undefined;
   Contact: undefined;
   About: undefined;
   Help: undefined;
   Feedback: undefined;
   Legal: LegalParams;
+  IndoorNav: {
+    venueId:           string;
+    destinationNodeId: string;
+    destinationName:   string;
+    startFloor:        number;
+  };
 };
 
 const AuthStack = createNativeStackNavigator<AuthStackParamList>();
@@ -69,17 +79,19 @@ function AppNavigator() {
       <AppStack.Screen name="Settings" component={SettingsScreen} />
       <AppStack.Screen name="SavedPlaces" component={SavedPlacesScreen} />
       <AppStack.Screen name="Bookings" component={BookingsScreen} />
+      <AppStack.Screen name="Wallet" component={WalletScreen} />
       <AppStack.Screen name="Contact" component={ContactScreen} />
       <AppStack.Screen name="About" component={AboutScreen} />
       <AppStack.Screen name="Help" component={HelpScreen} />
       <AppStack.Screen name="Feedback" component={FeedbackScreen} />
       <AppStack.Screen name="Legal" component={LegalScreen} />
+      <AppStack.Screen name="IndoorNav" component={IndoorNavScreen} />
     </AppStack.Navigator>
   );
 }
 
 export default function RootNavigator() {
-  const { session, isLoading } = useSupabase();
+  const { session, isLoading, needsName } = useSupabase();
   const [isSplashAnimationDone, setIsSplashAnimationDone] = useState(false);
 
   const isReady = !isLoading && isSplashAnimationDone;
@@ -88,6 +100,10 @@ export default function RootNavigator() {
     return (
       <SplashScreen onFinish={() => setIsSplashAnimationDone(true)} />
     );
+  }
+
+  if (session && needsName) {
+    return <CompleteProfileScreen />;
   }
 
   return (

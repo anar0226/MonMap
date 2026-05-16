@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -61,13 +62,24 @@ export default function PhoneLoginScreen({ navigation }: Props) {
         if (otpError) console.error('[PhoneOTP] Error:', JSON.stringify(otpError, null, 2));
       }
       if (otpError) {
-        setError(otpError.message);
+        const msg = otpError.message ?? '';
+        // See LoginScreen — captcha tokens TTL ~2 min; if the request
+        // stalls we want a clear retry hint, not the raw upstream message.
+        if (/captcha|expired|verification/i.test(msg)) {
+          setError('Аюулгүй байдлын баталгаажуулалт хугацаа дууссан. Дахин оролдоно уу.');
+        } else if (/rate.?limit|too many|429/i.test(msg)) {
+          setError('Хэт олон оролдлого. Хэдэн минутын дараа дахин оролдоно уу.');
+        } else if (/invalid.*phone|not.*valid/i.test(msg)) {
+          setError('Утасны дугаар буруу байна.');
+        } else {
+          setError(msg);
+        }
         return;
       }
       navigation.navigate('VerifyOtp', { method: 'phone', identifier: compact });
     } catch (e) {
       if (__DEV__) console.error('[PhoneOTP] Unexpected error:', e);
-      setError('Алдаа гарлаа. Дахин оролдоно үз.');
+      setError('Алдаа гарлаа. Дахин оролдоно уу.');
     } finally {
       setLoading(false);
     }
@@ -89,9 +101,7 @@ export default function PhoneLoginScreen({ navigation }: Props) {
               <Pressable onPress={() => navigation.goBack()} style={s.backBtn} hitSlop={8}>
                 <Ionicons name="arrow-back" size={20} color={colors.textSec} />
               </Pressable>
-              <LinearGradient colors={gradientPrimary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.brandTile}>
-                <Text style={s.brandLetter}>M</Text>
-              </LinearGradient>
+              <Image source={require('../../../assets/icon.png')} style={s.brandTile} />
               <View style={{ marginLeft: 10 }}>
                 <Text style={s.appName}>MONMAP</Text>
                 <Text style={s.pageTitle}>Утсаар нэвтрэх</Text>

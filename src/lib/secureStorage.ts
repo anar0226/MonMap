@@ -29,6 +29,34 @@
 
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+// Android API floor for hardware-backed encryption.
+//
+// expo-secure-store uses EncryptedSharedPreferences (AES-GCM with a
+// Keystore-backed master key) starting at API 23. Below that, it silently
+// falls back to *plaintext* SharedPreferences — defeating the entire reason
+// we migrated off AsyncStorage. Expo SDK 54 defaults to minSdkVersion 24
+// (Android 7.0), so under normal install paths this branch never fires;
+// the guard is here so that:
+//   (a) if a future Expo SDK upgrade lowers the floor we don't quietly
+//       regress the security guarantee, and
+//   (b) if anyone manually overrides minSdkVersion in app.json or via
+//       expo-build-properties we still catch it in __DEV__.
+//
+// On unsupported devices we fall back to plain AsyncStorage, which puts us
+// no worse off than the pre-secureStorage baseline. Sign-in still works.
+const ANDROID_SECURE_FLOOR_API = 23;
+const isAndroidSecureCapable =
+  Platform.OS !== 'android' || (typeof Platform.Version === 'number' && Platform.Version >= ANDROID_SECURE_FLOOR_API);
+
+if (__DEV__ && !isAndroidSecureCapable) {
+  console.warn(
+    `secureStorage: Android API ${Platform.Version} < ${ANDROID_SECURE_FLOOR_API}; ` +
+    'session blob will be stored in AsyncStorage (plaintext). Upgrade Android or ' +
+    'raise app.json android.minSdkVersion to 24.',
+  );
+}
 
 // Conservative chunk size — Android's hard cap is ~2048 bytes, but Base64
 // safety margin and the manifest overhead leave us ~1800 bytes of payload.
@@ -152,7 +180,24 @@ async function migrateLegacyIfNeeded(rawKey: string): Promise<string | null> {
  * to an in-memory session, which silently logs the user out on app
  * restart. Returning null is the recoverable path.
  */
-export const secureStorage = {
+// On Android < API 23, SecureStore is structurally insecure (see floor
+// comment at the top of this file). We route all reads/writes to
+// AsyncStorage instead — same plain-disk profile as the pre-migration
+// baseline, but at least the user can sign in. The dev warning above
+// surfaces this so it doesn't slip past review.
+const asyncFallback = {
+  async getItem(key: string): Promise<string | null> {
+    try { return await AsyncStorage.getItem(key); } catch { return null; }
+  },
+  async setItem(key: string, value: string): Promise<void> {
+    try { await AsyncStorage.setItem(key, value); } catch {}
+  },
+  async removeItem(key: string): Promise<void> {
+    try { await AsyncStorage.removeItem(key); } catch {}
+  },
+};
+
+export const secureStorage = isAndroidSecureCapable ? {
   async getItem(key: string): Promise<string | null> {
     try {
       const fromSecure = await readChunked(key);
@@ -187,4 +232,4 @@ export const secureStorage = {
     // where setItem races a sign-out.
     try { await AsyncStorage.removeItem(key); } catch {}
   },
-};
+} : asyncFallback;

@@ -23,7 +23,10 @@
       "Bash(node --input-type=module -e ' *)",
       "Bash(find C:\\\\\\\\Users\\\\\\\\anar0\\\\\\\\Downloads\\\\\\\\MonMap\\\\\\\\src\\\\\\\\hooks -name \"*.ts\" -o -name \"*.tsx\")",
       "mcp__Claude_in_Chrome__tabs_context_mcp",
-      "Bash(python -c ' *)"
+      "Bash(python -c ' *)",
+      "mcp__b1eebbc1-e9fb-4880-b01f-820f60379d1c__list_migrations",
+      "mcp__b1eebbc1-e9fb-4880-b01f-820f60379d1c__get_advisors",
+      "mcp__b1eebbc1-e9fb-4880-b01f-820f60379d1c__deploy_edge_function"
     ]
   }
 }

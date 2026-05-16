@@ -71,12 +71,18 @@ export interface PriceEstimate {
   approximate: boolean;
 }
 
-// E-scooter: ≈ 500₮ unlock + 180₮/min
+// E-scooter: 350₮/min. Show a ±10 % band to account for riding speed variance.
+// Both bounds are rounded to the nearest 50₮ for a clean look.
 export function escooterPrice(durationSeconds: number): PriceEstimate {
   const minutes = durationSeconds / 60;
-  const fare = 500 + minutes * 180;
-  const rounded = Math.round(fare / 100) * 100;
-  return { amountMnt: rounded, label: `~${formatMnt(rounded)}`, approximate: true };
+  const base = minutes * 350;
+  const lo = Math.round((base * 0.9) / 50) * 50;
+  const hi = Math.round((base * 1.1) / 50) * 50;
+  return {
+    amountMnt: Math.round(base / 50) * 50,
+    label: `${formatMnt(lo)} - ${formatMnt(hi)}`,
+    approximate: true,
+  };
 }
 
 // Public transport in UB: flat 500₮ U-money fare

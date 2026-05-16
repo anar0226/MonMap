@@ -85,6 +85,111 @@ export const BOOKABLE_CATEGORIES = new Set([
   'karaoke', 'billiards', 'sauna',
 ]);
 
+// ── Zoom-aware POI visibility tiers ─────────────────────────────────────────
+// Each category is assigned a minimum zoom level at which it becomes visible.
+// At lower zooms, only essential/high-traffic categories appear, keeping the
+// map clean.  As the user zooms in, progressively more categories are revealed.
+//
+// Tier 1 (zoom ≥ 12): Essentials — places people actively navigate to
+// Tier 2 (zoom ≥ 14): Dining & nightlife — valuable but not critical at overview
+// Tier 3 (zoom ≥ 15): Services — personal services, useful when browsing locally
+// Tier 4 (zoom ≥ 16): Civic & education — landmark-like, useful at street level
+// Tier 5 (zoom ≥ 17): Residential — almost never useful for navigation
+
+export const CATEGORY_MIN_ZOOM: Record<string, number> = {
+  // Tier 1 — Essentials (always visible)
+  restaurant:              12,
+  cafe:                    12,
+  pharmacy:                12,
+  hospital:                12,
+  gas_station:             12,
+  bank:                    12,
+  grocery_or_supermarket:  12,
+  shopping_mall:           12,
+
+  // Tier 2 — Dining & nightlife
+  bar:                     14,
+  bakery:                  14,
+  convenience_store:       14,
+  hotel:                   14,
+  karaoke:                 14,
+  nightclub:               14,
+  billiards:               14,
+  sauna:                   14,
+  event_hall:              14,
+
+  // Tier 3 — Services
+  beauty_salon:            15,
+  hair_care:               15,
+  spa:                     15,
+  gym:                     15,
+  car_repair:              15,
+  clothing_store:          15,
+  pc_cafe:                 15,
+
+  // Tier 4 — Civic & education
+  school:                  16,
+  university:              16,
+  kindergarten:            16,
+  library:                 16,
+  police:                  16,
+  post_office:             16,
+  fire_station:            16,
+  government:              16,
+  park:                    16,
+  doctor:                  16,
+  dentist:                 16,
+
+  // Tier 5 — Residential
+  apartments:              17,
+};
+
+// Default minZoom for categories not listed above
+export const DEFAULT_MIN_ZOOM = 15;
+
+// Priority score for viewport-cap sorting (higher = more important, wins the cap).
+// Categories not listed here get a default of 40.
+export const CATEGORY_PRIORITY: Record<string, number> = {
+  restaurant:              100,
+  cafe:                    100,
+  pharmacy:                100,
+  hospital:                100,
+  gas_station:             100,
+  bank:                    100,
+  grocery_or_supermarket:  100,
+  shopping_mall:           100,
+  bar:                      90,
+  bakery:                   90,
+  convenience_store:        90,
+  hotel:                    90,
+  karaoke:                  90,
+  nightclub:                90,
+  billiards:                90,
+  sauna:                    90,
+  event_hall:               90,
+  beauty_salon:             70,
+  hair_care:                70,
+  spa:                      70,
+  gym:                      70,
+  car_repair:               70,
+  clothing_store:           70,
+  pc_cafe:                  70,
+  school:                   50,
+  university:               50,
+  kindergarten:             50,
+  library:                  50,
+  police:                   50,
+  post_office:              50,
+  fire_station:             50,
+  government:               50,
+  park:                     50,
+  doctor:                   50,
+  dentist:                  50,
+  apartments:               10,
+};
+
+export const DEFAULT_PRIORITY = 40;
+
 export function categoryColor(category: string | null | undefined): string {
   return CATEGORY_COLORS[category ?? ''] ?? FALLBACK_COLOR;
 }

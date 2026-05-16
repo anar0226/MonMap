@@ -19,6 +19,7 @@ const DETAIL_COLUMNS = [
   'hours_verified_at',
   'district', 'khoroo', 'khoroolol',
   'building_number', 'entrance_number', 'unit_number',
+  'booking_enabled',
 ].join(', ');
 
 /**

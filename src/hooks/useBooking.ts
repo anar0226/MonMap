@@ -15,6 +15,16 @@ export interface PaymentIntentData {
   amount: number;
   qpayQrImage: string;
   qpayUrls: QPayBankLink[];
+  creditApplied?: number;
+  originalDeposit?: number;
+}
+
+export interface CreditOnlyResult {
+  status: 'credit_only_paid';
+  paymentId: string;
+  bookingId: string | number;
+  creditApplied: number;
+  originalDeposit: number;
 }
 
 export interface SlotAvailability {
@@ -118,7 +128,6 @@ export function useBooking() {
         return false;
       }
 
-<<<<<<< HEAD
       // Atomic capacity check + insert. See migration
       // 20260518000001_create_booking_atomic.sql — the previous direct
       // INSERT had no slot-capacity enforcement, so two concurrent users
@@ -167,7 +176,8 @@ export function useBooking() {
     guestPhone?: string;
     service?: string;
     durationMinutes?: number;
-  }): Promise<PaymentIntentData | null> => {
+    applyCreditMnt?: number;
+  }): Promise<PaymentIntentData | CreditOnlyResult | null> => {
     setInitiatingPayment(true);
     setError(null);
     try {
@@ -185,6 +195,7 @@ export function useBooking() {
           guestPhone:      params.guestPhone ?? null,
           service:         params.service ?? null,
           durationMinutes: params.durationMinutes ?? null,
+          applyCreditMnt:  Math.max(0, params.applyCreditMnt ?? 0),
         },
       });
       if (err) throw err;
@@ -198,6 +209,12 @@ export function useBooking() {
         idempotencyKeyRef.current = null;
         setError(data.message ?? 'Захиалгын хугацаа дууссан байна. Дахин оролдоно уу.');
         return null;
+      }
+      // Credit covered the full deposit — booking is already created server-side.
+      if (data?.status === 'credit_only_paid') {
+        idempotencyKeyRef.current = null;
+        setSubmitted(true);
+        return data as CreditOnlyResult;
       }
       const intent = data as PaymentIntentData;
       setPaymentIntent(intent);

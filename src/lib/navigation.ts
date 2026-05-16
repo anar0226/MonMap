@@ -132,6 +132,98 @@ export function maneuverIcon(m: Maneuver): string {
   }
 }
 
+// ── English speech helpers ────────────────────────────────────────────────────
+// Used for spoken audio only; the UI overlay still uses the Mongolian functions.
+
+const TURN_EN: Record<string, string> = {
+  left:          'turn left',
+  right:         'turn right',
+  'sharp left':  'turn sharp left',
+  'sharp right': 'turn sharp right',
+  'slight left': 'bear left',
+  'slight right':'bear right',
+  straight:      'continue straight',
+  uturn:         'make a U-turn',
+};
+
+const FORK_EN: Record<string, string> = {
+  left:         'keep left at the fork',
+  right:        'keep right at the fork',
+  'slight left':'keep left at the fork',
+  'slight right':'keep right at the fork',
+  straight:     'continue straight',
+};
+
+export function translateManeuverEn(m: Maneuver, streetName: string): string {
+  const street = streetName?.trim();
+  const on = street ? ` onto ${street}` : '';
+
+  switch (m.type) {
+    case 'depart':
+      if (m.instruction) return m.instruction;
+      return street ? `Head on ${street}` : 'Start navigation';
+    case 'arrive':
+      return 'You have arrived';
+    case 'board':
+      return street ? `Board the ${street} bus` : 'Board the bus';
+    case 'alight':
+      return street ? `Exit at ${street}` : 'Exit at this stop';
+    case 'turn': {
+      const phrase = TURN_EN[m.modifier ?? ''] ?? 'turn';
+      return street ? `${phrase}${on}` : phrase;
+    }
+    case 'continue':
+      return street ? `Continue on ${street}` : 'Continue straight';
+    case 'merge':
+      return street ? `Merge${on}` : 'Merge onto the road';
+    case 'on ramp':
+    case 'on_ramp':
+      return 'Take the ramp';
+    case 'off ramp':
+    case 'off_ramp':
+      return 'Take the exit';
+    case 'fork':
+      return FORK_EN[m.modifier ?? ''] ?? 'Keep straight at the fork';
+    case 'end of road':
+    case 'end_of_road': {
+      const phrase = TURN_EN[m.modifier ?? ''] ?? 'turn';
+      return `At the end of the road, ${phrase}`;
+    }
+    case 'roundabout':
+    case 'rotary':
+      return m.exit
+        ? `At the roundabout, take the ${ordinal(m.exit)} exit`
+        : 'Continue through the roundabout';
+    case 'exit roundabout':
+    case 'exit_roundabout':
+    case 'exit rotary':
+    case 'exit_rotary':
+      return 'Exit the roundabout';
+    case 'new name':
+    case 'new_name':
+      return street ? `Continue on ${street}` : 'Continue';
+    case 'notification':
+      return m.instruction ?? 'Continue';
+    default:
+      return m.instruction ?? 'Continue';
+  }
+}
+
+function ordinal(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] ?? s[v] ?? s[0]);
+}
+
+export function formatDistanceEn(m: number): string {
+  if (m < 50)   return `${Math.round(m / 10) * 10} meters`;
+  if (m < 1000) return `${Math.round(m / 50) * 50} meters`;
+  const km = m / 1000;
+  return km < 10 ? `${km.toFixed(1)} kilometers` : `${Math.round(km)} kilometers`;
+}
+
+// ── Shared geometry helpers ───────────────────────────────────────────────────
+
 export function distanceMeters(a: [number, number], b: [number, number]): number {
   const R = 6371000;
   const toRad = (d: number) => (d * Math.PI) / 180;

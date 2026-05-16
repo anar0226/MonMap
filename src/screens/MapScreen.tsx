@@ -4,7 +4,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AppStackParamList } from '../navigation';
 import { useNavigation as useTurnByTurnNav } from '../hooks/useNavigation';
 import { NavigationOverlay } from '../components/NavigationOverlay';
+import { EarningsBadge } from '../components/EarningsBadge';
 import { StyleSheet, View, Text, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import MapboxGL from '@rnmapbox/maps';
 import * as Location from 'expo-location';
 import type { FeatureCollection, Point } from 'geojson';
@@ -16,7 +18,14 @@ import {
   UB_MAX_ZOOM,
   MAPBOX_STYLE,
 } from '../constants/config';
-import { CATEGORY_COLORS, FALLBACK_COLOR } from '../constants/categories';
+import {
+  CATEGORY_COLORS,
+  FALLBACK_COLOR,
+  CATEGORY_MIN_ZOOM,
+  DEFAULT_MIN_ZOOM,
+  CATEGORY_PRIORITY,
+  DEFAULT_PRIORITY,
+} from '../constants/categories';
 import { CategoryIcon } from '../components/CategoryIcon';
 import { usePlaces } from '../hooks/usePlaces';
 import { usePlaceDetail } from '../hooks/usePlaceDetail';
@@ -29,9 +38,11 @@ import type { Place, PlaceMapFeature } from '../types/place';
 import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { OfflineBanner } from '../components/OfflineBanner';
 import { ensureUBOfflinePack, getUBPackStatus } from '../lib/offlineTiles';
+import { useVenueDetection } from '../hooks/useVenueDetection';
 
 const VIEWPORT_BUFFER = 0.15;
-const FALLBACK_FEATURE_CAP = 200;
+const FALLBACK_FEATURE_CAP = 60;
+const VIEWPORT_POI_CAP = 60;
 
 // All category keys we render icons for. Must be kept in sync with categories.ts.
 const ALL_CATEGORY_KEYS = [
@@ -53,13 +64,23 @@ export default function MapScreen() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [mapError, setMapError] = useState<string | null>(null);
   const [bounds, setBounds] = useState<Bounds | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(UB_DEFAULT_ZOOM);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [directionsTo, setDirectionsTo] = useState<{ name: string; lng: number; lat: number; place_id?: string } | null>(null);
   const { geojson, loading: placesLoading, error: placesError } = usePlaces();
   const { place, loading: detailLoading, fetchDetail, clear } = usePlaceDetail();
   const { multi, route: dirRoute, loading: routeLoading, error: routeError, fetchRoute, selectMode, selectAlternative, clear: clearRoute } = useDirections();
   const [routeDestName, setRouteDestName] = useState<string | null>(null);
   const nav = useTurnByTurnNav();
   const { isOnline, wasEverOnline } = useNetworkStatus();
+  const venueDetection = useVenueDetection(userLocation);
+
+  // When user walks into a mapped venue and isn't navigating, offer indoor nav
+  useEffect(() => {
+    if (!venueDetection.isIndoor || nav.mode !== 'idle' || !venueDetection.venue) return;
+    // PlaceDetailCard can trigger indoor nav by navigating to IndoorNav directly.
+    // Here we just surface the venue so the map can show an entry banner (future).
+  }, [venueDetection.isIndoor, venueDetection.venue, nav.mode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -85,7 +106,7 @@ export default function MapScreen() {
   }, []);
 
   useEffect(() => {
-    console.log('[Places] loading=', placesLoading, 'error=', placesError, 'count=', geojson?.features.length ?? 0);
+    if (__DEV__) console.log('[Places] loading=', placesLoading, 'error=', placesError, 'count=', geojson?.features.length ?? 0);
   }, [placesLoading, placesError, geojson]);
 
   // Kick off tile pack download the first time we have a network connection.
@@ -105,8 +126,25 @@ export default function MapScreen() {
     const empty: FeatureCollection<Point, PlaceMapFeature> = { type: 'FeatureCollection', features: [] };
     if (!geojson) return empty;
 
+    // Helper: is this category visible at the current zoom?
+    const isVisible = (cat: string | null) => {
+      const minZ = CATEGORY_MIN_ZOOM[cat ?? ''] ?? DEFAULT_MIN_ZOOM;
+      return zoomLevel >= minZ;
+    };
+
+    // Helper: priority score for sorting (higher = more important)
+    const priority = (cat: string | null) =>
+      CATEGORY_PRIORITY[cat ?? ''] ?? DEFAULT_PRIORITY;
+
     if (!bounds) {
-      return { type: 'FeatureCollection', features: geojson.features.slice(0, FALLBACK_FEATURE_CAP) };
+      // No viewport yet — apply tier filter + cap
+      const filtered = geojson.features.filter(f => isVisible(f.properties.primary_category));
+      filtered.sort((a, b) => {
+        const dp = priority(b.properties.primary_category) - priority(a.properties.primary_category);
+        if (dp !== 0) return dp;
+        return (b.properties.rating ?? 0) - (a.properties.rating ?? 0);
+      });
+      return { type: 'FeatureCollection', features: filtered.slice(0, FALLBACK_FEATURE_CAP) };
     }
 
     const [swLng, swLat] = bounds.sw;
@@ -114,21 +152,35 @@ export default function MapScreen() {
     const lngPad = (neLng - swLng) * VIEWPORT_BUFFER;
     const latPad = (neLat - swLat) * VIEWPORT_BUFFER;
 
-    const features = geojson.features.filter((f) => {
+    // Step 1: viewport bounds filter
+    let features = geojson.features.filter((f) => {
       const [lng, lat] = f.geometry.coordinates as [number, number];
       return (
         lng >= swLng - lngPad && lng <= neLng + lngPad &&
         lat >= swLat - latPad && lat <= neLat + latPad
       );
     });
-    return { type: 'FeatureCollection', features };
-  }, [geojson, bounds]);
+
+    // Step 2: zoom-aware category tier filter
+    features = features.filter(f => isVisible(f.properties.primary_category));
+
+    // Step 3: sort by priority (tier) then rating, and cap
+    features.sort((a, b) => {
+      const dp = priority(b.properties.primary_category) - priority(a.properties.primary_category);
+      if (dp !== 0) return dp;
+      return (b.properties.rating ?? 0) - (a.properties.rating ?? 0);
+    });
+
+    return { type: 'FeatureCollection', features: features.slice(0, VIEWPORT_POI_CAP) };
+  }, [geojson, bounds, zoomLevel]);
 
   const handleMapIdle = useCallback((state: any) => {
     const b = state?.properties?.bounds;
     if (b?.sw && b?.ne) {
       setBounds({ sw: b.sw as [number, number], ne: b.ne as [number, number] });
     }
+    const z = state?.properties?.zoom;
+    if (z != null) setZoomLevel(z);
   }, []);
 
   const handlePoiPress = useCallback(
@@ -187,15 +239,11 @@ export default function MapScreen() {
     cameraRef.current?.fitBounds(ne, sw, [120, 60, 220, 60], 800);
   }, []);
 
-  const handleRequestDirections = useCallback(async (target: Place) => {
-    if (!userLocation) {
-      setMapError('Таны байршил тодорхойгүй байна. Байршлын зөвшөөрлийг шалгана уу.');
-      return;
-    }
-    setRouteDestName(target.name);
+  const handleRequestDirections = useCallback((target: Place) => {
+    setDirectionsTo({ name: target.name, lng: target.lng, lat: target.lat, place_id: target.place_id });
     clear();
-    await fetchRoute(userLocation, [target.lng, target.lat]);
-  }, [userLocation, fetchRoute, clear]);
+    setSearchOpen(true);
+  }, [clear]);
 
   const handleRouteRequest = useCallback(async (from: RouteWaypoint, to: RouteWaypoint) => {
     const fromCoord: [number, number] | null =
@@ -220,27 +268,73 @@ export default function MapScreen() {
     setRouteDestName(null);
   }, [clearRoute]);
 
+  const reroutePendingRef = useRef(false);
+  // Captures the active destination so handleReroute stays referentially stable
+  // (re-binding it each time `multi` changes would re-register a stale closure
+  // into useNavigation's onRerouteRef).
+  const destRef = useRef<[number, number] | null>(null);
+  useEffect(() => {
+    destRef.current = multi?.destination ?? null;
+  }, [multi]);
+
+  const handleReroute = useCallback(async (currentLoc: [number, number]) => {
+    const dest = destRef.current;
+    if (!dest) return;
+    reroutePendingRef.current = true;
+    await fetchRoute(currentLoc, dest);
+  }, [fetchRoute]);
+
   const handleStartNavigation = useCallback(() => {
     if (!dirRoute || !multi) return;
-    nav.start(dirRoute.steps, multi.destination);
-  }, [dirRoute, multi, nav.start]);
+    nav.start(dirRoute.steps, multi.destination, multi.origin, dirRoute, {
+      onReroute: handleReroute,
+    });
+    // Fly to street level immediately — the camera effect waits for the first
+    // GPS update which may never arrive if the user is stationary.
+    const startCoord = multi.origin ?? userLocation;
+    if (startCoord) {
+      cameraRef.current?.setCamera({
+        centerCoordinate: startCoord,
+        zoomLevel: 17,
+        pitch: 60,
+        animationDuration: 800,
+      });
+    }
+  }, [dirRoute, multi, nav.start, userLocation, handleReroute]);
+
+  // When a reroute request resolves, restart navigation with the new steps.
+  // isReroute keeps the existing trip / earnings session alive.
+  useEffect(() => {
+    if (!reroutePendingRef.current) return;
+    if (routeLoading) return;
+    if (!dirRoute || !multi) return;
+    reroutePendingRef.current = false;
+    nav.start(dirRoute.steps, multi.destination, multi.origin, dirRoute, {
+      onReroute: handleReroute,
+      isReroute: true,
+    });
+  }, [dirRoute, routeLoading, multi, handleReroute, nav.start]);
 
   const handleEndNavigation = useCallback(() => {
     nav.stop();
   }, [nav.stop]);
 
   useEffect(() => {
+    // Skip the overview fit while navigating — otherwise a reroute would zoom
+    // out to the whole route bounds before the camera-follow effect snaps back.
+    if (nav.mode !== 'idle') return;
     if (dirRoute) fitBoundsToRoute(dirRoute.bounds.sw, dirRoute.bounds.ne);
-  }, [dirRoute, fitBoundsToRoute]);
+  }, [dirRoute, fitBoundsToRoute, nav.mode]);
 
-  // Lock camera to user heading while navigating.
+  // Lock camera to user heading while navigating (and during rerouting, so the
+  // tracking shot doesn't snap back to overview).
   useEffect(() => {
-    if (nav.mode !== 'active' || !nav.userLocation) return;
+    if ((nav.mode !== 'active' && nav.mode !== 'rerouting') || !nav.userLocation) return;
     cameraRef.current?.setCamera({
       centerCoordinate: nav.userLocation,
       zoomLevel: 17,
       heading: nav.heading ?? 0,
-      pitch: 45,
+      pitch: 60,
       animationDuration: 600,
     });
   }, [nav.mode, nav.userLocation, nav.heading]);
@@ -321,7 +415,7 @@ export default function MapScreen() {
           ))}
         </MapboxGL.Images>
 
-        {visibleGeojson.features.length > 0 && (
+        {visibleGeojson.features.length > 0 && nav.mode === 'idle' && !multi && !routeLoading && (
           <MapboxGL.ShapeSource
             id="places"
             shape={visibleGeojson}
@@ -411,13 +505,30 @@ export default function MapScreen() {
           </MapboxGL.ShapeSource>
         )}
 
-        {userLocation && (
+        {/* Default user dot when idle; replaced by a prominent nav puck while
+            navigating. The puck is anchored at the location's centre and the
+            arrow always points "up" because the camera heading is locked to
+            the user's heading. */}
+        {(nav.mode === 'active' || nav.mode === 'rerouting') && nav.userLocation ? (
+          <MapboxGL.MarkerView
+            id="nav-puck"
+            coordinate={nav.userLocation}
+            anchor={{ x: 0.5, y: 0.5 }}
+            allowOverlap
+          >
+            <View style={styles.puckOuter} pointerEvents="none">
+              <View style={styles.puckInner}>
+                <Ionicons name="navigate" size={20} color="#fff" />
+              </View>
+            </View>
+          </MapboxGL.MarkerView>
+        ) : userLocation ? (
           <MapboxGL.UserLocation
             visible={true}
             showsUserHeadingIndicator={true}
             androidRenderMode="compass"
           />
-        )}
+        ) : null}
 
         {/* Alternative driving routes — rendered FIRST (underneath) at low opacity
             so the active route always paints over them.  Each one is its own
@@ -475,8 +586,8 @@ export default function MapScreen() {
       {/* Offline/download banner — always on top */}
       <OfflineBanner isOnline={isOnline} />
 
-      {/* Search bar — hidden while navigating */}
-      {nav.mode === 'idle' && (
+      {/* Search bar — hidden while navigating or route planning */}
+      {nav.mode === 'idle' && !multi && !routeLoading && (
         <SearchBar onPress={() => setSearchOpen(true)} onProfilePress={() => navigation.navigate('Profile')} />
       )}
 
@@ -518,19 +629,27 @@ export default function MapScreen() {
         loading={detailLoading}
         onClose={clear}
         onRequestDirections={handleRequestDirections}
+        userLocation={userLocation}
       />
 
       {/* Turn-by-turn navigation overlay */}
-      {(nav.mode === 'active' || nav.mode === 'arrived') && (
-        <NavigationOverlay
-          mode={nav.mode}
-          upcomingStep={nav.upcomingStep}
-          distanceToNextManeuver={nav.distanceToNextManeuver}
-          distanceToDestination={nav.distanceToDestination}
-          durationRemainingSec={durationRemainingSec}
-          destinationName={routeDestName ?? ''}
-          onEnd={handleEndNavigation}
-        />
+      {(nav.mode === 'active' || nav.mode === 'arrived' || nav.mode === 'off_route' || nav.mode === 'rerouting') && (
+        <>
+          <NavigationOverlay
+            mode={nav.mode}
+            upcomingStep={nav.upcomingStep}
+            distanceToNextManeuver={nav.distanceToNextManeuver}
+            distanceToDestination={nav.distanceToDestination}
+            durationRemainingSec={durationRemainingSec}
+            destinationName={routeDestName ?? ''}
+            onEnd={handleEndNavigation}
+          />
+          {nav.earnings.tripId && (
+            <View style={styles.earningsBadgeWrap} pointerEvents="none">
+              <EarningsBadge earnings={nav.earnings} />
+            </View>
+          )}
+        </>
       )}
 
       {/* Full-screen search modal */}
@@ -538,9 +657,10 @@ export default function MapScreen() {
         visible={searchOpen}
         geojson={geojson}
         userLocation={userLocation}
-        onClose={() => setSearchOpen(false)}
+        onClose={() => { setSearchOpen(false); setDirectionsTo(null); }}
         onSelect={handleSearchSelect}
         onRouteRequest={handleRouteRequest}
+        initialToWaypoint={directionsTo ?? undefined}
       />
     </View>
   );
@@ -549,6 +669,35 @@ export default function MapScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   map: { flex: 1 },
+  // ── Apple-Maps-style nav puck ──────────────────────────────────────────────
+  puckOuter: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.30,
+    shadowRadius: 4,
+    elevation: 6,
+  },
+  puckInner: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#007AFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    // Nudge the icon glyph so the triangle tip aligns with the puck's centre.
+    paddingBottom: 2,
+  },
+  earningsBadgeWrap: {
+    position: 'absolute',
+    top: 110,
+    alignSelf: 'center',
+  },
   errorBanner: {
     position: 'absolute',
     top: 70,

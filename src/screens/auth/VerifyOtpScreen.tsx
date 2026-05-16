@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Image,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -83,11 +84,19 @@ export default function VerifyOtpScreen({ navigation, route }: Props) {
       setLoading(false);
       return;
     }
-    if (data.user && fullName) {
-      await supabase
-        .from('users')
-        .update({ full_name: fullName })
-        .eq('id', data.user.id);
+    if (data.user) {
+      if (method === 'phone') {
+        // Upsert ensures the users row exists even if the trigger missed it.
+        await supabase.from('users').upsert(
+          { id: data.user.id, phone: identifier },
+          { onConflict: 'id', ignoreDuplicates: true },
+        );
+      } else if (fullName) {
+        await Promise.all([
+          supabase.from('users').update({ full_name: fullName }).eq('id', data.user.id),
+          supabase.auth.updateUser({ data: { full_name: fullName } }),
+        ]);
+      }
     }
     setLoading(false);
   }
@@ -101,11 +110,10 @@ export default function VerifyOtpScreen({ navigation, route }: Props) {
   async function onCaptchaSolved(captchaToken: string) {
     setCaptchaOpen(false);
     setResending(true);
-    const { error: rErr } = await supabase.auth.resend(
+    const { error: rErr } =
       method === 'email'
-        ? { type: 'signup', email: identifier, options: { captchaToken } }
-        : { type: 'sms', phone: identifier, options: { captchaToken } },
-    );
+        ? await supabase.auth.resend({ type: 'signup', email: identifier, options: { captchaToken } })
+        : await supabase.auth.signInWithOtp({ phone: identifier, options: { captchaToken } });
     setResending(false);
     if (rErr) setError(rErr.message);
     else setSecondsLeft(60);
@@ -120,9 +128,7 @@ export default function VerifyOtpScreen({ navigation, route }: Props) {
               <Pressable onPress={() => navigation.goBack()} style={s.backBtn} hitSlop={8}>
                 <Ionicons name="arrow-back" size={20} color={colors.textSec} />
               </Pressable>
-              <LinearGradient colors={gradientPrimary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={s.brandTile}>
-                <Text style={s.brandLetter}>M</Text>
-              </LinearGradient>
+              <Image source={require('../../../assets/icon.png')} style={s.brandTile} />
               <View style={{ marginLeft: 10 }}>
                 <Text style={s.appName}>MONMAP</Text>
                 <Text style={s.pageTitle}>Баталгаажуулах</Text>

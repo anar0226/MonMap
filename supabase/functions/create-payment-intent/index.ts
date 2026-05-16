@@ -34,7 +34,9 @@ Deno.serve(async (req) => {
       idempotencyKey,
       placeId, date, timeSlot, partySize,
       guestName, guestPhone, service, durationMinutes,
+      applyCreditMnt,
     } = body
+    const requestedCredit = Math.max(0, Number(applyCreditMnt) || 0)
 
     if (!placeId || !date || !timeSlot || !partySize || !guestName) {
       return new Response('Missing required fields', { status: 400 })
@@ -172,19 +174,66 @@ Deno.serve(async (req) => {
       return new Response('Failed to create payment record', { status: 500 })
     }
 
-    // Create QPay invoice
+    // Apply wallet credit if requested. Idempotent on payments.id.
+    let creditApplied = 0
+    if (requestedCredit > 0) {
+      const { data: c, error: cErr } = await db.rpc('apply_booking_credit', {
+        p_payment_id: payment.id,
+        p_max_credit: requestedCredit,
+      })
+      if (cErr) console.warn('apply_booking_credit error', cErr)
+      else creditApplied = Number(c) || 0
+    }
+
+    const qpayAmount = Math.max(0, place.deposit_amount - creditApplied)
+
+    // If credit covers the full deposit, skip QPay and confirm immediately.
+    if (qpayAmount === 0) {
+      const { data: bookingId, error: confirmErr } = await db.rpc('confirm_credit_only_booking', {
+        p_payment_id:     payment.id,
+        p_hold_id:        holdId,
+        p_user_id:        callerId,
+        p_place_id:       placeId,
+        p_booked_date:    date,
+        p_time_slot:      timeSlot,
+        p_party_size:     partySize,
+        p_guest_name:     guestName,
+        p_guest_phone:    guestPhone ?? null,
+        p_service:        service ?? null,
+        p_duration_mins:  durationMinutes ?? null,
+        p_deposit_amount: place.deposit_amount,
+      })
+      if (confirmErr) {
+        console.error('confirm_credit_only_booking failed', confirmErr)
+        return new Response('Failed to confirm credit-only booking', { status: 500 })
+      }
+      return new Response(
+        JSON.stringify({
+          status:           'credit_only_paid',
+          paymentId:        payment.id,
+          bookingId,
+          creditApplied,
+          amount:           0,
+          originalDeposit:  place.deposit_amount,
+        }),
+        { headers: { 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // Create QPay invoice for the remaining amount.
     const callbackUrl = `${SUPABASE_URL}/functions/v1/payment-webhook`
     const invoice = await createQPayInvoice({
       senderInvoiceNo: payment.id,
       description: `MonMap захиалга — ${place.name} ${date} ${timeSlot}`,
-      amount: place.deposit_amount,
+      amount: qpayAmount,
       callbackUrl,
     })
 
-    // Store QPay data on the payment row
+    // Store QPay data on the payment row and update amount to the reduced figure.
     await db
       .from('payments')
       .update({
+        amount:          qpayAmount,
         qpay_invoice_id: invoice.invoiceId,
         qpay_qr_image:   invoice.qrImage,
         qpay_urls:       invoice.urls,
@@ -193,12 +242,14 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        paymentId:    payment.id,
-        holdId:       holdId,
+        paymentId:       payment.id,
+        holdId:          holdId,
         holdExpiresAt,
-        amount:       place.deposit_amount,
-        qpayQrImage:  invoice.qrImage,
-        qpayUrls:     invoice.urls,
+        amount:          qpayAmount,
+        originalDeposit: place.deposit_amount,
+        creditApplied,
+        qpayQrImage:     invoice.qrImage,
+        qpayUrls:        invoice.urls,
       }),
       { headers: { 'Content-Type': 'application/json' } },
     )

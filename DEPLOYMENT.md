@@ -318,3 +318,30 @@ If the system stops working in production, walk this list:
 | `DEPLOY_ENV` | optional | Self | Used as a Sentry tag — defaults to `production` |
 | `SENTRY_DSN` | optional | Sentry | Sentry project settings (rotates entire key) |
 | `ERROR_WEBHOOK_URL` | optional | Slack/Discord | Re-create the webhook in the channel |
+
+---
+
+## Appendix: Mobile platform floors
+
+### Android — minimum API level 24 (Android 7.0)
+
+This is the Expo SDK 54 default and **must not be lowered**. The
+`secureStorage` adapter (`src/lib/secureStorage.ts`) uses
+`expo-secure-store`, which depends on Android `EncryptedSharedPreferences`
+for at-rest encryption. That API requires **Android 6.0 (API 23)** as a
+hard floor; below that, expo-secure-store silently falls back to plaintext
+SharedPreferences, defeating the migration off AsyncStorage.
+
+`secureStorage` detects API < 23 at runtime and routes to plain
+AsyncStorage with a `__DEV__` warning — sign-in still works but the
+encryption guarantee is gone. If you ever see this warning in production
+logs, raise `minSdkVersion`.
+
+If you add `expo-build-properties` and set `android.minSdkVersion`
+explicitly, **keep it at 24 or above**. Going lower silently weakens the
+security model for every Android user.
+
+### iOS — no floor concern
+
+`expo-secure-store` uses iOS Keychain on every supported iOS version. No
+runtime branch needed.

@@ -24,29 +24,67 @@ export default function SettingsScreen({ navigation }: Props) {
   const [promoNotif, setPromoNotif] = useState(true);
   const [orderNotif, setOrderNotif] = useState(true);
 
-  // Load persisted toggle state
-  useEffect(() => {
-    AsyncStorage.getItem('monmap.notif_prefs').then(raw => {
-      if (raw) {
-        try {
-          const prefs = JSON.parse(raw);
-          if (typeof prefs.push === 'boolean') setPushNotif(prefs.push);
-          if (typeof prefs.promo === 'boolean') setPromoNotif(prefs.promo);
-          if (typeof prefs.order === 'boolean') setOrderNotif(prefs.order);
-        } catch { }
-      }
-    });
-  }, []);
+  const userId = user?.id;
 
-  // Persist when any toggle changes
+  // Hydrate prefs: AsyncStorage first (instant), Supabase second (authoritative).
+  // Falling back to AsyncStorage means a reinstalled app still has cached prefs
+  // until the network lookup completes; Supabase is the source of truth and
+  // survives reinstalls / new devices.
+  useEffect(() => {
+    let cancelled = false;
+
+    AsyncStorage.getItem('monmap.notif_prefs').then(raw => {
+      if (cancelled || !raw) return;
+      try {
+        const prefs = JSON.parse(raw);
+        if (typeof prefs.push === 'boolean') setPushNotif(prefs.push);
+        if (typeof prefs.promo === 'boolean') setPromoNotif(prefs.promo);
+        if (typeof prefs.order === 'boolean') setOrderNotif(prefs.order);
+      } catch { }
+    });
+
+    if (!userId) return;
+    (async () => {
+      const { data } = await supabase
+        .from('user_notification_prefs')
+        .select('push_enabled, promo_enabled, booking_enabled')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      setPushNotif(data.push_enabled);
+      setPromoNotif(data.promo_enabled);
+      setOrderNotif(data.booking_enabled);
+      AsyncStorage.setItem(
+        'monmap.notif_prefs',
+        JSON.stringify({ push: data.push_enabled, promo: data.promo_enabled, order: data.booking_enabled }),
+      ).catch(() => {});
+    })();
+
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  async function syncToServer(prefs: { push: boolean; promo: boolean; order: boolean }) {
+    if (!userId) return;
+    const { error } = await supabase
+      .from('user_notification_prefs')
+      .upsert({
+        user_id:         userId,
+        push_enabled:    prefs.push,
+        promo_enabled:   prefs.promo,
+        booking_enabled: prefs.order,
+        updated_at:      new Date().toISOString(),
+      }, { onConflict: 'user_id' });
+    if (error && __DEV__) console.warn('[Settings] pref sync failed:', error.message);
+  }
+
+  // Persist on toggle: optimistic local update + AsyncStorage cache + server upsert.
+  // Server failures are non-fatal — AsyncStorage carries the value until next sync.
   function setAndPersist(key: 'push' | 'promo' | 'order', value: boolean) {
     const setters = { push: setPushNotif, promo: setPromoNotif, order: setOrderNotif };
     setters[key](value);
-    AsyncStorage.getItem('monmap.notif_prefs').then(raw => {
-      const prefs = raw ? JSON.parse(raw) : {};
-      prefs[key] = value;
-      AsyncStorage.setItem('monmap.notif_prefs', JSON.stringify(prefs));
-    });
+    const newPrefs = { push: pushNotif, promo: promoNotif, order: orderNotif, [key]: value };
+    AsyncStorage.setItem('monmap.notif_prefs', JSON.stringify(newPrefs)).catch(() => {});
+    syncToServer(newPrefs);
   }
 
   async function handleSignOut() {

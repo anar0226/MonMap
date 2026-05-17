@@ -743,16 +743,33 @@
     function onClaimSearch() {
       clearTimeout(claimSearchTimer);
       const q = document.getElementById('claimSearchInput').value.trim();
-      if (q.length < 2) {
-        document.getElementById('claimResults').style.display = 'none';
-        return;
-      }
+      const box = document.getElementById('claimResults');
+      if (!q) { box.style.display = 'none'; box.innerHTML = ''; return; }
+      // Show a loading state immediately so the owner sees the search engaged
+      // even before the 300 ms debounce / network round-trip finishes — the
+      // previous silence read as "the search bar is broken" when no rows
+      // matched.
+      box.style.display = 'block';
+      box.innerHTML = `<div style="padding:16px;text-align:center;color:var(--gray-500);font-size:0.875rem;">Хайж байна…</div>`;
       claimSearchTimer = setTimeout(() => runClaimSearch(q), 300);
     }
 
     async function runClaimSearch(q) {
-      const results = await searchPlaces(q);
       const box = document.getElementById('claimResults');
+      // If the input was cleared while we were debouncing, drop the result.
+      const current = document.getElementById('claimSearchInput').value.trim();
+      if (current !== q) return;
+      let results;
+      try {
+        results = await searchPlaces(q);
+      } catch (err) {
+        console.error('claim search failed:', err);
+        box.style.display = 'block';
+        box.innerHTML = `<div style="padding:16px;text-align:center;color:var(--danger);font-size:0.875rem;">
+        Хайлт амжилтгүй боллоо. Интернэт холболтоо шалгаад дахин оролдоно уу.
+      </div>`;
+        return;
+      }
       if (!results.length) {
         box.style.display = 'block';
         box.innerHTML = `<div style="padding:16px;text-align:center;color:var(--gray-500);font-size:0.875rem;">

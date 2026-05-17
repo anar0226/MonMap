@@ -174,12 +174,35 @@ async function requireAuth() {
 function _escapeIlike(s) {
   return String(s).replace(/[\\%_]/g, c => '\\' + c);
 }
+// Search places by name OR address fragment. The claim flow on register.html
+// is the main caller — we used to only match `name`, which silently returned
+// empty whenever the owner typed an address fragment or a partial Cyrillic
+// stem that didn't sit at a word boundary in the name column. Adding the
+// address column (and surfacing errors instead of swallowing them as `[]`)
+// makes the dropdown actually populate for the common search shapes.
+//
+// PostgREST `or` filter separates clauses with `,`. The user-supplied portion
+// of each `ilike.<pattern>` value can't contain raw commas — they'd be parsed
+// as a clause boundary — and `()` only escapes inside a wrapped value. We
+// strip commas (and the other PostgREST filter metacharacters) from the query
+// before splicing it in. ILIKE wildcards (`%`, `_`, `\`) are still neutralised
+// by `_escapeIlike` so a user-typed `%` matches a literal percent.
 async function searchPlaces(query) {
-  const { data } = await _sb
+  const cleaned = String(query || '').replace(/[,()]/g, ' ').trim();
+  if (!cleaned) return [];
+  const pat = `%${_escapeIlike(cleaned)}%`;
+  const { data, error } = await _sb
     .from('places')
     .select('place_id, name, primary_category, formatted_address')
-    .ilike('name', `%${_escapeIlike(query)}%`)
-    .limit(10);
+    .or(`name.ilike.${pat},formatted_address.ilike.${pat}`)
+    .limit(15);
+  if (error) {
+    // Bubble through console so the inevitable "search doesn't work" bug
+    // report has something to grep for. Callers still get `[]` so the UI
+    // shows the empty-state branch instead of crashing.
+    console.error('searchPlaces failed:', error);
+    return [];
+  }
   return data || [];
 }
 

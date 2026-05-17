@@ -106,6 +106,8 @@
             <label for="remember" style="font-size:0.875rem;color:var(--gray-600);cursor:pointer;">Намайг санах</label>
           </div>
 
+          <div id="hcaptcha-widget" style="margin-bottom:16px;"></div>
+
           <button type="submit" class="btn btn-primary w-full btn-lg" id="loginBtn">
             <span id="loginBtnText">Нэвтрэх</span>
             <span id="loginBtnSpinner" class="hidden">⏳</span>
@@ -157,9 +159,22 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://js.hcaptcha.com/1/api.js?onload=onHcaptchaLoad&render=explicit" async defer></script>
   <script src="js/supabase-client.js"></script>
   <script src="js/utils.js"></script>
   <script>
+    // Render hCaptcha widget once the API script loads. The onload= callback
+    // and the manual window.hcaptcha check can both fire; the guard prevents
+    // the "Only one captcha per container" duplicate-render error.
+    let _hcaptchaWidgetId = null;
+    window.onHcaptchaLoad = function () {
+      if (_hcaptchaWidgetId !== null) return;
+      const container = document.getElementById('hcaptcha-widget');
+      if (!container) return;
+      _hcaptchaWidgetId = hcaptcha.render(container, { sitekey: window._HCAPTCHA_SITE_KEY });
+    };
+    if (window.hcaptcha) window.onHcaptchaLoad();
+
     // Redirect to dashboard if already logged in
     (async function () {
       const { data: { session } } = await _sb.auth.getSession();
@@ -201,12 +216,31 @@
       btnText.textContent = 'Нэвтэрч байна...';
       btnSpinner.classList.remove('hidden');
 
-      const { error } = await _sb.auth.signInWithPassword({ email, password });
+      if (!window.hcaptcha) {
+        btn.disabled = false;
+        btnText.textContent = 'Нэвтрэх';
+        btnSpinner.classList.add('hidden');
+        document.getElementById('alertBox').classList.remove('hidden');
+        document.getElementById('alertMsg').textContent = 'Captcha ачаалагдаагүй байна. Хуудсыг дахин ачаална уу.';
+        return;
+      }
+      const captchaToken = hcaptcha.getResponse();
+      if (!captchaToken) {
+        btn.disabled = false;
+        btnText.textContent = 'Нэвтрэх';
+        btnSpinner.classList.add('hidden');
+        document.getElementById('alertBox').classList.remove('hidden');
+        document.getElementById('alertMsg').textContent = 'Хүний баталгаажуулалтыг бөглөнө үү.';
+        return;
+      }
+
+      const { error } = await _sb.auth.signInWithPassword({ email, password, options: { captchaToken } });
 
       if (error) {
         btn.disabled = false;
         btnText.textContent = 'Нэвтрэх';
         btnSpinner.classList.add('hidden');
+        try { hcaptcha.reset(); } catch (_) { }
         document.getElementById('alertBox').classList.remove('hidden');
         document.getElementById('alertMsg').textContent =
           'И-мэйл эсвэл нууц үг буруу байна. Дахин оролдоно уу.';
@@ -226,7 +260,9 @@
       const emailInput = document.querySelector('#forgotModal input[type="email"]');
       const email = emailInput ? emailInput.value.trim() : '';
       if (!email) { showToast('error', 'Алдаа', 'И-мэйл хаяг оруулна уу.'); return; }
-      const { error } = await _sb.auth.resetPasswordForEmail(email);
+      const { error } = await _sb.auth.resetPasswordForEmail(email, {
+        redirectTo: 'https://monmap.net/reset-password.html'
+      });
       closeForgot();
       if (error) {
         showToast('error', 'Алдаа', error.message);

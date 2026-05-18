@@ -1247,7 +1247,7 @@
       }
 
       wrap.innerHTML = services.map((service) => `
-        <div class="service-card ${service.expanded ? 'expanded' : ''} ${service.active ? '' : 'is-inactive'}">
+        <div class="service-card ${service.expanded ? 'expanded' : ''} ${service.active ? '' : 'is-inactive'}" data-svc-id="${service.id}">
           <div class="service-summary" onclick="toggleServiceExpanded('${service.id}')">
             <div class="service-summary-main">
               <div class="service-summary-name">${escapeHtml(service.name || 'Шинэ үйлчилгээ')}</div>
@@ -1331,7 +1331,15 @@
       } else {
         service[field] = value;
       }
-      renderServices();
+      // Surgically update only the card header — do NOT re-render the whole
+      // list (that destroys the focused input, causing one-char-at-a-time UX).
+      const card = document.querySelector(`[data-svc-id="${id}"]`);
+      if (!card) return;
+      const nameEl = card.querySelector('.service-summary-name');
+      if (nameEl) nameEl.textContent = service.name || 'Шинэ үйлчилгээ';
+      const pillsEl = card.querySelector('.service-summary-pills');
+      if (pillsEl) pillsEl.innerHTML = getServiceSummary(service)
+        .map(p => `<span class="mini-pill">${escapeHtml(p)}</span>`).join('');
     }
 
     function adjustServiceCapacity(id, delta) {

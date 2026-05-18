@@ -2061,7 +2061,17 @@
         // was being submitted if the RPC throws.
         localStorage.setItem('mm_pending_reg', JSON.stringify(payload));
 
-        await completeRegistration(session.user.id, payload);
+        // Master 60-second timeout around the entire completeRegistration flow
+        // so no hang anywhere inside (pre-flight, RPC, persist, storage) can
+        // leave the button frozen indefinitely.
+        console.log('[register] starting completeRegistration…');
+        await Promise.race([
+          completeRegistration(session.user.id, payload),
+          new Promise((_, rej) => setTimeout(
+            () => rej(new Error('Хүсэлт хугацаа дууслаа (60 секунд). Дахин оролдоно уу.')),
+            60000
+          )),
+        ]);
         // completeRegistration either redirects (success) or calls _resetOtpFlow()
         // (error). If it returns without doing either — belt-and-braces reset.
         reset();
@@ -2182,11 +2192,15 @@
         // Pre-flight: if this user already has a business_owners row, the OTP
         // signed them in to an existing account. Don't try to create another
         // place — just route them to their dashboard with a clear message.
-        const { data: existing } = await _sb
-          .from('business_owners')
-          .select('place_id, claim_status, places(name, primary_category)')
-          .eq('user_id', userId)
-          .maybeSingle();
+        console.log('[register] checking existing business_owners…');
+        const { data: existing } = await Promise.race([
+          _sb.from('business_owners')
+            .select('place_id, claim_status, places(name, primary_category)')
+            .eq('user_id', userId)
+            .maybeSingle(),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('pre-flight timeout')), 15000)),
+        ]);
+        console.log('[register] pre-flight done, existing:', existing);
         if (existing?.place_id) {
           clearDraft();
           localStorage.removeItem('mm_pending_reg');
@@ -2251,11 +2265,13 @@
 
         // 30-second hard timeout on the registration RPC so the button is never
         // stuck indefinitely when the function is slow or unreachable.
+        console.log('[register] calling complete_business_registration RPC…');
         const rpcResult = await Promise.race([
           _sb.rpc('complete_business_registration', { p_payload: payload, p_doc_paths: docPaths }),
-          new Promise((_, rej) => setTimeout(() => rej(new Error('Хүсэлт хугацаа дууслаа. Интернэт холболтоо шалгаад дахин оролдоно уу.')), 30000)),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('RPC timeout (30s). Дахин оролдоно уу.')), 30000)),
         ]);
         const { data: placeId, error } = rpcResult;
+        console.log('[register] RPC returned, placeId:', placeId, 'error:', error);
         if (error || !placeId) {
           console.warn('[monmap-portal] complete_business_registration:', error);
           _resetOtpFlow();
@@ -2264,7 +2280,19 @@
           return;
         }
 
-        await persistOnboardingData(placeId, d);
+        // persistOnboardingData is best-effort — if services/hours fail to write
+        // we don't want to block the redirect because the place itself is already
+        // created. The owner can re-edit hours/services from the portal.
+        try {
+          console.log('[register] persisting onboarding data…');
+          await Promise.race([
+            persistOnboardingData(placeId, d),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('persist timeout')), 15000)),
+          ]);
+          console.log('[register] onboarding data persisted');
+        } catch (persistErr) {
+          console.warn('[register] persistOnboardingData failed (non-fatal):', persistErr);
+        }
 
         const bizName = d.claimBizName || d.bizName || placeId;
         const bizType = d.claimCategory || d.bizType || 'Бизнес';
@@ -2274,6 +2302,7 @@
           id: placeId, name: bizName, type: bizType, verified: false,
         }));
 
+        console.log('[register] redirecting to dashboard…');
         window.location.href = 'dashboard.html';
       } catch (e) {
         console.error('[monmap-portal] completeRegistration threw:', e);

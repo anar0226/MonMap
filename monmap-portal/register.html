@@ -802,7 +802,7 @@
                 <input type="number" class="form-control" id="concurrent" min="1" max="999" value="1" />
               </div>
               <div class="form-group">
-                <label class="form-label">Захиалгын хамгийн бага хуваарь</label>
+                <label class="form-label">Хамгийн богино захиалгын хугацаа</label>
                 <select class="form-control" id="slotDuration">
                   <option value="15">15 минут</option>
                   <option value="30">30 минут</option>
@@ -2004,63 +2004,72 @@
       btn.textContent = '⏳ Илгээж байна...';
       const reset = () => { btn.disabled = false; btn.textContent = '✓ Бүртгэл илгээх'; };
 
-      // Email was verified at Step 1, so the user already has a Supabase
-      // session — no second OTP needed. If the session has somehow expired,
-      // bounce them back to Step 1 to re-verify rather than silently failing.
-      const { data: { session } } = await _sb.auth.getSession();
-      if (!session) {
-        _setEmailVerifiedUI(false);
-        showToast('error', 'Сесс дууссан', 'И-мэйлээ дахин баталгаажуулна уу.');
+      try {
+        // Email was verified at Step 1, so the user already has a Supabase
+        // session — no second OTP needed. If the session has somehow expired,
+        // bounce them back to Step 1 to re-verify rather than silently failing.
+        const { data: { session } } = await _sb.auth.getSession();
+        if (!session) {
+          _setEmailVerifiedUI(false);
+          showToast('error', 'Сесс дууссан', 'И-мэйлээ дахин баталгаажуулна уу.');
+          reset();
+          goStep(1);
+          return;
+        }
+
+        const email = document.getElementById('regEmail').value.trim();
+        const lastName = document.getElementById('lastName').value.trim();
+        const firstName = document.getElementById('firstName').value.trim();
+        const userPhone = document.getElementById('phone').value.trim();
+        const bizName = document.getElementById('bizName').value.trim();
+        const bizType = document.getElementById('bizType').value;
+        const district = document.getElementById('district').value;
+        const khoroo = document.getElementById('khoroo').value;
+        const address = document.getElementById('address').value.trim();
+        const bizPhone = document.getElementById('bizPhone').value.trim();
+        const bizDesc = document.getElementById('bizDesc').value.trim();
+        const concurrent = Math.max(1, parseInt(document.getElementById('concurrent').value) || 1);
+        const bookingOpenHour = document.getElementById('bookingOpenHour').value || '09:00';
+        const bookingCloseHour = document.getElementById('bookingCloseHour').value || '18:00';
+        const slotDuration = Math.max(15, parseInt(document.getElementById('slotDuration').value, 10) || 60);
+        const normalizedServices = services
+          .filter((service) => service.name.trim())
+          .map((service) => ({
+            name: service.name.trim(),
+            duration: Math.max(15, parseInt(service.duration, 10) || 60),
+            price: Math.max(0, parseInt(service.price, 10) || 0),
+            capacity: Math.max(1, parseInt(service.capacity, 10) || 1),
+            buffer: Math.max(0, parseInt(service.buffer, 10) || 0),
+            desc: service.desc.trim(),
+            active: service.active !== false,
+          }));
+
+        const payload = {
+          email, lastName, firstName, userPhone,
+          bizName, bizType, district, khoroo, address, bizPhone, bizDesc, concurrent,
+          bookingOpenHour, bookingCloseHour, slotDuration,
+          services: normalizedServices,
+          portalHours: serializePortalHours(),
+          lat: createMode ? pinLat : null,
+          lng: createMode ? pinLng : null,
+          claimPlaceId: (!createMode && claimedPlace) ? claimedPlace.place_id : null,
+          claimBizName: (!createMode && claimedPlace) ? claimedPlace.name : null,
+          claimCategory: (!createMode && claimedPlace) ? claimedPlace.primary_category : null,
+          pendingDocs: pendingDocs.length ? pendingDocs : null,
+        };
+        // Still cached so completeRegistration's reset paths can surface what
+        // was being submitted if the RPC throws.
+        localStorage.setItem('mm_pending_reg', JSON.stringify(payload));
+
+        await completeRegistration(session.user.id, payload);
+        // completeRegistration either redirects (success) or calls _resetOtpFlow()
+        // (error). If it returns without doing either — belt-and-braces reset.
         reset();
-        goStep(1);
-        return;
+      } catch (e) {
+        console.error('[register] submitRegistration:', e);
+        showToast('error', 'Алдаа', e.message || 'Бүртгэл илгээхэд алдаа гарлаа. Дахин оролдоно уу.');
+        reset();
       }
-
-      const email = document.getElementById('regEmail').value.trim();
-      const lastName = document.getElementById('lastName').value.trim();
-      const firstName = document.getElementById('firstName').value.trim();
-      const userPhone = document.getElementById('phone').value.trim();
-      const bizName = document.getElementById('bizName').value.trim();
-      const bizType = document.getElementById('bizType').value;
-      const district = document.getElementById('district').value;
-      const khoroo = document.getElementById('khoroo').value;
-      const address = document.getElementById('address').value.trim();
-      const bizPhone = document.getElementById('bizPhone').value.trim();
-      const bizDesc = document.getElementById('bizDesc').value.trim();
-      const concurrent = Math.max(1, parseInt(document.getElementById('concurrent').value) || 1);
-      const bookingOpenHour = document.getElementById('bookingOpenHour').value || '09:00';
-      const bookingCloseHour = document.getElementById('bookingCloseHour').value || '18:00';
-      const slotDuration = Math.max(15, parseInt(document.getElementById('slotDuration').value, 10) || 60);
-      const normalizedServices = services
-        .filter((service) => service.name.trim())
-        .map((service) => ({
-          name: service.name.trim(),
-          duration: Math.max(15, parseInt(service.duration, 10) || 60),
-          price: Math.max(0, parseInt(service.price, 10) || 0),
-          capacity: Math.max(1, parseInt(service.capacity, 10) || 1),
-          buffer: Math.max(0, parseInt(service.buffer, 10) || 0),
-          desc: service.desc.trim(),
-          active: service.active !== false,
-        }));
-
-      const payload = {
-        email, lastName, firstName, userPhone,
-        bizName, bizType, district, khoroo, address, bizPhone, bizDesc, concurrent,
-        bookingOpenHour, bookingCloseHour, slotDuration,
-        services: normalizedServices,
-        portalHours: serializePortalHours(),
-        lat: createMode ? pinLat : null,
-        lng: createMode ? pinLng : null,
-        claimPlaceId: (!createMode && claimedPlace) ? claimedPlace.place_id : null,
-        claimBizName: (!createMode && claimedPlace) ? claimedPlace.name : null,
-        claimCategory: (!createMode && claimedPlace) ? claimedPlace.primary_category : null,
-        pendingDocs: pendingDocs.length ? pendingDocs : null,
-      };
-      // Still cached so completeRegistration's reset paths can surface what
-      // was being submitted if the RPC throws.
-      localStorage.setItem('mm_pending_reg', JSON.stringify(payload));
-
-      await completeRegistration(session.user.id, payload);
     }
 
     async function verifyOtp() {
@@ -2221,23 +2230,32 @@
             },
           };
 
-        // Upload verification docs now (moved out of step navigation to avoid hangs).
-        // pendingDocs is populated if the user somehow had docs pre-uploaded;
-        // otherwise we upload docFiles[] here with a proper error surface.
+        // Upload verification docs — non-blocking: if storage is unreachable or
+        // the bucket isn't configured yet, we log a warning and proceed without
+        // docs. The owner can supply them later via the profile page.
         let docPaths = (d.pendingDocs && d.pendingDocs.length) ? d.pendingDocs : null;
         if (!docPaths && docFiles.length > 0) {
-          const uploaded = await uploadDocFiles();
-          if (uploaded === null) {
-            // uploadDocFiles already showed a toast with the specific error.
-            _resetOtpFlow();
-            return;
+          try {
+            const uploaded = await Promise.race([
+              uploadDocFiles(),
+              new Promise((_, rej) => setTimeout(() => rej(new Error('upload timeout')), 20000)),
+            ]);
+            if (uploaded && uploaded.length) docPaths = uploaded;
+          } catch (uploadErr) {
+            // Non-fatal — warn and continue without docs.
+            console.warn('[register] doc upload skipped:', uploadErr.message);
+            showToast('warning', 'Баримт оруулаагүй',
+              'Баримтыг оруулах боломжгүй байна. Бүртгэлийн дараа профайл хуудсаас нэмж болно.');
           }
-          docPaths = uploaded.length ? uploaded : null;
         }
 
-        const { data: placeId, error } = await _sb.rpc(
-          'complete_business_registration', { p_payload: payload, p_doc_paths: docPaths }
-        );
+        // 30-second hard timeout on the registration RPC so the button is never
+        // stuck indefinitely when the function is slow or unreachable.
+        const rpcResult = await Promise.race([
+          _sb.rpc('complete_business_registration', { p_payload: payload, p_doc_paths: docPaths }),
+          new Promise((_, rej) => setTimeout(() => rej(new Error('Хүсэлт хугацаа дууслаа. Интернэт холболтоо шалгаад дахин оролдоно уу.')), 30000)),
+        ]);
+        const { data: placeId, error } = rpcResult;
         if (error || !placeId) {
           console.warn('[monmap-portal] complete_business_registration:', error);
           _resetOtpFlow();

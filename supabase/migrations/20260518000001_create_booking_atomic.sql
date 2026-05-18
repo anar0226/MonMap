@@ -20,7 +20,7 @@ CREATE OR REPLACE FUNCTION public.create_booking(
   p_party_size    smallint,
   p_guest_name    text,
   p_guest_phone   text
-) RETURNS uuid
+) RETURNS bigint
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = public
@@ -31,7 +31,7 @@ DECLARE
   v_capacity  integer;
   v_booked    integer;
   v_held      integer;
-  v_id        uuid;
+  v_id        bigint;
 BEGIN
   IF v_uid IS NULL THEN
     RAISE EXCEPTION 'authentication required'

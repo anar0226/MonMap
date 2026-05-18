@@ -3,9 +3,9 @@
 // Auth: Basic auth (client_id:client_secret) to get a Bearer token, then Bearer on all requests.
 
 const QPAY_BASE_URL     = 'https://merchant.qpay.mn/v2'
-const QPAY_CLIENT_ID    = Deno.env.get('qpay_client_id')!
-const QPAY_CLIENT_SECRET = Deno.env.get('qpay_client_secret')!
-const QPAY_INVOICE_CODE = Deno.env.get('qpay_invoice_code')!
+const QPAY_CLIENT_ID    = Deno.env.get('QPAY_CLIENT_ID')!
+const QPAY_CLIENT_SECRET = Deno.env.get('QPAY_CLIENT_SECRET')!
+const QPAY_INVOICE_CODE = Deno.env.get('QPAY_INVOICE_CODE')!
 
 export interface QPayBankLink {
   name: string

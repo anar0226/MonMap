@@ -73,6 +73,7 @@ export default function MapScreen() {
   const [routeDestName, setRouteDestName] = useState<string | null>(null);
   const nav = useTurnByTurnNav();
   const { isOnline, wasEverOnline } = useNetworkStatus();
+  const [bannerHeight, setBannerHeight] = useState(0);
   const venueDetection = useVenueDetection(userLocation);
 
   // When user walks into a mapped venue and isn't navigating, offer indoor nav
@@ -584,11 +585,11 @@ export default function MapScreen() {
       </MapboxGL.MapView>
 
       {/* Offline/download banner — always on top */}
-      <OfflineBanner isOnline={isOnline} />
+      <OfflineBanner isOnline={isOnline} onHeightChange={setBannerHeight} />
 
       {/* Search bar — hidden while navigating or route planning */}
       {nav.mode === 'idle' && !multi && !routeLoading && (
-        <SearchBar onPress={() => setSearchOpen(true)} onProfilePress={() => navigation.navigate('Profile')} />
+        <SearchBar onPress={() => setSearchOpen(true)} onProfilePress={() => navigation.navigate('Profile')} topOffset={bannerHeight} />
       )}
 
       {mapError && (

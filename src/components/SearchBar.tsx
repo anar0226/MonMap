@@ -5,12 +5,13 @@ import { Ionicons } from '@expo/vector-icons';
 interface Props {
   onPress: () => void;
   onProfilePress?: () => void;
+  topOffset?: number;
 }
 
-export function SearchBar({ onPress, onProfilePress }: Props) {
+export function SearchBar({ onPress, onProfilePress, topOffset = 0 }: Props) {
   return (
     <TouchableOpacity
-      style={styles.bar}
+      style={[styles.bar, topOffset > 0 && { top: 52 + topOffset }]}
       onPress={onPress}
       activeOpacity={0.85}
     >

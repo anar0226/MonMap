@@ -112,13 +112,13 @@ CREATE TRIGGER daily_earning_counters_set_updated_at
 -- below stay in sync with a single source of truth.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.traffic_earning_rate_mnt_per_min()
-RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 20 $$;
+RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 15 $$;
 
 CREATE OR REPLACE FUNCTION public.traffic_earning_daily_cap_mnt()
-RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 2000 $$;
+RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 1500 $$;
 
 CREATE OR REPLACE FUNCTION public.traffic_earning_withdraw_threshold_mnt()
-RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 50000 $$;
+RETURNS integer LANGUAGE sql IMMUTABLE AS $$ SELECT 20000 $$;
 
 -- ---------------------------------------------------------------------------
 -- RPC: try_credit_traffic_minute

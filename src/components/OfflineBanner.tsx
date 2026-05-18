@@ -26,9 +26,10 @@ import {
 
 interface Props {
   isOnline: boolean;
+  onHeightChange?: (height: number) => void;
 }
 
-export function OfflineBanner({ isOnline }: Props) {
+export function OfflineBanner({ isOnline, onHeightChange }: Props) {
   const [packStatus, setPackStatus] = useState<OfflinePackStatus>('not_downloaded');
   const [progress, setProgress] = useState<DownloadProgress | null>(null);
   const [dismissed, setDismissed] = useState(false);
@@ -50,6 +51,7 @@ export function OfflineBanner({ isOnline }: Props) {
       tension: 60,
       friction: 10,
     }).start();
+    if (!shouldShow) onHeightChange?.(0);
   }, [shouldShow, slideY]);
 
   const handleDownload = async () => {
@@ -74,6 +76,7 @@ export function OfflineBanner({ isOnline }: Props) {
 
   return (
     <Animated.View
+      onLayout={(e) => onHeightChange?.(e.nativeEvent.layout.height)}
       style={[
         styles.container,
         isOffline ? styles.offlineBg : styles.downloadBg,

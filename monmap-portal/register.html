@@ -976,8 +976,8 @@
 
     const hoursState = days.reduce((acc, day) => {
       acc[day.key] = day.weekend
-        ? { open: false, start: '10:00', end: '18:00', breakEnabled: false, breakStart: '13:00', breakEnd: '14:00' }
-        : { open: true, start: '09:00', end: '18:00', breakEnabled: false, breakStart: '13:00', breakEnd: '14:00' };
+        ? { open: false, start: '10:00', end: '18:00', breakEnabled: false, breakStart: '13:00', breakEnd: '14:00', breakLabel: '' }
+        : { open: true, start: '09:00', end: '18:00', breakEnabled: false, breakStart: '13:00', breakEnd: '14:00', breakLabel: '' };
       return acc;
     }, {});
 
@@ -1081,20 +1081,14 @@
       return uploaded;
     }
 
-    async function goStepWithUpload(n) {
-      const btn = document.getElementById('docNextBtn');
-      btn.disabled = true;
-      btn.textContent = '⏳ Оруулж байна...';
-      try {
-        const uploaded = await uploadDocFiles();
-        if (uploaded === null) { btn.disabled = false; btn.textContent = 'Үргэлжлүүлэх →'; return; }
-        pendingDocs = uploaded;
-        goStep(n);
-      } catch (e) {
-        showToast('error', 'Алдаа', e.message || 'Файл оруулах үед алдаа гарлаа.');
-        btn.disabled = false;
-        btn.textContent = 'Үргэлжлүүлэх →';
+    // Files are collected here and uploaded during submitRegistration() to avoid
+    // hanging on a storage call before the user even reaches the review step.
+    function goStepWithUpload(n) {
+      if (docFiles.length === 0) {
+        showToast('error', 'Баримт шаардлагатай', 'Дор хаяж нэг баримт оруулна уу.');
+        return;
       }
+      goStep(n);
     }
 
     // ── Claim vs Create state ──
@@ -1386,9 +1380,6 @@
                 <input type="time" class="form-control" value="${state.end}" ${state.open ? '' : 'disabled'} onchange="updateHoursField('${day.key}','end',this.value)" />
               </div>
               <div class="hours-actions-inline">
-                <button type="button" class="text-btn" onclick="copyHoursToOpenDays('${day.key}')" ${state.open ? '' : 'disabled'}>Хуулах</button>
-              </div>
-              <div class="hours-actions-inline">
                 ${state.breakEnabled
                   ? `<button type="button" class="text-btn" onclick="removeHoursBreak('${day.key}')">Завсар арилгах</button>`
                   : `<button type="button" class="text-btn" onclick="addHoursBreak('${day.key}')" ${state.open ? '' : 'disabled'}>+ Завсар нэмэх</button>`}
@@ -1397,7 +1388,12 @@
             ${state.breakEnabled ? `
               <div class="break-row">
                 <div class="break-head">
-                  <span class="break-badge">ЗАВСАР</span>
+                  <input type="text"
+                    class="form-control"
+                    style="width:160px;font-size:0.75rem;font-weight:700;padding:3px 8px;height:auto;letter-spacing:.04em;text-transform:uppercase;"
+                    placeholder="ЗАВСАР (нэр)"
+                    value="${escapeHtml(state.breakLabel || '')}"
+                    oninput="updateHoursField('${day.key}','breakLabel',this.value)" />
                 </div>
                 <div class="break-grid">
                   <div class="form-group">
@@ -1884,7 +1880,7 @@
           <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
             ${days.map((day) => {
               const state = hoursState[day.key];
-              const breakText = state.breakEnabled ? ` · завсар ${state.breakStart}-${state.breakEnd}` : '';
+              const breakText = state.breakEnabled ? ` · ${state.breakLabel || 'завсар'} ${state.breakStart}-${state.breakEnd}` : '';
               const value = state.open ? `${state.start}-${state.end}${breakText}` : 'Хаалттай';
               return `<div style="padding:10px 12px;border:1px solid var(--gray-200);border-radius:10px;background:var(--white);"><div class="text-xs text-muted" style="margin-bottom:4px;">${escapeHtml(day.label)}</div><div style="font-weight:600;color:var(--gray-900);">${escapeHtml(value)}</div></div>`;
             }).join('')}
@@ -2225,7 +2221,20 @@
             },
           };
 
-        const docPaths = (d.pendingDocs && d.pendingDocs.length) ? d.pendingDocs : null;
+        // Upload verification docs now (moved out of step navigation to avoid hangs).
+        // pendingDocs is populated if the user somehow had docs pre-uploaded;
+        // otherwise we upload docFiles[] here with a proper error surface.
+        let docPaths = (d.pendingDocs && d.pendingDocs.length) ? d.pendingDocs : null;
+        if (!docPaths && docFiles.length > 0) {
+          const uploaded = await uploadDocFiles();
+          if (uploaded === null) {
+            // uploadDocFiles already showed a toast with the specific error.
+            _resetOtpFlow();
+            return;
+          }
+          docPaths = uploaded.length ? uploaded : null;
+        }
+
         const { data: placeId, error } = await _sb.rpc(
           'complete_business_registration', { p_payload: payload, p_doc_paths: docPaths }
         );

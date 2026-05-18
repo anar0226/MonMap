@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="mn">
 
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.hcaptcha.com https://hcaptcha.com https://api.mapbox.com; worker-src blob:; child-src blob:; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com https://api.mapbox.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com https://api.mapbox.com https://events.mapbox.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
+    content="default-src 'self'; script-src 'self' 'unsafe-inline' https://*.hcaptcha.com https://hcaptcha.com https://api.mapbox.com; worker-src blob:; child-src blob:; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com https://api.mapbox.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com https://api.mapbox.com https://events.mapbox.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Бизнес бүртгүүлэх — МонМэп</title>
   <link rel="stylesheet" href="css/style.css" />
@@ -50,45 +50,345 @@
       background: var(--success-light);
     }
 
-    .working-hours-grid {
-      display: grid;
-      grid-template-columns: 1fr auto auto auto;
-      align-items: center;
+    .onboard-section {
+      background: var(--gray-50);
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .section-head h4 {
+      margin: 0 0 4px;
+      font-size: 1rem;
+    }
+
+    .section-head p {
+      margin: 0;
+      font-size: 0.8125rem;
+      color: var(--gray-500);
+      line-height: 1.55;
+    }
+
+    .service-list {
+      display: flex;
+      flex-direction: column;
       gap: 12px;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--gray-100);
     }
 
-    .working-hours-grid:last-child {
-      border-bottom: none;
+    .service-card {
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      background: var(--white);
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     }
 
-    .day-label {
-      font-size: 0.875rem;
-      font-weight: 600;
-      color: var(--gray-700);
+    .service-card.is-inactive {
+      opacity: 0.78;
     }
 
-    .service-tag {
+    .service-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 16px;
+      cursor: pointer;
+    }
+
+    .service-summary-main {
+      min-width: 0;
+    }
+
+    .service-summary-name {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--gray-900);
+      margin-bottom: 8px;
+    }
+
+    .service-summary-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .mini-pill {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 5px 12px;
-      background: var(--primary-light);
-      color: var(--primary);
+      padding: 5px 10px;
       border-radius: 999px;
-      font-size: 0.8125rem;
+      background: var(--gray-50);
+      color: var(--gray-600);
+      font-size: 0.75rem;
       font-weight: 600;
+      line-height: 1;
+      white-space: nowrap;
     }
 
-    .service-tag button {
-      background: none;
-      border: none;
-      color: var(--primary);
+    .service-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+
+    .icon-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: 1px solid var(--gray-200);
+      background: var(--white);
+      color: var(--gray-500);
       cursor: pointer;
-      font-size: 0.9rem;
-      line-height: 1;
-      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+    }
+
+    .icon-btn:hover {
+      border-color: var(--gray-300);
+      color: var(--gray-700);
+      background: var(--gray-50);
+    }
+
+    .icon-btn.danger:hover {
+      border-color: rgba(220, 38, 38, 0.25);
+      color: var(--danger);
+      background: rgba(220, 38, 38, 0.06);
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 38px;
+      height: 22px;
+      border: none;
+      border-radius: 999px;
+      background: var(--gray-300);
+      cursor: pointer;
+      transition: background var(--transition);
+      flex-shrink: 0;
+    }
+
+    .toggle-switch::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--white);
+      box-shadow: 0 1px 3px rgba(15, 23, 42, 0.22);
+      transition: transform var(--transition);
+    }
+
+    .toggle-switch.on {
+      background: var(--primary);
+    }
+
+    .toggle-switch.on::after {
+      transform: translateX(16px);
+    }
+
+    .service-details {
+      display: none;
+      padding: 0 16px 16px;
+      border-top: 1px solid var(--gray-100);
+      background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 1));
+    }
+
+    .service-card.expanded .service-details {
+      display: block;
+    }
+
+    .service-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px 12px;
+      margin-top: 16px;
+    }
+
+    .service-grid .form-group {
+      margin-bottom: 0;
+    }
+
+    .service-grid .form-group.full {
+      grid-column: 1 / -1;
+    }
+
+    .stepper-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius);
+      overflow: hidden;
+      background: var(--white);
+      height: 44px;
+    }
+
+    .stepper-control button {
+      width: 42px;
+      height: 42px;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      color: var(--gray-600);
+      font-size: 1rem;
+    }
+
+    .stepper-control span {
+      min-width: 40px;
+      text-align: center;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    .hours-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .preset-btn {
+      border: 1px solid var(--gray-200);
+      background: var(--white);
+      color: var(--gray-700);
+      border-radius: 999px;
+      padding: 7px 12px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .preset-btn:hover {
+      border-color: var(--primary);
+      color: var(--primary);
+      background: var(--primary-light);
+    }
+
+    .hours-day-card {
+      border: 1px solid var(--gray-200);
+      border-radius: var(--radius-lg);
+      background: var(--white);
+      padding: 14px 16px;
+      margin-bottom: 12px;
+    }
+
+    .hours-day-card:last-child {
+      margin-bottom: 0;
+    }
+
+    .hours-day-card.is-closed {
+      background: var(--gray-50);
+    }
+
+    .hours-row-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .hours-day-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .day-label {
+      font-size: 0.9375rem;
+      font-weight: 700;
+      color: var(--gray-900);
+    }
+
+    .hours-summary {
+      font-size: 0.8125rem;
+      color: var(--gray-500);
+    }
+
+    .hours-row-main {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(110px, 1fr)) auto auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .hours-row-main .form-group {
+      margin-bottom: 0;
+    }
+
+    .hours-actions-inline {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .text-btn {
+      border: none;
+      background: none;
+      color: var(--primary);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 6px 0;
+    }
+
+    .break-row {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: var(--radius);
+      border: 1px solid rgba(217, 119, 6, 0.18);
+      background: rgba(245, 158, 11, 0.08);
+    }
+
+    .break-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .break-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(245, 158, 11, 0.16);
+      color: #b45309;
+      font-size: 0.6875rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+    }
+
+    .break-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(110px, 1fr));
+      gap: 10px;
+    }
+
+    .hours-helper {
+      margin-top: 10px;
+      font-size: 0.8125rem;
+      color: var(--gray-500);
+      line-height: 1.55;
     }
 
     .step-panel {
@@ -124,6 +424,30 @@
       padding: 2px 6px;
       border-radius: 4px;
     }
+
+    @media (max-width: 720px) {
+      .reg-card {
+        padding: 24px 18px;
+      }
+
+      .service-grid,
+      .hours-row-main,
+      .break-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hours-actions-inline,
+      .service-actions {
+        justify-content: flex-start;
+      }
+
+      .service-summary,
+      .hours-row-top,
+      .section-head {
+        flex-direction: column;
+        align-items: stretch;
+      }
+    }
   </style>
 </head>
 
@@ -140,7 +464,7 @@
           MONMAP
         </a>
         <h2 style="margin-bottom:6px;">Бизнесээ бүртгүүлэх</h2>
-        <p>Ердөө 4 алхамд МонМэп платформд нэгдэн орно уу</p>
+        <p>Хэдхэн алхмаар МонМэп платформд нэгдэн орно уу</p>
       </div>
 
       <!-- Steps bar -->
@@ -166,16 +490,23 @@
           <div class="step-label">Үйлчилгээ</div>
         </div>
         <div class="step-connector" id="conn-3"></div>
-        <div class="step-wrapper" id="docStepWrap" style="display:none;">
+        <div class="step-wrapper">
           <div class="step-item" id="step-ind-4">
             <div class="step-circle">4</div>
           </div>
+          <div class="step-label">Ажлын цаг</div>
+        </div>
+        <div class="step-connector" id="conn-4"></div>
+        <div class="step-wrapper" id="docStepWrap" style="display:none;">
+          <div class="step-item" id="step-ind-5">
+            <div class="step-circle">5</div>
+          </div>
           <div class="step-label">Баримт</div>
         </div>
-        <div class="step-connector" id="conn-4" style="display:none;"></div>
+        <div class="step-connector" id="conn-5" style="display:none;"></div>
         <div class="step-wrapper">
-          <div class="step-item" id="step-ind-5">
-            <div class="step-circle" id="review-circle">4</div>
+          <div class="step-item" id="step-ind-6">
+            <div class="step-circle" id="review-circle">5</div>
           </div>
           <div class="step-label">Батлах</div>
         </div>
@@ -406,58 +737,92 @@
 
         </div>
 
-        <!-- Step 3: Services & Hours -->
+        <!-- Step 3: Services -->
         <div class="step-panel" id="panel-3">
-          <h3 style="margin-bottom:6px;">Үйлчилгээ & Ажлын цаг</h3>
-          <p class="mb-24">Санал болгох үйлчилгээ болон ажлын цагаа тохируулна уу</p>
+          <h3 style="margin-bottom:6px;">Үйлчилгээ</h3>
+          <p class="mb-24">Санал болгох үйлчилгээнүүддээ нэмэж, оргил хэсгийг нь товч тохируулна уу</p>
 
-          <!-- Services -->
-          <div class="form-group">
-            <label class="form-label">Үйлчилгээний нэрс</label>
-            <div id="serviceTagsWrap" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;min-height:36px;">
+          <div class="onboard-section">
+            <div class="section-head">
+              <div>
+                <h4>Үйлчилгээний жагсаалт</h4>
+                <p>Нэр, үргэлжлэх хугацаа, үнэ, зэрэгцэх чадавх болон завсрын хугацааг ялгасан байдлаар оруулна.</p>
+              </div>
+              <button type="button" class="btn btn-outline" onclick="addService()">+ Үйлчилгээ нэмэх</button>
             </div>
-            <div style="display:flex;gap:8px;">
-              <input type="text" class="form-control" id="serviceInput" placeholder="жш: Хулд засах, Өнгө будах..." />
-              <button type="button" class="btn btn-outline" onclick="addService()">+ Нэмэх</button>
-            </div>
-            <span class="form-hint">Enter дарах эсвэл + товч дарна уу</span>
+            <div id="serviceCards" class="service-list"></div>
           </div>
 
-          <!-- Working hours -->
-          <div class="form-group">
-            <label class="form-label">Ажлын цаг</label>
-            <div
-              style="background:var(--gray-50);border-radius:var(--radius);padding:16px;border:1px solid var(--gray-200);">
-              <div id="hoursGrid"></div>
-            </div>
-          </div>
-
-          <!-- Booking settings -->
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Захиалгын хугацаа</label>
-              <select class="form-control" id="slotDuration">
-                <option value="30">30 минут</option>
-                <option value="45">45 минут</option>
-                <option value="60" selected>1 цаг</option>
-                <option value="90">1.5 цаг</option>
-                <option value="120">2 цаг</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Зэрэгцэх захиалга</label>
-              <input type="number" class="form-control" id="concurrent" min="1" max="999" value="1" />
-            </div>
-          </div>
-
-          <div style="display:flex;justify-content:space-between;gap:12px;">
+          <div style="display:flex;justify-content:space-between;gap:12px;margin-top:24px;">
             <button class="btn btn-ghost btn-lg" onclick="goStep(2)">← Буцах</button>
-            <button class="btn btn-primary btn-lg" onclick="goNextFromStep3()">Үргэлжлүүлэх →</button>
+            <button class="btn btn-primary btn-lg" onclick="goStep(4)">Үргэлжлүүлэх →</button>
           </div>
         </div>
 
-        <!-- Step 4: Document Upload (claim path only) -->
         <div class="step-panel" id="panel-4">
+          <h3 style="margin-bottom:6px;">Ажлын цаг</h3>
+          <p class="mb-24">Нээлттэй өдрүүд, цагийн хуваарь болон захиалгын суурь тохиргоог оруулна уу</p>
+
+          <div class="onboard-section" style="margin-bottom:16px;">
+            <div class="section-head">
+              <div>
+                <h4>Хурдан тохиргоо</h4>
+                <p>Түгээмэл ажлын цагийн загвараар эхлүүлээд дараа нь өдөр бүрээр засварлаж болно.</p>
+              </div>
+            </div>
+            <div class="hours-presets">
+              <button type="button" class="preset-btn" onclick="applyHoursPreset('weekday')">Ажлын өдөр 09:00-18:00</button>
+              <button type="button" class="preset-btn" onclick="applyHoursPreset('weeklong')">Бүх өдөр 10:00-22:00</button>
+              <button type="button" class="preset-btn" onclick="applyHoursPreset('closed')">Бүгд хаалттай</button>
+            </div>
+            <div id="hoursGrid"></div>
+            <div class="hours-helper">Хаалттай өдрүүдийг сааруулж, амралтын завсарыг тухайн өдөрт л нэмнэ.</div>
+          </div>
+
+          <div class="onboard-section">
+            <div class="section-head">
+              <div>
+                <h4>Захиалгын суурь тохиргоо</h4>
+                <p>Хэдэн хүнийг зэрэг хүлээн авах, захиалга хэзээнээс нээлттэй байхыг тохируулна.</p>
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Захиалгын цонх нээгдэх цаг</label>
+                <input type="time" class="form-control" id="bookingOpenHour" value="09:00" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Захиалгын цонх хаагдах цаг</label>
+                <input type="time" class="form-control" id="bookingCloseHour" value="18:00" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Зэрэгцэх захиалга</label>
+                <input type="number" class="form-control" id="concurrent" min="1" max="999" value="1" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Захиалгын хамгийн бага хуваарь</label>
+                <select class="form-control" id="slotDuration">
+                  <option value="15">15 минут</option>
+                  <option value="30">30 минут</option>
+                  <option value="45">45 минут</option>
+                  <option value="60" selected>1 цаг</option>
+                  <option value="90">1.5 цаг</option>
+                  <option value="120">2 цаг</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:space-between;gap:12px;margin-top:24px;">
+            <button class="btn btn-ghost btn-lg" onclick="goStep(3)">← Буцах</button>
+            <button class="btn btn-primary btn-lg" onclick="goNextFromHours()">Үргэлжлүүлэх →</button>
+          </div>
+        </div>
+
+        <!-- Step 5: Document Upload (claim path only) -->
+        <div class="step-panel" id="panel-5">
           <h3 style="margin-bottom:6px;">Өмчлөлийн баримт</h3>
           <p class="mb-24">Бизнесийн өмчлөлийг батлах баримт бичгийг оруулна уу — 24 цагийн дотор шалгагдана.</p>
 
@@ -488,14 +853,14 @@
           <div id="docCounter" style="font-size:0.8125rem;color:var(--gray-500);margin-top:12px;display:none;"></div>
 
           <div style="display:flex;justify-content:space-between;gap:12px;margin-top:24px;">
-            <button class="btn btn-ghost btn-lg" onclick="goStep(3)">← Буцах</button>
-            <button class="btn btn-primary btn-lg" id="docNextBtn" onclick="goStepWithUpload(5)" disabled>Үргэлжлүүлэх
+            <button class="btn btn-ghost btn-lg" onclick="goStep(4)">← Буцах</button>
+            <button class="btn btn-primary btn-lg" id="docNextBtn" onclick="goStepWithUpload(6)" disabled>Үргэлжлүүлэх
               →</button>
           </div>
         </div>
 
-        <!-- Step 5: Review & Submit -->
-        <div class="step-panel" id="panel-5">
+        <!-- Step 6: Review & Submit -->
+        <div class="step-panel" id="panel-6">
           <h3 style="margin-bottom:6px;">Мэдээлэл шалгах</h3>
           <p class="mb-24">Доорх мэдээллийг шалгаад, бүртгэлийг илгээнэ үү</p>
 
@@ -561,14 +926,24 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <script src="https://js.hcaptcha.com/1/api.js?onload=onHcaptchaLoad&render=explicit" async defer></script>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.105.1/dist/umd/supabase.min.js"
-    integrity="sha384-sfbOag7cEcqn2DK53T/iBNAH/2cMCf7bSzJDwBhV117A0z/NIj9Usei1jKIBY1Ae"
-    crossorigin="anonymous"></script>
+  <script src="js/supabase.min.js"></script>
   <script src="js/supabase-client.js"></script>
   <script src="js/utils.js"></script>
   <script>
     let currentStep = 1;
-    const services = [];
+    let serviceIdSeq = 1;
+    const DEFAULT_SERVICE = () => ({
+      id: `svc-${serviceIdSeq++}`,
+      name: '',
+      duration: 60,
+      price: '',
+      capacity: 1,
+      buffer: 0,
+      desc: '',
+      active: true,
+      expanded: true,
+    });
+    const services = [DEFAULT_SERVICE()];
 
     // Per-field validators used by both the click-Continue submit path and the
     // live blur/input listeners attached below. Returning a truthy string means
@@ -588,6 +963,23 @@
       address: v => v.trim() ? '' : 'Хаяг оруулна уу',
       bizPhone: v => v.trim().length >= 7 ? '' : 'Дор хаяж 7 оронтой утасны дугаар оруулна уу',
     };
+
+    const days = [
+      { key: 'mon', label: 'Даваа', weekend: false },
+      { key: 'tue', label: 'Мягмар', weekend: false },
+      { key: 'wed', label: 'Лхагва', weekend: false },
+      { key: 'thu', label: 'Пүрэв', weekend: false },
+      { key: 'fri', label: 'Баасан', weekend: false },
+      { key: 'sat', label: 'Бямба', weekend: true },
+      { key: 'sun', label: 'Ням', weekend: true },
+    ];
+
+    const hoursState = days.reduce((acc, day) => {
+      acc[day.key] = day.weekend
+        ? { open: false, start: '10:00', end: '18:00', breakEnabled: false, breakStart: '13:00', breakEnd: '14:00' }
+        : { open: true, start: '09:00', end: '18:00', breakEnabled: false, breakStart: '13:00', breakEnd: '14:00' };
+      return acc;
+    }, {});
 
     // ── Document upload (claim path step 4) ──
     let docFiles = [];  // [{file, docType, previewUrl}]
@@ -718,8 +1110,8 @@
       document.getElementById('claimNavButtons').style.display = 'none';
       // Hide document upload step — create path auto-verifies, no docs needed.
       document.getElementById('docStepWrap').style.display = 'none';
-      document.getElementById('conn-4').style.display = 'none';
-      document.getElementById('review-circle').textContent = '4';
+      document.getElementById('conn-5').style.display = 'none';
+      document.getElementById('review-circle').textContent = '5';
       // Map needs the container to be visible to size itself; defer to next frame.
       requestAnimationFrame(() => {
         initPinMap();
@@ -733,12 +1125,12 @@
       document.getElementById('claimNavButtons').style.display = 'flex';
       // Show document upload step for claim path.
       document.getElementById('docStepWrap').style.display = '';
-      document.getElementById('conn-4').style.display = '';
-      document.getElementById('review-circle').textContent = '5';
+      document.getElementById('conn-5').style.display = '';
+      document.getElementById('review-circle').textContent = '6';
     }
 
-    function goNextFromStep3() { goStep(createMode ? 5 : 4); }
-    function goBackFromReview() { goStep(createMode ? 3 : 4); }
+    function goNextFromHours() { goStep(createMode ? 6 : 5); }
+    function goBackFromReview() { goStep(createMode ? 4 : 5); }
 
     function onClaimSearch() {
       clearTimeout(claimSearchTimer);
@@ -808,33 +1200,270 @@
       document.getElementById('claimNextBtn').disabled = true;
     }
 
-    const days = [
-      { key: 'mon', label: 'Даваа' },
-      { key: 'tue', label: 'Мягмар' },
-      { key: 'wed', label: 'Лхагва' },
-      { key: 'thu', label: 'Пүрэв' },
-      { key: 'fri', label: 'Баасан' },
-      { key: 'sat', label: 'Бямба' },
-      { key: 'sun', label: 'Ням' },
-    ];
-
-    function buildHoursGrid() {
-      const grid = document.getElementById('hoursGrid');
-      grid.innerHTML = days.map(d => `
-      <div class="working-hours-grid">
-        <div class="day-label">${d.label}</div>
-        <label style="display:flex;align-items:center;gap:6px;font-size:0.8125rem;cursor:pointer;">
-          <input type="checkbox" id="day-${d.key}" ${['mon', 'tue', 'wed', 'thu', 'fri'].includes(d.key) ? 'checked' : ''}
-            onchange="toggleDay('${d.key}')" style="accent-color:var(--primary);"> Нээлттэй
-        </label>
-        <input type="time" id="open-${d.key}" class="form-control" style="width:110px;" value="09:00"
-          ${['sat', 'sun'].includes(d.key) ? 'disabled' : ''} />
-        <input type="time" id="close-${d.key}" class="form-control" style="width:110px;" value="18:00"
-          ${['sat', 'sun'].includes(d.key) ? 'disabled' : ''} />
-      </div>
-    `).join('');
+    function timeToMinutes(value) {
+      const [hh, mm] = String(value || '00:00').split(':').map(Number);
+      return (hh * 60) + mm;
     }
-    buildHoursGrid();
+
+    function formatCurrency(value) {
+      const n = Number(value || 0);
+      if (!n) return 'Үнэгүй';
+      return `${n.toLocaleString('en-US')}₮`;
+    }
+
+    function getServiceSummary(service) {
+      const pills = [
+        `${service.duration || 0}мин`,
+        formatCurrency(service.price),
+        `${service.capacity || 1} хүн`,
+      ];
+      if (Number(service.buffer || 0) > 0) pills.push(`+${service.buffer}мин завсар`);
+      return pills;
+    }
+
+    function getDaySummary(dayState) {
+      if (!dayState.open) return 'Хаалттай';
+      const total = Math.max(0, timeToMinutes(dayState.end) - timeToMinutes(dayState.start));
+      const breakTotal = dayState.breakEnabled
+        ? Math.max(0, timeToMinutes(dayState.breakEnd) - timeToMinutes(dayState.breakStart))
+        : 0;
+      const openMinutes = Math.max(0, total - breakTotal);
+      const hours = (openMinutes / 60);
+      const suffix = Number.isInteger(hours) ? `${hours}` : hours.toFixed(1);
+      return `${suffix} ц нээлттэй`;
+    }
+
+    function renderServices() {
+      const wrap = document.getElementById('serviceCards');
+      if (!wrap) return;
+      if (!services.length) {
+        wrap.innerHTML = `
+          <div style="border:1px dashed var(--gray-300);border-radius:var(--radius-lg);padding:24px;text-align:center;background:var(--white);">
+            <div style="font-weight:700;color:var(--gray-800);margin-bottom:6px;">Одоогоор үйлчилгээ нэмээгүй байна</div>
+            <div style="font-size:0.875rem;color:var(--gray-500);margin-bottom:12px;">Анхны үйлчилгээгээ үүсгээд үргэлжлэх хугацаа, үнэ, чадавхаа тохируулна уу.</div>
+            <button type="button" class="btn btn-outline" onclick="addService()">+ Үйлчилгээ нэмэх</button>
+          </div>`;
+        return;
+      }
+
+      wrap.innerHTML = services.map((service) => `
+        <div class="service-card ${service.expanded ? 'expanded' : ''} ${service.active ? '' : 'is-inactive'}">
+          <div class="service-summary" onclick="toggleServiceExpanded('${service.id}')">
+            <div class="service-summary-main">
+              <div class="service-summary-name">${escapeHtml(service.name || 'Шинэ үйлчилгээ')}</div>
+              <div class="service-summary-pills">
+                ${getServiceSummary(service).map((pill) => `<span class="mini-pill">${escapeHtml(pill)}</span>`).join('')}
+              </div>
+            </div>
+            <div class="service-actions">
+              <button type="button" class="toggle-switch ${service.active ? 'on' : ''}" onclick="event.stopPropagation(); toggleServiceActive('${service.id}')"></button>
+              <button type="button" class="icon-btn danger" onclick="event.stopPropagation(); removeService('${service.id}')" aria-label="remove service">×</button>
+            </div>
+          </div>
+          <div class="service-details">
+            <div class="service-grid">
+              <div class="form-group full">
+                <label class="form-label">Үйлчилгээний нэр</label>
+                <input type="text" class="form-control" value="${escapeHtml(service.name)}" placeholder="жш: Эрэгтэй үс засалт" oninput="updateServiceField('${service.id}','name',this.value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Үргэлжлэх хугацаа</label>
+                <select class="form-control" onchange="updateServiceField('${service.id}','duration',this.value)">
+                  ${[15, 30, 45, 60, 90, 120, 180].map((v) => `<option value="${v}" ${Number(service.duration) === v ? 'selected' : ''}>${v} минут</option>`).join('')}
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Үнэ</label>
+                <input type="number" class="form-control" min="0" step="1000" value="${escapeHtml(service.price)}" placeholder="25000" oninput="updateServiceField('${service.id}','price',this.value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Зэрэгцэх чадавх</label>
+                <div class="stepper-control">
+                  <button type="button" onclick="adjustServiceCapacity('${service.id}',-1)">−</button>
+                  <span>${service.capacity}</span>
+                  <button type="button" onclick="adjustServiceCapacity('${service.id}',1)">+</button>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Завсар</label>
+                <select class="form-control" onchange="updateServiceField('${service.id}','buffer',this.value)">
+                  ${[0, 5, 10, 15, 30].map((v) => `<option value="${v}" ${Number(service.buffer) === v ? 'selected' : ''}>${v === 0 ? 'Завсаргүй' : `${v} минут`}</option>`).join('')}
+                </select>
+              </div>
+              <div class="form-group full">
+                <label class="form-label">Тайлбар</label>
+                <textarea class="form-control" placeholder="Үйлчилгээний товч тайлбар..." oninput="updateServiceField('${service.id}','desc',this.value)">${escapeHtml(service.desc)}</textarea>
+              </div>
+            </div>
+          </div>
+        </div>`).join('');
+    }
+
+    function addService() {
+      services.forEach((service) => { service.expanded = false; });
+      services.unshift(DEFAULT_SERVICE());
+      renderServices();
+    }
+
+    function findService(id) {
+      return services.find((service) => service.id === id);
+    }
+
+    function toggleServiceExpanded(id) {
+      const service = findService(id);
+      if (!service) return;
+      service.expanded = !service.expanded;
+      renderServices();
+    }
+
+    function toggleServiceActive(id) {
+      const service = findService(id);
+      if (!service) return;
+      service.active = !service.active;
+      renderServices();
+    }
+
+    function updateServiceField(id, field, value) {
+      const service = findService(id);
+      if (!service) return;
+      if (field === 'duration' || field === 'buffer' || field === 'capacity') {
+        service[field] = Math.max(0, parseInt(value, 10) || 0);
+      } else {
+        service[field] = value;
+      }
+      renderServices();
+    }
+
+    function adjustServiceCapacity(id, delta) {
+      const service = findService(id);
+      if (!service) return;
+      service.capacity = Math.max(1, Number(service.capacity || 1) + delta);
+      renderServices();
+    }
+
+    function removeService(id) {
+      const idx = services.findIndex((service) => service.id === id);
+      if (idx < 0) return;
+      services.splice(idx, 1);
+      renderServices();
+    }
+
+    function renderHoursGrid() {
+      const grid = document.getElementById('hoursGrid');
+      if (!grid) return;
+      grid.innerHTML = days.map((day) => {
+        const state = hoursState[day.key];
+        return `
+          <div class="hours-day-card ${state.open ? '' : 'is-closed'}">
+            <div class="hours-row-top">
+              <div class="hours-day-meta">
+                <div class="day-label">${day.label}</div>
+                <div class="hours-summary">${getDaySummary(state)}</div>
+              </div>
+              <button type="button" class="toggle-switch ${state.open ? 'on' : ''}" onclick="toggleHoursOpen('${day.key}')"></button>
+            </div>
+            <div class="hours-row-main">
+              <div class="form-group">
+                <label class="form-label">Нээх</label>
+                <input type="time" class="form-control" value="${state.start}" ${state.open ? '' : 'disabled'} onchange="updateHoursField('${day.key}','start',this.value)" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Хаах</label>
+                <input type="time" class="form-control" value="${state.end}" ${state.open ? '' : 'disabled'} onchange="updateHoursField('${day.key}','end',this.value)" />
+              </div>
+              <div class="hours-actions-inline">
+                <button type="button" class="text-btn" onclick="copyHoursToOpenDays('${day.key}')" ${state.open ? '' : 'disabled'}>Хуулах</button>
+              </div>
+              <div class="hours-actions-inline">
+                ${state.breakEnabled
+                  ? `<button type="button" class="text-btn" onclick="removeHoursBreak('${day.key}')">Завсар арилгах</button>`
+                  : `<button type="button" class="text-btn" onclick="addHoursBreak('${day.key}')" ${state.open ? '' : 'disabled'}>+ Завсар нэмэх</button>`}
+              </div>
+            </div>
+            ${state.breakEnabled ? `
+              <div class="break-row">
+                <div class="break-head">
+                  <span class="break-badge">ЗАВСАР</span>
+                </div>
+                <div class="break-grid">
+                  <div class="form-group">
+                    <label class="form-label">Эхлэх</label>
+                    <input type="time" class="form-control" value="${state.breakStart}" onchange="updateHoursField('${day.key}','breakStart',this.value)" />
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Дуусах</label>
+                    <input type="time" class="form-control" value="${state.breakEnd}" onchange="updateHoursField('${day.key}','breakEnd',this.value)" />
+                  </div>
+                </div>
+              </div>` : ''}
+          </div>`;
+      }).join('');
+    }
+
+    function toggleHoursOpen(dayKey) {
+      hoursState[dayKey].open = !hoursState[dayKey].open;
+      renderHoursGrid();
+    }
+
+    function updateHoursField(dayKey, field, value) {
+      hoursState[dayKey][field] = value;
+      renderHoursGrid();
+    }
+
+    function addHoursBreak(dayKey) {
+      hoursState[dayKey].breakEnabled = true;
+      renderHoursGrid();
+    }
+
+    function removeHoursBreak(dayKey) {
+      hoursState[dayKey].breakEnabled = false;
+      renderHoursGrid();
+    }
+
+    function copyHoursToOpenDays(dayKey) {
+      const source = hoursState[dayKey];
+      days.forEach((day) => {
+        if (day.key === dayKey || !hoursState[day.key].open) return;
+        hoursState[day.key] = { ...source };
+      });
+      renderHoursGrid();
+      showToast('success', 'Хуваарь хууллаа', 'Нээлттэй өдрүүдэд ижил цагийн тохиргоо хэрэглэв.');
+    }
+
+    function applyHoursPreset(preset) {
+      if (preset === 'weekday') {
+        days.forEach((day) => {
+          hoursState[day.key] = day.weekend
+            ? { ...hoursState[day.key], open: false, start: '10:00', end: '18:00', breakEnabled: false }
+            : { ...hoursState[day.key], open: true, start: '09:00', end: '18:00', breakEnabled: false };
+        });
+      } else if (preset === 'weeklong') {
+        days.forEach((day) => {
+          hoursState[day.key] = { ...hoursState[day.key], open: true, start: '10:00', end: '22:00', breakEnabled: false };
+        });
+      } else if (preset === 'closed') {
+        days.forEach((day) => {
+          hoursState[day.key] = { ...hoursState[day.key], open: false, breakEnabled: false };
+        });
+      }
+      renderHoursGrid();
+    }
+
+    function serializePortalHours() {
+      return days.map((day) => {
+        const state = hoursState[day.key];
+        return {
+          day: day.key,
+          label: day.label,
+          open: state.open,
+          ranges: state.open ? [{ start: state.start, end: state.end }] : [],
+          break: state.breakEnabled ? { start: state.breakStart, end: state.breakEnd } : null,
+        };
+      });
+    }
+
+    renderServices();
+    renderHoursGrid();
 
     // Render hCaptcha widget on Step 1 after the API script loads. The
     // onHcaptchaLoad callback can fire twice (api.js's onload= and the manual
@@ -869,60 +1498,32 @@
       el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', clearIfValid);
     });
 
-    function toggleDay(key) {
-      const checked = document.getElementById('day-' + key).checked;
-      document.getElementById('open-' + key).disabled = !checked;
-      document.getElementById('close-' + key).disabled = !checked;
-    }
-
-    function addService() {
-      const input = document.getElementById('serviceInput');
-      const val = input.value.trim();
-      if (!val) return;
-      services.push(val);
-      renderServices();
-      input.value = '';
-      input.focus();
-    }
-    document.getElementById('serviceInput').addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') { e.preventDefault(); addService(); }
-    });
-
-    function removeService(i) {
-      services.splice(i, 1);
-      renderServices();
-    }
-    function renderServices() {
-      const wrap = document.getElementById('serviceTagsWrap');
-      // Service names are owner-typed but still rendered via innerHTML — escape
-      // to prevent self-XSS that could later leak via the review payload.
-      wrap.innerHTML = services.map((s, i) => `
-      <span class="service-tag">${escapeHtml(s)} <button onclick="removeService(${i})" title="Устгах">✕</button></span>
-    `).join('');
-    }
-
     function goStep(n) {
       if (n > currentStep && !validateStep(currentStep)) return;
       document.getElementById('panel-' + currentStep).classList.remove('active');
-      // Steps 1–5 exist; step 4 indicator is hidden for create mode.
-      // In create mode steps run 1→2→3→5, so step 5 visually appears as "4".
-      for (let i = 1; i <= 5; i++) {
+      const visibleNumber = (stepNum) => {
+        if (!createMode) return stepNum;
+        if (stepNum <= 4) return stepNum;
+        if (stepNum === 6) return 5;
+        return stepNum;
+      };
+      for (let i = 1; i <= 6; i++) {
         const ind = document.getElementById('step-ind-' + i);
         if (!ind) continue;
         ind.classList.remove('active', 'done');
-        const visNum = (createMode && i === 5) ? 4 : i;
+        const visNum = visibleNumber(i);
         if (i < n) { ind.classList.add('done'); ind.querySelector('.step-circle').textContent = '✓'; }
         else if (i === n) { ind.classList.add('active'); ind.querySelector('.step-circle').textContent = visNum; }
         else { ind.querySelector('.step-circle').textContent = visNum; }
       }
-      for (let i = 1; i <= 4; i++) {
+      for (let i = 1; i <= 5; i++) {
         const conn = document.getElementById('conn-' + i);
         if (!conn) continue;
         conn.classList.toggle('done', i < n);
       }
       currentStep = n;
       document.getElementById('panel-' + n).classList.add('active');
-      if (n === 5) buildReview();
+      if (n === 6) buildReview();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -956,7 +1557,7 @@
         const fields = ['bizName', 'bizType', 'district', 'address', 'bizPhone'];
         return fields.map(runField).every(Boolean);
       }
-      if (step === 4) {
+      if (step === 5) {
         // Document upload step (claim mode only) — at least 1 file required.
         if (!createMode && docFiles.length === 0) {
           showToast('error', 'Баримт шаардлагатай', 'Дор хаяж нэг баримт оруулна уу.');
@@ -1074,6 +1675,41 @@
     function buildReview() {
       const ownerName = document.getElementById('lastName').value + ' ' + document.getElementById('firstName').value;
       const email = document.getElementById('regEmail').value;
+      const activeServices = services.filter((service) => service.name.trim());
+      const serviceHtml = activeServices.length
+        ? `<div style="grid-column:1/-1;">
+             <div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div>
+             <div style="display:flex;flex-direction:column;gap:8px;">
+               ${activeServices.map((service) => `
+                 <div style="padding:12px;border:1px solid var(--gray-200);border-radius:12px;background:var(--white);">
+                   <div style="font-weight:700;color:var(--gray-900);margin-bottom:6px;">${escapeHtml(service.name)}</div>
+                   <div style="display:flex;flex-wrap:wrap;gap:6px;">${getServiceSummary(service).map((pill) => `<span class="mini-pill">${escapeHtml(pill)}</span>`).join('')}</div>
+                 </div>`).join('')}
+             </div>
+           </div>`
+        : '';
+      const hoursHtml = `
+        <div style="grid-column:1/-1;">
+          <div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Ажлын цаг</div>
+          <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;">
+            ${days.map((day) => {
+              const state = hoursState[day.key];
+              const breakText = state.breakEnabled ? ` · завсар ${state.breakStart}-${state.breakEnd}` : '';
+              const value = state.open ? `${state.start}-${state.end}${breakText}` : 'Хаалттай';
+              return `<div style="padding:10px 12px;border:1px solid var(--gray-200);border-radius:10px;background:var(--white);"><div class="text-xs text-muted" style="margin-bottom:4px;">${escapeHtml(day.label)}</div><div style="font-weight:600;color:var(--gray-900);">${escapeHtml(value)}</div></div>`;
+            }).join('')}
+          </div>
+        </div>`;
+      const bookingRulesHtml = `
+        <div style="grid-column:1/-1;">
+          <div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Захиалгын тохиргоо</div>
+          <div style="display:flex;flex-wrap:wrap;gap:6px;">
+            <span class="mini-pill">${escapeHtml(document.getElementById('bookingOpenHour').value)}-с нээлттэй</span>
+            <span class="mini-pill">${escapeHtml(document.getElementById('bookingCloseHour').value)} хүртэл</span>
+            <span class="mini-pill">${escapeHtml(String(document.getElementById('concurrent').value || '1'))} зэрэг</span>
+            <span class="mini-pill">${escapeHtml(document.getElementById('slotDuration').selectedOptions[0].textContent)}</span>
+          </div>
+        </div>`;
       // `row()` escapes both label and value; services + claimedPlace fields
       // are also escaped at every interpolation site below. The review block is
       // rendered with values the user typed (or selected from places) and we
@@ -1092,7 +1728,9 @@
             <div style="font-weight:700;font-size:1rem;">${escapeHtml(claimedPlace.name)}</div>
             <div style="font-size:0.8125rem;color:var(--gray-500);margin-top:2px;">${escapeHtml(claimedPlace.formatted_address || '')}</div>
           </div>
-          ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s => `<span class="badge badge-primary">${escapeHtml(s)}</span>`).join('')}</div></div>` : ''}
+          ${serviceHtml}
+          ${hoursHtml}
+          ${bookingRulesHtml}
         </div>
       `;
       } else {
@@ -1104,7 +1742,9 @@
           ${row('Төрөл', document.getElementById('bizType').value)}
           ${row('Дүүрэг', document.getElementById('district').value)}
           ${row('Хаяг', document.getElementById('address').value)}
-          ${services.length ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:8px;">Үйлчилгээ</div><div style="display:flex;flex-wrap:wrap;gap:6px;">${services.map(s => `<span class="badge badge-primary">${escapeHtml(s)}</span>`).join('')}</div></div>` : ''}
+          ${serviceHtml}
+          ${hoursHtml}
+          ${bookingRulesHtml}
         </div>
       `;
       }
@@ -1202,10 +1842,27 @@
       const bizPhone = document.getElementById('bizPhone').value.trim();
       const bizDesc = document.getElementById('bizDesc').value.trim();
       const concurrent = Math.max(1, parseInt(document.getElementById('concurrent').value) || 1);
+      const bookingOpenHour = document.getElementById('bookingOpenHour').value || '09:00';
+      const bookingCloseHour = document.getElementById('bookingCloseHour').value || '18:00';
+      const slotDuration = Math.max(15, parseInt(document.getElementById('slotDuration').value, 10) || 60);
+      const normalizedServices = services
+        .filter((service) => service.name.trim())
+        .map((service) => ({
+          name: service.name.trim(),
+          duration: Math.max(15, parseInt(service.duration, 10) || 60),
+          price: Math.max(0, parseInt(service.price, 10) || 0),
+          capacity: Math.max(1, parseInt(service.capacity, 10) || 1),
+          buffer: Math.max(0, parseInt(service.buffer, 10) || 0),
+          desc: service.desc.trim(),
+          active: service.active !== false,
+        }));
 
       const payload = {
         email, lastName, firstName, userPhone,
         bizName, bizType, district, khoroo, address, bizPhone, bizDesc, concurrent,
+        bookingOpenHour, bookingCloseHour, slotDuration,
+        services: normalizedServices,
+        portalHours: serializePortalHours(),
         lat: createMode ? pinLat : null,
         lng: createMode ? pinLng : null,
         claimPlaceId: (!createMode && claimedPlace) ? claimedPlace.place_id : null,
@@ -1280,6 +1937,51 @@
       if (window.hcaptcha) { try { hcaptcha.reset(); } catch (_) { } }
     }
 
+    async function persistOnboardingData(placeId, payload) {
+      const servicesToSave = Array.isArray(payload.services) ? payload.services : [];
+      const portalHours = Array.isArray(payload.portalHours) ? payload.portalHours : [];
+
+      if (servicesToSave.length) {
+        const { data: existingServices, error: svcReadErr } = await _sb
+          .from('services')
+          .select('id')
+          .eq('place_id', placeId)
+          .limit(1);
+        if (svcReadErr) throw svcReadErr;
+        if (!existingServices || existingServices.length === 0) {
+          const { error: svcInsertErr } = await _sb.from('services').insert(
+            servicesToSave.map((service) => ({
+              place_id: placeId,
+              name: service.name,
+              duration_minutes: service.duration,
+              price: service.price,
+              max_capacity: service.capacity,
+              buffer_minutes: service.buffer,
+              description: service.desc || null,
+              is_active: service.active !== false,
+            }))
+          );
+          if (svcInsertErr) throw svcInsertErr;
+        }
+      }
+
+      if (portalHours.length) {
+        const hoursRows = portalHours.map((day, index) => ({
+          place_id: placeId,
+          day_of_week: index,
+          open_time: day.open && day.ranges[0] ? day.ranges[0].start : null,
+          close_time: day.open && day.ranges[0] ? day.ranges[0].end : null,
+          break_start: day.break ? day.break.start : null,
+          break_end: day.break ? day.break.end : null,
+          is_closed: !day.open,
+        }));
+        const { error: hoursErr } = await _sb
+          .from('business_hours')
+          .upsert(hoursRows, { onConflict: 'place_id,day_of_week' });
+        if (hoursErr) throw hoursErr;
+      }
+    }
+
     async function completeRegistration(userId, d) {
       try {
         // Pre-flight: if this user already has a business_owners row, the OTP
@@ -1321,9 +2023,14 @@
             short_address: d.address || null,
             phone_national: d.bizPhone || null,
             slot_capacity: d.concurrent || 1,
+            regular_opening_hours: { portal: d.portalHours || [] },
+            booking_open_hour: parseInt(String(d.bookingOpenHour || '09:00').slice(0, 2), 10),
+            booking_close_hour: parseInt(String(d.bookingCloseHour || '18:00').slice(0, 2), 10),
             raw: {
               source: 'portal', description: d.bizDesc || null,
               district: d.district, khoroo: d.khoroo || null,
+              onboarding_services: d.services || [],
+              slot_duration_minutes: d.slotDuration || 60,
             },
           };
 
@@ -1338,6 +2045,8 @@
             (error && error.message) || 'Дахин оролдоно уу. Асуудал үргэлжилбэл бидэнтэй холбогдоно уу.');
           return;
         }
+
+        await persistOnboardingData(placeId, d);
 
         const bizName = d.claimBizName || d.bizName || placeId;
         const bizType = d.claimCategory || d.bizType || 'Бизнес';

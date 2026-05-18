@@ -167,12 +167,50 @@ async function requireAuth() {
 }
 
 // ── Places search (for registration) ──
-// Escape ILIKE metacharacters so a user typing `%` doesn't match every row
-// and a long pattern with backtracking metacharacters can't DoS the index.
-// PostgREST already parameterizes the value (no SQLi risk), but the wildcard
-// semantics still need neutralizing inside the user-supplied portion.
-function _escapeIlike(s) {
-  return String(s).replace(/[\\%_]/g, c => '\\' + c);
+// Clean PostgREST filter metacharacters so user input stays inside one
+// ilike pattern and cannot turn into wildcard-everything / extra OR clauses.
+function _cleanPlaceSearchTerm(s) {
+  return String(s || '')
+    .replace(/[,()*%_\\]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function _withTimeout(ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return { controller, done: () => clearTimeout(timer) };
+}
+
+async function _searchPlacesRest(cleaned) {
+  const supabaseUrl = window._SUPABASE_URL;
+  const supabaseKey = window._SUPABASE_KEY;
+  if (!supabaseUrl || !supabaseKey || !window.fetch || !window.AbortController) return null;
+
+  const params = new URLSearchParams();
+  params.set('select', 'place_id,name,primary_category,formatted_address');
+  params.set('or', `(name.ilike.*${cleaned}*,formatted_address.ilike.*${cleaned}*)`);
+  params.set('order', 'rating.desc.nullslast');
+  params.set('limit', '15');
+
+  const timeout = _withTimeout(8000);
+  try {
+    const res = await fetch(`${supabaseUrl}/rest/v1/places?${params.toString()}`, {
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+        Accept: 'application/json',
+      },
+      signal: timeout.controller.signal,
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`places search failed (${res.status}): ${text || res.statusText}`);
+    }
+    return await res.json();
+  } finally {
+    timeout.done();
+  }
 }
 // Search places by name OR address fragment. The claim flow on register.html
 // is the main caller — we used to only match `name`, which silently returned
@@ -182,28 +220,40 @@ function _escapeIlike(s) {
 // makes the dropdown actually populate for the common search shapes.
 //
 // PostgREST `or` filter separates clauses with `,`. The user-supplied portion
-// of each `ilike.<pattern>` value can't contain raw commas — they'd be parsed
-// as a clause boundary — and `()` only escapes inside a wrapped value. We
-// strip commas (and the other PostgREST filter metacharacters) from the query
-// before splicing it in. ILIKE wildcards (`%`, `_`, `\`) are still neutralised
-// by `_escapeIlike` so a user-typed `%` matches a literal percent.
+// of each `ilike.<pattern>` value can't contain raw commas or parentheses, so
+// we strip those and other filter metacharacters before splicing it in.
 async function searchPlaces(query) {
-  const cleaned = String(query || '').replace(/[,()]/g, ' ').trim();
+  const cleaned = _cleanPlaceSearchTerm(query);
   if (!cleaned) return [];
-  const pat = `%${_escapeIlike(cleaned)}%`;
-  const { data, error } = await _sb
-    .from('places')
-    .select('place_id, name, primary_category, formatted_address')
-    .or(`name.ilike.${pat},formatted_address.ilike.${pat}`)
-    .limit(15);
-  if (error) {
+
+  try {
+    const data = await _searchPlacesRest(cleaned);
+    if (Array.isArray(data)) return data;
+  } catch (error) {
+    console.error('searchPlaces REST failed:', error);
+  }
+
+  const timeout = _withTimeout(8000);
+  try {
+    const pat = `*${cleaned}*`;
+    const { data, error } = await _sb
+      .from('places')
+      .select('place_id, name, primary_category, formatted_address')
+      .or(`name.ilike.${pat},formatted_address.ilike.${pat}`)
+      .order('rating', { ascending: false, nullsFirst: false })
+      .limit(15)
+      .abortSignal(timeout.controller.signal);
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
     // Bubble through console so the inevitable "search doesn't work" bug
     // report has something to grep for. Callers still get `[]` so the UI
     // shows the empty-state branch instead of crashing.
     console.error('searchPlaces failed:', error);
     return [];
+  } finally {
+    timeout.done();
   }
-  return data || [];
 }
 
 // ── Booking helpers ──

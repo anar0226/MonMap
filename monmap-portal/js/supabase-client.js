@@ -1,8 +1,10 @@
 (function () {
   const { createClient } = supabase;
+  window._SUPABASE_URL = 'https://brykoxmygtiyrssmsvys.supabase.co';
+  window._SUPABASE_KEY = 'sb_publishable_uSMjxKn7SekbxCdG_qUvgA_PowBAkeA';
   window._sb = createClient(
-    'https://brykoxmygtiyrssmsvys.supabase.co',
-    'sb_publishable_uSMjxKn7SekbxCdG_qUvgA_PowBAkeA'
+    window._SUPABASE_URL,
+    window._SUPABASE_KEY
   );
 
   // hCaptcha site key for login/register forms.

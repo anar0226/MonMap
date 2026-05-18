@@ -1192,12 +1192,14 @@
       document.getElementById('claimedAddress').textContent = p.formatted_address || p.primary_category || '';
       document.getElementById('claimedPlaceBox').style.display = 'block';
       document.getElementById('claimNextBtn').disabled = false;
+      saveDraft();
     }
 
     function clearClaimedPlace() {
       claimedPlace = null;
       document.getElementById('claimedPlaceBox').style.display = 'none';
       document.getElementById('claimNextBtn').disabled = true;
+      saveDraft();
     }
 
     function timeToMinutes(value) {
@@ -1303,6 +1305,7 @@
       services.forEach((service) => { service.expanded = false; });
       services.unshift(DEFAULT_SERVICE());
       renderServices();
+      saveDraft();
     }
 
     function findService(id) {
@@ -1321,6 +1324,7 @@
       if (!service) return;
       service.active = !service.active;
       renderServices();
+      saveDraft();
     }
 
     function updateServiceField(id, field, value) {
@@ -1347,6 +1351,7 @@
       if (!service) return;
       service.capacity = Math.max(1, Number(service.capacity || 1) + delta);
       renderServices();
+      saveDraft();
     }
 
     function removeService(id) {
@@ -1354,6 +1359,7 @@
       if (idx < 0) return;
       services.splice(idx, 1);
       renderServices();
+      saveDraft();
     }
 
     function renderHoursGrid() {
@@ -1411,21 +1417,25 @@
     function toggleHoursOpen(dayKey) {
       hoursState[dayKey].open = !hoursState[dayKey].open;
       renderHoursGrid();
+      saveDraft();
     }
 
     function updateHoursField(dayKey, field, value) {
       hoursState[dayKey][field] = value;
       renderHoursGrid();
+      saveDraft();
     }
 
     function addHoursBreak(dayKey) {
       hoursState[dayKey].breakEnabled = true;
       renderHoursGrid();
+      saveDraft();
     }
 
     function removeHoursBreak(dayKey) {
       hoursState[dayKey].breakEnabled = false;
       renderHoursGrid();
+      saveDraft();
     }
 
     function copyHoursToOpenDays(dayKey) {
@@ -1435,6 +1445,7 @@
         hoursState[day.key] = { ...source };
       });
       renderHoursGrid();
+      saveDraft();
       showToast('success', 'Хуваарь хууллаа', 'Нээлттэй өдрүүдэд ижил цагийн тохиргоо хэрэглэв.');
     }
 
@@ -1455,6 +1466,7 @@
         });
       }
       renderHoursGrid();
+      saveDraft();
     }
 
     function serializePortalHours() {
@@ -1472,6 +1484,173 @@
 
     renderServices();
     renderHoursGrid();
+
+    // ── Draft save / restore ──────────────────────────────────────────────────
+    // Persists steps 2-6 form state in localStorage so a refresh or accidental
+    // navigation doesn't wipe an in-progress registration. Cleared on success.
+    const DRAFT_KEY = 'mm_reg_draft';
+    let _draftTimer = null;
+
+    function saveDraft() {
+      // Debounce writes so rapid interactions (typing, toggling) don't thrash
+      // localStorage — a 500 ms wait is imperceptible to the user.
+      clearTimeout(_draftTimer);
+      _draftTimer = setTimeout(_flushDraft, 500);
+    }
+
+    function _flushDraft() {
+      try {
+        const getVal = id => document.getElementById(id)?.value ?? '';
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({
+          v: 1,
+          savedAt: Date.now(),
+          step: currentStep,
+          createMode,
+          claimedPlace,
+          services: services.map(s => ({ ...s })),
+          hoursState: JSON.parse(JSON.stringify(hoursState)),
+          pinLat, pinLng,
+          fields: {
+            bizName:           getVal('bizName'),
+            bizType:           getVal('bizType'),
+            district:          getVal('district'),
+            khoroo:            getVal('khoroo'),
+            address:           getVal('address'),
+            bizPhone:          getVal('bizPhone'),
+            bizDesc:           getVal('bizDesc'),
+            bookingOpenHour:   getVal('bookingOpenHour'),
+            bookingCloseHour:  getVal('bookingCloseHour'),
+            concurrent:        getVal('concurrent'),
+            slotDuration:      getVal('slotDuration'),
+          },
+        }));
+      } catch (_) { /* quota / private mode — silently skip */ }
+    }
+
+    function clearDraft() {
+      clearTimeout(_draftTimer);
+      localStorage.removeItem(DRAFT_KEY);
+    }
+
+    // Jump to a step without going through validateStep() — used by draft restore.
+    function _jumpToStep(n) {
+      if (n < 1 || n > 6) return;
+      document.getElementById('panel-' + currentStep)?.classList.remove('active');
+      const vis = i => (!createMode || i <= 4) ? i : (i === 6 ? 5 : i);
+      for (let i = 1; i <= 6; i++) {
+        const ind = document.getElementById('step-ind-' + i);
+        if (!ind) continue;
+        ind.classList.remove('active', 'done');
+        if (i < n) { ind.classList.add('done'); ind.querySelector('.step-circle').textContent = '✓'; }
+        else if (i === n) { ind.classList.add('active'); ind.querySelector('.step-circle').textContent = vis(i); }
+        else { ind.querySelector('.step-circle').textContent = vis(i); }
+      }
+      for (let i = 1; i <= 5; i++) {
+        const c = document.getElementById('conn-' + i);
+        if (c) c.classList.toggle('done', i < n);
+      }
+      currentStep = n;
+      document.getElementById('panel-' + n)?.classList.add('active');
+      if (n === 6) buildReview();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function initDraftRestore() {
+      let draft;
+      try {
+        const raw = localStorage.getItem(DRAFT_KEY);
+        if (!raw) return;
+        draft = JSON.parse(raw);
+        if (!draft || draft.v !== 1) { clearDraft(); return; }
+        // Discard drafts older than 7 days
+        if (Date.now() - (draft.savedAt || 0) > 7 * 24 * 60 * 60 * 1000) { clearDraft(); return; }
+        if ((draft.step || 1) <= 1) return; // nothing meaningful to restore
+      } catch (_) { return; }
+
+      // ── Restore JS state ──
+      createMode  = draft.createMode  || false;
+      claimedPlace = draft.claimedPlace || null;
+
+      if (Array.isArray(draft.services) && draft.services.length) {
+        services.length = 0;
+        draft.services.forEach(s => services.push({ ...s }));
+        services.forEach(s => {
+          const n = parseInt(String(s.id || '').replace('svc-', ''), 10);
+          if (!isNaN(n) && n >= serviceIdSeq) serviceIdSeq = n + 1;
+        });
+      }
+
+      if (draft.hoursState) {
+        Object.keys(draft.hoursState).forEach(k => {
+          if (hoursState[k]) hoursState[k] = { ...hoursState[k], ...draft.hoursState[k] };
+        });
+      }
+
+      if (typeof draft.pinLat === 'number') pinLat = draft.pinLat;
+      if (typeof draft.pinLng === 'number') pinLng = draft.pinLng;
+
+      // ── Restore form field values ──
+      if (draft.fields) {
+        const set = (id, v) => { const el = document.getElementById(id); if (el && v != null && v !== '') el.value = v; };
+        Object.entries(draft.fields).forEach(([id, v]) => set(id, v));
+      }
+
+      // ── Restore claimed-place UI ──
+      if (claimedPlace) {
+        const nameEl = document.getElementById('claimedName');
+        const addrEl = document.getElementById('claimedAddress');
+        const box    = document.getElementById('claimedPlaceBox');
+        const btn    = document.getElementById('claimNextBtn');
+        if (nameEl) nameEl.textContent = claimedPlace.name || '';
+        if (addrEl) addrEl.textContent = claimedPlace.formatted_address || claimedPlace.primary_category || '';
+        if (box)    box.style.display  = 'block';
+        if (btn)    btn.disabled       = false;
+      }
+
+      // ── Apply mode to UI (suppress re-saving during restore) ──
+      if (createMode) switchToCreateMode(); else switchToClaimMode();
+
+      // ── Re-render dynamic sections ──
+      renderServices();
+      renderHoursGrid();
+
+      // ── Session check: skip step 1 if auth is still valid ──
+      try {
+        const { data: { session } } = await _sb.auth.getSession();
+        if (session) {
+          // Make sure they don't already have a business (could be a returning owner)
+          const { data: existing } = await _sb
+            .from('business_owners').select('place_id')
+            .eq('user_id', session.user.id).maybeSingle();
+          if (existing?.place_id) { clearDraft(); window.location.href = 'dashboard.html'; return; }
+          _setEmailVerifiedUI(true);
+          _jumpToStep(draft.step);
+          showToast('success', 'Ноорог сэргэлээ', 'Таны өмнөх мэдээлэл буцан ачааллаа.');
+        } else {
+          // No session — data is pre-filled but they still need to verify email
+          showToast('info', 'Ноорог хадгалагдсан байна',
+            'И-мэйлийн баталгаажуулалтын дараа таны мэдээлэл бэлэн байна.');
+        }
+      } catch (_) { /* non-fatal — draft data is still pre-filled */ }
+    }
+
+    // Auto-save on any input inside the registration card (covers text/select/time fields)
+    document.querySelector('.reg-card').addEventListener('input', saveDraft);
+    document.querySelector('.reg-card').addEventListener('change', saveDraft);
+
+    // ── Unsaved changes warning ───────────────────────────────────────────────
+    window.addEventListener('beforeunload', e => {
+      if (currentStep < 2) return; // step 1 has no user-entered data worth warning about
+      const hasData = services.some(s => s.name.trim()) ||
+                      claimedPlace != null ||
+                      (createMode && !!document.getElementById('bizName')?.value.trim());
+      if (!hasData) return;
+      e.preventDefault();
+      e.returnValue = ''; // required for Chrome to show the native dialog
+    });
+
+    // Kick off draft restore (async, non-blocking)
+    initDraftRestore().catch(() => {});
 
     // Render hCaptcha widget on Step 1 after the API script loads. The
     // onHcaptchaLoad callback can fire twice (api.js's onload= and the manual
@@ -1509,6 +1688,8 @@
     function goStep(n) {
       if (n > currentStep && !validateStep(currentStep)) return;
       document.getElementById('panel-' + currentStep).classList.remove('active');
+      // Save before leaving the panel so the step number reflects where the
+      // user was, and all field values from the departing panel are captured.
       const visibleNumber = (stepNum) => {
         if (!createMode) return stepNum;
         if (stepNum <= 4) return stepNum;
@@ -1533,6 +1714,7 @@
       document.getElementById('panel-' + n).classList.add('active');
       if (n === 6) buildReview();
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      _flushDraft(); // immediate flush on step navigation (no debounce delay)
     }
 
     function validateStep(step) {
@@ -2001,6 +2183,7 @@
           .eq('user_id', userId)
           .maybeSingle();
         if (existing?.place_id) {
+          clearDraft();
           localStorage.removeItem('mm_pending_reg');
           localStorage.setItem('mm_biz', JSON.stringify({
             id: existing.place_id,
@@ -2058,6 +2241,7 @@
 
         const bizName = d.claimBizName || d.bizName || placeId;
         const bizType = d.claimCategory || d.bizType || 'Бизнес';
+        clearDraft();
         localStorage.removeItem('mm_pending_reg');
         localStorage.setItem('mm_biz', JSON.stringify({
           id: placeId, name: bizName, type: bizType, verified: false,

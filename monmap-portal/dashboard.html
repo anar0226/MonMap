@@ -114,9 +114,9 @@
           <span class="icon-moon" aria-hidden="true">🌙</span>
           <span class="icon-sun"  aria-hidden="true">☀️</span>
         </button>
-        <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл" onclick="showToast('info','Шинэ мэдэгдэл','2 захиалга баталгаажуулахыг хүлээж байна.')">
+        <button class="notification-btn" id="notifBtn" aria-label="Мэдэгдэл" title="Мэдэгдэл" onclick="onNotifClick()">
           <span data-icon="bell" aria-hidden="true"></span>
-          <span class="notification-dot"></span>
+          <span class="notification-dot" id="notifDot" style="display:none"></span>
         </button>
         <div class="top-bar-avatar" id="topAvatar" title="Профайл">Б</div>
       </div>
@@ -257,10 +257,23 @@
     showToast('info', 'Тун удахгүй', 'Үйлчилгээ & Цаг хуваарийн удирдлага тун удахгүй нэмэгдэнэ.');
   }
 
+  let _pendingCount = 0;
+
+  function onNotifClick() {
+    if (_pendingCount > 0) {
+      window.location.href = 'bookings.html?filter=pending';
+    } else {
+      showToast('info', 'Мэдэгдэл', 'Хүлээгдэж буй захиалга алга байна.');
+    }
+  }
+
   function renderStats() {
     const today = todayStr();
     const todayB  = _bookings.filter(b => b.date === today);
     const pending = _bookings.filter(b => b.status === 'pending');
+    _pendingCount = pending.length;
+    const dot = document.getElementById('notifDot');
+    if (dot) dot.style.display = _pendingCount > 0 ? '' : 'none';
     const now     = new Date();
     const weekStart = new Date(now); weekStart.setDate(now.getDate() - now.getDay());
     const thisWeek = _bookings.filter(b => new Date(b.date + 'T00:00:00') >= weekStart);

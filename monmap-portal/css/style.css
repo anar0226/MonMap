@@ -1270,6 +1270,9 @@ tr:hover td { background: var(--gray-50); }
 }
 :root[data-theme="dark"] body { background: var(--gray-50); color: var(--gray-700); }
 :root[data-theme="dark"] img:not([src*=".svg"]) { filter: brightness(0.92); }
+/* Sidebar uses --gray-900 which inverts to near-white in dark mode; pin it to
+   a dark panel tone so it stays dark in both themes. */
+:root[data-theme="dark"] .sidebar { background: var(--gray-100); }
 :root[data-theme="dark"] .skel {
   background: var(--gray-100);
   background-image: linear-gradient(

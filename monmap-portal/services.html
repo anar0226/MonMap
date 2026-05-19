@@ -40,7 +40,7 @@
 
     /* Card wrapper */
     .svc-card {
-      background: #fff;
+      background: var(--white);
       border: 1px solid var(--gray-200);
       border-radius: 14px;
       overflow: hidden;
@@ -79,7 +79,7 @@
       background: var(--gray-100); color: var(--gray-600);
       font-size: .75rem; font-weight: 500; white-space: nowrap;
     }
-    .svc-pill-warn { background: #fef3c7; color: #92400e; }
+    .svc-pill-warn { background: var(--warning-light); color: var(--warning); }
 
     .svc-card-meta { display: flex; gap: 4px; align-items: center; flex-shrink: 0; }
     .svc-chevron {
@@ -120,7 +120,7 @@
       padding: 0 18px 18px;
       border-top: 1px solid var(--gray-100);
       padding-top: 16px;
-      background: #f8fafc;
+      background: var(--gray-50);
     }
 
     .svc-form-group { margin-bottom: 13px; }
@@ -135,7 +135,7 @@
       padding: 8px 11px; border: 1px solid var(--gray-200);
       border-radius: 8px; font-family: inherit;
       font-size: .875rem; color: var(--gray-900);
-      background: #fff; transition: border-color .12s, box-shadow .12s;
+      background: var(--white); transition: border-color .12s, box-shadow .12s;
     }
     .svc-form-input:focus, .svc-form-select:focus, .svc-form-textarea:focus {
       outline: none; border-color: var(--primary);
@@ -159,12 +159,12 @@
     /* Stepper */
     .svc-stepper {
       display: inline-flex; align-items: center; gap: 3px;
-      background: #f1f5f9; border: 1px solid var(--gray-200);
+      background: var(--gray-100); border: 1px solid var(--gray-200);
       border-radius: 9px; padding: 3px; height: 38px; box-sizing: border-box;
     }
     .svc-stepper-btn {
       width: 28px; height: 28px; border-radius: 6px;
-      border: 1px solid var(--gray-200); background: #fff;
+      border: 1px solid var(--gray-200); background: var(--white);
       font-size: 1rem; font-weight: 500; cursor: pointer; color: var(--gray-700);
       display: flex; align-items: center; justify-content: center;
       transition: background .1s;
@@ -190,7 +190,7 @@
     /* Empty state */
     .svc-empty-state {
       border: 2px dashed var(--gray-200); border-radius: 14px;
-      padding: 40px 20px; text-align: center; background: #fff;
+      padding: 40px 20px; text-align: center; background: var(--white);
       display: flex; flex-direction: column; align-items: center; gap: 10px;
     }
     .svc-empty-icon {
@@ -203,7 +203,7 @@
 
     /* Add button (dashed) */
     .svc-add-btn {
-      width: 100%; background: #fff;
+      width: 100%; background: var(--white);
       border: 1.5px dashed var(--gray-300); border-radius: 12px;
       padding: 13px; margin-top: 2px;
       font-family: inherit; font-size: .875rem; font-weight: 600;

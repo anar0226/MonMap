@@ -115,6 +115,10 @@
         <span class="page-title">Бизнесийн профайл</span>
       </div>
       <div class="top-bar-right">
+        <button class="theme-toggle" id="themeToggle" aria-label="Дэлгэцийн горим" title="Гэрэлтэй / Харанхуй горим">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+        </button>
         <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл"><span data-icon="bell" aria-hidden="true"></span><span class="notification-dot"></span></button>
         <div class="top-bar-avatar" id="topAvatar">Б</div>
       </div>
@@ -128,7 +132,6 @@
         <button class="tab" onclick="switchTab('account',this)">👤 Бүртгэлийн мэдээлэл</button>
         <button class="tab" onclick="switchTab('hours',this)">🕐 Ажлын цаг</button>
         <button class="tab" onclick="switchTab('notifications',this)">🔔 Мэдэгдэл</button>
-        <button class="tab" onclick="switchTab('wallet',this)">💰 Хэтэвч</button>
       </div>
 
       <!-- Tab: Business -->
@@ -466,8 +469,8 @@
 
       </div>
 
-      <!-- Tab: Wallet -->
-      <div id="tab-wallet" class="tab-content hidden">
+      <!-- Tab: Wallet (removed — mobile only) -->
+      <div id="tab-wallet" class="tab-content hidden" style="display:none!important">
 
         <!-- Balance hero -->
         <div class="section-card" style="background:linear-gradient(135deg,var(--primary),#3b82f6);border:none;margin-bottom:24px;">
@@ -1226,6 +1229,7 @@
     document.getElementById('bizAvatarDisplay').textContent = bizName[0] || 'Б';
     document.getElementById('topAvatar').textContent       = (_user.email || 'Б')[0].toUpperCase();
     initMobileSidebar();
+    wireThemeToggle('#themeToggle');
 
     // Populate account tab
     document.getElementById('userFullName').textContent  = _user.email || 'Хэрэглэгч';

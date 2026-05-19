@@ -448,6 +448,10 @@
         <span class="page-title">Үйлчилгээ & Ажлын цаг</span>
       </div>
       <div class="top-bar-right">
+        <button class="theme-toggle" id="themeToggle" aria-label="Дэлгэцийн горим" title="Гэрэлтэй / Харанхуй горим">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+        </button>
         <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл"><span data-icon="bell" aria-hidden="true"></span><span class="notification-dot"></span></button>
         <div class="top-bar-avatar" id="topAvatar">М</div>
       </div>
@@ -485,25 +489,6 @@
         <div id="svcCardsContainer"></div>
         <div class="svc-footer" id="svcFooter"></div>
 
-        <!-- Reservation fee quick-setting -->
-        <div class="section-card" style="margin-top:18px;">
-          <div class="section-card-title">💳 Захиалгын баталгааны төлбөр</div>
-          <div class="section-card-sub">
-            Хэрэглэгч захиалга хийхэд QPay-ээр урьдчилж авах хэмжээ.
-            Хоосон орхих эсвэл 0 оруулбал баталгааны төлбөргүй.
-          </div>
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <div style="position:relative;flex:1;min-width:160px;max-width:260px;">
-              <input type="number" class="svc-form-input" id="svcDepositAmount"
-                     min="0" placeholder="жш: 5000" style="padding-right:28px;" />
-              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:.8125rem;color:var(--gray-500);font-weight:500;pointer-events:none;">₮</span>
-            </div>
-            <button class="btn btn-primary btn-sm" onclick="saveDepositFromServices()">Хадгалах</button>
-          </div>
-          <p style="margin:10px 0 0;font-size:.75rem;color:var(--gray-400);">
-            Энэ тохиргоог <a href="services.html#tab-capacity" onclick="switchTab('capacity');return false;" style="color:var(--primary);">Хүчин чадал & Дүрэм</a> таб-аас мөн засах боломжтой.
-          </p>
-        </div>
       </div>
 
       <!-- ══ Tab: Hours (New design) ══ -->
@@ -792,6 +777,7 @@ const BUFFERS_MN   = [0,5,10,15,30];
     document.getElementById('sbAvatar').textContent  = init;
     document.getElementById('topAvatar').textContent = init;
     if (!biz.verified) document.getElementById('verificationBanner').style.display = 'flex';
+    wireThemeToggle('#themeToggle');
   } else {
     renderNoBizState();
     return;
@@ -805,10 +791,7 @@ const BUFFERS_MN   = [0,5,10,15,30];
     .then(({ data }) => {
       if (!data) return;
       if (data.slot_capacity != null) document.getElementById('ruleSlotCap').value = data.slot_capacity;
-      if (data.deposit_amount != null) {
-        document.getElementById('ruleDepositAmount').value = data.deposit_amount;
-        document.getElementById('svcDepositAmount').value  = data.deposit_amount;
-      }
+      if (data.deposit_amount != null) document.getElementById('ruleDepositAmount').value = data.deposit_amount;
     })
     .catch(() => {});
 
@@ -978,7 +961,7 @@ function svcFormHTML(svc) {
         <select class="svc-form-select" id="sf-dur-${svc.id}">${durOpts}</select>
       </div>
       <div class="svc-form-group" style="margin-bottom:0">
-        <div class="svc-form-label">Үнэ <span class="svc-form-hint">Тугрик</span></div>
+        <div class="svc-form-label">Үнэ <span class="svc-form-hint">Төгрөг</span></div>
         <div class="svc-form-input-wrap">
           <input type="number" class="svc-form-input" id="sf-price-${svc.id}"
                  value="${svc.price || ''}" placeholder="0" style="padding-right:26px;" />
@@ -1227,13 +1210,6 @@ function dayRowHTML(d) {
         </div>
         <div class="hrs-day-actions">
           ${!s.breakStart ? `<button class="hrs-link-btn" onclick="addBreak(${d})">+ Завсар нэмэх</button>` : ''}
-          <button class="hrs-link-btn hrs-copy-btn" onclick="copyHoursToOpenDays(${d})" title="Бусад нээлттэй өдрүүдэд хуулах">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-              <rect x="1.5" y="1.5" width="6" height="6" rx="1" stroke="currentColor" stroke-width="1.2"/>
-              <path d="M4.5 4.5h6v6h-6" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/>
-            </svg>
-            Хуулах
-          </button>
         </div>
       ` : `<div class="hrs-closed-label">Энэ өдөр хаалттай</div>`}
     </div>
@@ -1281,16 +1257,7 @@ function removeBreak(d) {
   if (row) row.outerHTML = dayRowHTML(d);
 }
 
-function copyHoursToOpenDays(fromDay) {
-  const src = _hoursState[fromDay];
-  DAYS_MN.forEach(day => {
-    if (day.id !== fromDay && _hoursState[day.id].open) {
-      _hoursState[day.id] = { ..._hoursState[day.id], start: src.start, end: src.end, breakStart: src.breakStart, breakEnd: src.breakEnd };
-    }
-  });
-  renderHours();
-  showToast('success','Хуулагдлаа','Цаг бусад нээлттэй өдрүүдэд хуулагдлаа.');
-}
+
 
 
 async function saveHours() {
@@ -1330,25 +1297,10 @@ async function saveRules() {
   if (_placeId) {
     const { error } = await _sb.from('places').update({ slot_capacity: cap, deposit_amount: depositAmount }).eq('place_id', _placeId);
     if (error) { showToast('error', 'Алдаа', error.message); return; }
-    // Keep the services-tab field in sync
-    document.getElementById('svcDepositAmount').value = depositAmount ?? '';
   }
   showToast('success','Хадгалагдлаа','Тохиргоо хадгалагдлаа.');
 }
 
-async function saveDepositFromServices() {
-  if (!_placeId) return;
-  const raw = document.getElementById('svcDepositAmount').value.trim();
-  const depositAmount = raw === '' ? null : (parseInt(raw, 10) || null);
-  const { error } = await _sb.from('places')
-    .update({ deposit_amount: depositAmount })
-    .eq('place_id', _placeId);
-  if (error) { showToast('error','Алдаа', error.message); return; }
-  // Keep the Capacity tab field in sync too
-  document.getElementById('ruleDepositAmount').value = depositAmount ?? '';
-  showToast('success','Хадгалагдлаа', depositAmount
-    ? `Баталгааны төлбөр ₮${depositAmount.toLocaleString()} болгон тохируулагдлаа.`
-    : 'Баталгааны төлбөр арилгагдлаа.');
 }
 
 // ════════════════════════════════════════════════════════════════

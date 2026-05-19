@@ -215,6 +215,10 @@
         <span class="page-title">Тайлан</span>
       </div>
       <div class="top-bar-right">
+        <button class="theme-toggle" id="themeToggle" aria-label="Дэлгэцийн горим" title="Гэрэлтэй / Харанхуй горим">
+          <span class="icon-moon" aria-hidden="true">🌙</span>
+          <span class="icon-sun"  aria-hidden="true">☀️</span>
+        </button>
         <button class="notification-btn" aria-label="Мэдэгдэл" title="Мэдэгдэл"><span data-icon="bell" aria-hidden="true"></span><span class="notification-dot"></span></button>
         <div class="top-bar-avatar" id="topAvatar">М</div>
       </div>
@@ -482,6 +486,7 @@ function buildRptData(bookings, services, reviews, y, mo) {
   const badge = document.getElementById('pendingBadge');
   if (pendingCount > 0) { badge.textContent = pendingCount; badge.style.display = 'inline-flex'; }
 
+  wireThemeToggle('#themeToggle');
   loadNotifBadge();
   startNotifBadgePolling();
 

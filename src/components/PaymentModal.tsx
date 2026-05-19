@@ -16,17 +16,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import type { PaymentIntentData } from '../hooks/useBooking';
 
-// Fire a short haptic burst on terminal payment states.
-// We use the built-in Vibration API (no extra dependency) — `expo-haptics`
-// would give finer-grained taptic patterns on iOS, but Vibration covers the
-// 95% case across both platforms and avoids touching package.json.
-//   pattern:
-//     success → double-tap (40ms, gap 80ms, 60ms) — "ding-ding" celebration
-//     failure → single longer pulse (180ms)        — "uh-oh"
-//     expired → single short pulse (90ms)          — neutral notification
-// iOS only vibrates the full pattern when the device's Ring/Silent switch is
-// set to Ring; Vibration is a no-op otherwise — that's a platform limitation,
-// not a bug. Web (react-native-web) returns immediately, also a no-op.
 function hapticPaymentResult(kind: 'success' | 'failed' | 'expired') {
   try {
     if (Platform.OS === 'web') return;
@@ -34,7 +23,7 @@ function hapticPaymentResult(kind: 'success' | 'failed' | 'expired') {
     else if (kind === 'failed')  Vibration.vibrate(180);
     else                         Vibration.vibrate(90);
   } catch {
-    // Vibration permission denied or unsupported — silent no-op.
+    // no-op
   }
 }
 
@@ -42,8 +31,10 @@ const C = {
   bg:       '#111520',
   surface:  '#0D1220',
   border:   'rgba(255,255,255,0.10)',
+  borderSub:'rgba(255,255,255,0.06)',
   text:     'rgba(255,255,255,0.95)',
   textSec:  'rgba(255,255,255,0.50)',
+  textMuted:'rgba(255,255,255,0.30)',
   amber:    '#FBB824',
   green:    '#10B981',
   red:      '#EF4444',
@@ -76,7 +67,6 @@ export default function PaymentModal({ visible, paymentIntent, onSuccess, onExpi
 
     setScreen('qr');
 
-    // Countdown timer
     const updateCountdown = () => {
       const secs = Math.max(0, Math.floor((new Date(paymentIntent.holdExpiresAt).getTime() - Date.now()) / 1000));
       setSecondsLeft(secs);
@@ -90,7 +80,6 @@ export default function PaymentModal({ visible, paymentIntent, onSuccess, onExpi
     updateCountdown();
     timerRef.current = setInterval(updateCountdown, 1000);
 
-    // Poll payment status every 3 seconds
     pollRef.current = setInterval(async () => {
       try {
         const { data, error } = await supabase.functions.invoke('check-payment-status', {
@@ -114,7 +103,7 @@ export default function PaymentModal({ visible, paymentIntent, onSuccess, onExpi
           onExpired();
         }
       } catch {
-        // Network error — keep polling
+        // keep polling
       }
     }, 3000);
 
@@ -124,11 +113,20 @@ export default function PaymentModal({ visible, paymentIntent, onSuccess, onExpi
   const mm = String(Math.floor(secondsLeft / 60)).padStart(2, '0');
   const ss = String(secondsLeft % 60).padStart(2, '0');
 
+  const depositAmount = paymentIntent.amount;
+  const originalPrice = paymentIntent.servicePrice;
+  const remaining     = (originalPrice != null && originalPrice > depositAmount)
+    ? originalPrice - depositAmount
+    : null;
+
   return (
     <Modal visible={visible} animationType="slide" transparent={false} statusBarTranslucent>
       <View style={s.root}>
+
+        {/* ── QR / bank-picker screen ───────────────────────────── */}
         {screen === 'qr' && (
           <>
+            {/* Header — always visible, not inside the scroll */}
             <View style={s.header}>
               <Text style={s.title}>QPay төлбөр</Text>
               <TouchableOpacity onPress={onCancel} hitSlop={12}>
@@ -136,66 +134,104 @@ export default function PaymentModal({ visible, paymentIntent, onSuccess, onExpi
               </TouchableOpacity>
             </View>
 
-            <View style={s.amountRow}>
-              <Text style={s.amountLabel}>Баталгааны төлбөр</Text>
-              <Text style={s.amount}>₮{paymentIntent.amount.toLocaleString()}</Text>
-            </View>
+            {/* Scrollable body — shrinks to content, no empty dead zone */}
+            <ScrollView
+              style={{ flex: 1 }}
+              contentContainerStyle={s.scrollContent}
+              showsVerticalScrollIndicator={false}
+              bounces={false}
+            >
+              {/* Service chip — shows what was booked */}
+              {paymentIntent.serviceName && (
+                <View style={s.serviceChip}>
+                  <Ionicons name="cut-outline" size={13} color={C.textSec} />
+                  <Text style={s.serviceChipText}>{paymentIntent.serviceName}</Text>
+                </View>
+              )}
 
-            <View style={s.timerRow}>
-              <Ionicons name="time-outline" size={16} color={secondsLeft < 60 ? C.red : C.amber} />
-              <Text style={[s.timer, secondsLeft < 60 && { color: C.red }]}>
-                {mm}:{ss} дотор төлнө үү
-              </Text>
-            </View>
+              {/* Amount */}
+              <View style={s.amountBlock}>
+                <Text style={s.amountLabel}>Баталгааны төлбөр</Text>
+                <Text style={s.amount}>₮{depositAmount.toLocaleString()}</Text>
 
-            {paymentIntent.qpayQrImage ? (
-              <View style={s.qrWrap}>
-                <Image
-                  source={{ uri: `data:image/png;base64,${paymentIntent.qpayQrImage}` }}
-                  style={s.qrImage}
-                  resizeMode="contain"
-                />
+                {/* Cost breakdown if we know the full service price */}
+                {originalPrice != null && (
+                  <View style={s.costBreakdown}>
+                    <View style={s.costRow}>
+                      <Text style={s.costKey}>Үйлчилгээний үнэ</Text>
+                      <Text style={s.costVal}>₮{originalPrice.toLocaleString()}</Text>
+                    </View>
+                    <View style={s.costRow}>
+                      <Text style={s.costKey}>Одоо төлөх</Text>
+                      <Text style={[s.costVal, { color: C.amber }]}>₮{depositAmount.toLocaleString()}</Text>
+                    </View>
+                    {remaining != null && (
+                      <View style={s.costRow}>
+                        <Text style={s.costKey}>Газар дээр төлөх</Text>
+                        <Text style={s.costVal}>₮{remaining.toLocaleString()}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
               </View>
-            ) : (
-              <View style={s.qrWrap}>
-                <ActivityIndicator color={C.amber} />
+
+              {/* Countdown */}
+              <View style={s.timerRow}>
+                <Ionicons name="time-outline" size={16} color={secondsLeft < 60 ? C.red : C.amber} />
+                <Text style={[s.timer, secondsLeft < 60 && { color: C.red }]}>
+                  {mm}:{ss} дотор төлнө үү
+                </Text>
               </View>
-            )}
 
-            <Text style={s.hint}>Банкны аппаа нээж QR уншуулна уу</Text>
+              {/* QR code */}
+              {paymentIntent.qpayQrImage ? (
+                <View style={s.qrWrap}>
+                  <Image
+                    source={{ uri: `data:image/png;base64,${paymentIntent.qpayQrImage}` }}
+                    style={s.qrImage}
+                    resizeMode="contain"
+                  />
+                </View>
+              ) : (
+                <View style={s.qrWrap}>
+                  <ActivityIndicator color={C.amber} />
+                </View>
+              )}
 
-            {paymentIntent.qpayUrls.length > 0 && (
-              <>
-                <Text style={s.bankLabel}>Эсвэл банкаа сонгоно уу</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={s.bankScroll}
-                >
-                  {paymentIntent.qpayUrls.map((bank, i) => (
-                    <TouchableOpacity
-                      key={i}
-                      style={s.bankBtn}
-                      onPress={() => Linking.openURL(bank.link).catch(() => {})}
-                    >
-                      {bank.logo ? (
-                        <Image source={{ uri: bank.logo }} style={s.bankLogo} resizeMode="contain" />
-                      ) : (
-                        <Ionicons name="card-outline" size={28} color={C.text} />
-                      )}
-                      <Text style={s.bankName} numberOfLines={2}>{bank.name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </>
-            )}
+              <Text style={s.hint}>Банкны аппаа нээж QR уншуулна уу</Text>
 
+              {/* Bank deep-links */}
+              {paymentIntent.qpayUrls.length > 0 && (
+                <>
+                  <Text style={s.bankLabel}>Эсвэл банкаа сонгоно уу</Text>
+                  <View style={s.bankGrid}>
+                    {paymentIntent.qpayUrls.map((bank, i) => (
+                      <TouchableOpacity
+                        key={i}
+                        style={s.bankBtn}
+                        onPress={() => Linking.openURL(bank.link).catch(() => {})}
+                      >
+                        {bank.logo ? (
+                          <Image source={{ uri: bank.logo }} style={s.bankLogo} resizeMode="contain" />
+                        ) : (
+                          <Ionicons name="card-outline" size={28} color={C.text} />
+                        )}
+                        <Text style={s.bankName} numberOfLines={2}>{bank.name}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+            </ScrollView>
+
+            {/* Cancel — pinned at bottom, never scrolls away */}
             <TouchableOpacity style={s.cancelBtn} onPress={onCancel}>
               <Text style={s.cancelText}>Цуцлах</Text>
             </TouchableOpacity>
           </>
         )}
 
+        {/* ── Other screens ─────────────────────────────────────── */}
         {screen === 'checking' && (
           <View style={s.centeredContent}>
             <ActivityIndicator size="large" color={C.amber} />
@@ -251,22 +287,50 @@ const s = StyleSheet.create({
     backgroundColor: C.bg,
     paddingHorizontal: 24,
     paddingTop: 56,
-    paddingBottom: 32,
+    paddingBottom: 24,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 28,
+    marginBottom: 20,
   },
   title: {
     fontSize: 20,
     fontWeight: '700',
     color: C.text,
   },
-  amountRow: {
+
+  // Scrollable area — no fixed height; shrinks to content
+  scrollContent: {
+    paddingBottom: 8,
     alignItems: 'center',
-    marginBottom: 12,
+  },
+
+  // Service name chip at top
+  serviceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: C.border,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginBottom: 16,
+  },
+  serviceChipText: {
+    fontSize: 13,
+    color: C.textSec,
+    fontWeight: '500',
+  },
+
+  // Amount block
+  amountBlock: {
+    alignItems: 'center',
+    marginBottom: 16,
+    width: '100%',
   },
   amountLabel: {
     fontSize: 13,
@@ -279,49 +343,85 @@ const s = StyleSheet.create({
     color: C.amber,
     letterSpacing: -0.5,
   },
+
+  // Cost breakdown rows
+  costBreakdown: {
+    marginTop: 12,
+    width: '100%',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: C.borderSub,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    gap: 6,
+  },
+  costRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  costKey: {
+    fontSize: 12,
+    color: C.textMuted,
+  },
+  costVal: {
+    fontSize: 12,
+    color: C.textSec,
+    fontWeight: '600',
+  },
+
   timerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   timer: {
     fontSize: 14,
     fontWeight: '600',
     color: C.amber,
   },
+
   qrWrap: {
-    alignSelf: 'center',
-    width: 224,
-    height: 224,
+    width: 220,
+    height: 220,
     borderRadius: 16,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     padding: 8,
   },
   qrImage: {
-    width: 208,
-    height: 208,
+    width: 204,
+    height: 204,
   },
+
   hint: {
     textAlign: 'center',
     fontSize: 13,
     color: C.textSec,
-    marginBottom: 24,
+    marginBottom: 20,
   },
+
   bankLabel: {
     fontSize: 13,
     color: C.textSec,
-    marginBottom: 12,
+    marginBottom: 10,
     textAlign: 'center',
+    alignSelf: 'flex-start',
+    width: '100%',
   },
-  bankScroll: {
-    paddingHorizontal: 4,
-    gap: 12,
-    paddingBottom: 4,
+
+  // Grid replaces the horizontal ScrollView — all banks visible, no empty strip
+  bankGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    gap: 10,
+    width: '100%',
   },
   bankBtn: {
     alignItems: 'center',
@@ -342,8 +442,10 @@ const s = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 13,
   },
+
+  // Cancel pinned at the bottom of the screen
   cancelBtn: {
-    marginTop: 24,
+    marginTop: 12,
     alignSelf: 'center',
     paddingVertical: 10,
     paddingHorizontal: 32,
@@ -355,6 +457,7 @@ const s = StyleSheet.create({
     fontSize: 15,
     color: C.textSec,
   },
+
   centeredContent: {
     flex: 1,
     justifyContent: 'center',

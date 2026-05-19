@@ -231,33 +231,14 @@
        HOURS TAB
     ══════════════════════════════════════════ */
 
-    /* Presets */
-    .hrs-presets-card {
-      background: rgba(29,78,216,.04);
-      border: 1px solid rgba(29,78,216,.15);
-      border-radius: 12px; padding: 13px 15px; margin-bottom: 14px;
-    }
-    .hrs-presets-label {
-      font-size: .6875rem; font-weight: 700; color: var(--primary);
-      letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px;
-    }
-    .hrs-presets-row { display: flex; flex-wrap: wrap; gap: 6px; }
-    .hrs-preset-chip {
-      background: #fff; border: 1px solid rgba(29,78,216,.25);
-      border-radius: 999px; padding: 5px 13px;
-      font-family: inherit; font-size: .75rem; font-weight: 500;
-      color: var(--primary); cursor: pointer;
-      transition: background .12s, color .12s;
-    }
-    .hrs-preset-chip:hover { background: var(--primary); color: #fff; }
-
-    /* Day card */
+    /* Day row — lives inside a single section-card container, no per-row boxes */
     .hrs-day-card {
-      background: #fff; border: 1px solid var(--gray-200);
-      border-radius: 12px; padding: 12px 14px; margin-bottom: 8px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--gray-100);
       transition: opacity .15s;
     }
-    .hrs-day-card.hrs-day-closed { opacity: .7; }
+    .hrs-day-card:last-child { border-bottom: none; }
+    .hrs-day-card.hrs-day-closed { opacity: .6; }
 
     .hrs-day-header {
       display: flex; align-items: flex-start; gap: 12px; flex-wrap: wrap;
@@ -503,23 +484,35 @@
         </div>
         <div id="svcCardsContainer"></div>
         <div class="svc-footer" id="svcFooter"></div>
+
+        <!-- Reservation fee quick-setting -->
+        <div class="section-card" style="margin-top:18px;">
+          <div class="section-card-title">💳 Захиалгын баталгааны төлбөр</div>
+          <div class="section-card-sub">
+            Хэрэглэгч захиалга хийхэд QPay-ээр урьдчилж авах хэмжээ.
+            Хоосон орхих эсвэл 0 оруулбал баталгааны төлбөргүй.
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="position:relative;flex:1;min-width:160px;max-width:260px;">
+              <input type="number" class="svc-form-input" id="svcDepositAmount"
+                     min="0" placeholder="жш: 5000" style="padding-right:28px;" />
+              <span style="position:absolute;right:10px;top:50%;transform:translateY(-50%);font-size:.8125rem;color:var(--gray-500);font-weight:500;pointer-events:none;">₮</span>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="saveDepositFromServices()">Хадгалах</button>
+          </div>
+          <p style="margin:10px 0 0;font-size:.75rem;color:var(--gray-400);">
+            Энэ тохиргоог <a href="services.html#tab-capacity" onclick="switchTab('capacity');return false;" style="color:var(--primary);">Хүчин чадал & Дүрэм</a> таб-аас мөн засах боломжтой.
+          </p>
+        </div>
       </div>
 
       <!-- ══ Tab: Hours (New design) ══ -->
       <div class="tab-panel" id="tab-hours">
 
-        <!-- Quick presets -->
-        <div class="hrs-presets-card">
-          <div class="hrs-presets-label">Хурдан тохиргоо</div>
-          <div class="hrs-presets-row">
-            <button class="hrs-preset-chip" onclick="applyPreset('weekdays-9-18')">Ажлын өдөр 9–18, Амралт хаалттай</button>
-            <button class="hrs-preset-chip" onclick="applyPreset('all-10-22')">Долоо хоног 10–22</button>
-            <button class="hrs-preset-chip" onclick="applyPreset('closed')">Бүгд хаалттай</button>
-          </div>
-        </div>
-
         <!-- Day rows (rendered by JS) -->
-        <div id="hoursGrid"></div>
+        <div class="section-card" style="padding:0;overflow:hidden;">
+          <div id="hoursGrid"></div>
+        </div>
 
         <!-- Booking rules -->
         <div class="section-card" style="margin-top:14px;">
@@ -804,7 +797,7 @@ const BUFFERS_MN   = [0,5,10,15,30];
     return;
   }
 
-  // Load place settings for Capacity tab
+  // Load place settings for Capacity tab + services tab deposit field
   _sb.from('places')
     .select('slot_capacity, deposit_amount')
     .eq('place_id', _placeId)
@@ -812,7 +805,10 @@ const BUFFERS_MN   = [0,5,10,15,30];
     .then(({ data }) => {
       if (!data) return;
       if (data.slot_capacity != null) document.getElementById('ruleSlotCap').value = data.slot_capacity;
-      if (data.deposit_amount != null) document.getElementById('ruleDepositAmount').value = data.deposit_amount;
+      if (data.deposit_amount != null) {
+        document.getElementById('ruleDepositAmount').value = data.deposit_amount;
+        document.getElementById('svcDepositAmount').value  = data.deposit_amount;
+      }
     })
     .catch(() => {});
 
@@ -922,6 +918,7 @@ function renderSvcCards() {
 function svcCardHTML(svc) {
   const dur   = fmtDuration(svc.duration_minutes);
   const price = svc.price ? fmtPrice(svc.price) : null;
+  const dep   = svc.deposit ? '₮' + Number(svc.deposit).toLocaleString() + ' баталгаа' : null;
   const cap   = svc.max_capacity || 1;
   const buf   = svc.buffer_minutes;
   const isActive = svc.is_active !== false;
@@ -934,6 +931,7 @@ function svcCardHTML(svc) {
         <div class="svc-card-pills">
           ${dur   ? `<span class="svc-pill">${dur}</span>` : ''}
           ${price ? `<span class="svc-pill">${price}</span>` : ''}
+          ${dep   ? `<span class="svc-pill svc-pill-warn">${dep}</span>` : ''}
           <span class="svc-pill">${cap} хүн</span>
           ${buf   ? `<span class="svc-pill svc-pill-warn">+${buf} мин завсар</span>` : ''}
         </div>
@@ -986,6 +984,15 @@ function svcFormHTML(svc) {
                  value="${svc.price || ''}" placeholder="0" style="padding-right:26px;" />
           <span class="svc-form-suffix">₮</span>
         </div>
+      </div>
+    </div>
+    <div class="svc-form-group" style="margin-top:13px;margin-bottom:0">
+      <div class="svc-form-label">Баталгааны төлбөр <span class="svc-form-hint">Хоосон = газрын тохиргоог дагана</span></div>
+      <div class="svc-form-input-wrap" style="max-width:180px;">
+        <input type="number" class="svc-form-input" id="sf-deposit-${svc.id}"
+               value="${svc.deposit != null ? svc.deposit : ''}" min="0" placeholder="жш: 5000"
+               style="padding-right:26px;" />
+        <span class="svc-form-suffix">₮</span>
       </div>
     </div>
     <div class="svc-form-row2" style="margin-top:13px;">
@@ -1079,14 +1086,16 @@ async function insertNewSvc(tmpId) {
   if (!_placeId) return;
   const name  = document.getElementById('sf-name-' + tmpId).value.trim();
   if (!name) { showToast('error','Алдаа','Үйлчилгээний нэрийг оруулна уу.'); return; }
-  const dur   = parseInt(document.getElementById('sf-dur-' + tmpId).value)   || 30;
-  const price = parseInt(document.getElementById('sf-price-' + tmpId).value) || 0;
-  const cap   = parseInt(document.getElementById('sf-cap-' + tmpId).value)   || 1;
-  const buf   = parseInt(document.getElementById('sf-buf-' + tmpId).value)   || 0;
-  const desc  = document.getElementById('sf-desc-' + tmpId).value.trim() || null;
+  const dur     = parseInt(document.getElementById('sf-dur-' + tmpId).value)     || 30;
+  const price   = parseInt(document.getElementById('sf-price-' + tmpId).value)   || 0;
+  const depRaw  = document.getElementById('sf-deposit-' + tmpId).value.trim();
+  const deposit = depRaw === '' ? null : (parseInt(depRaw, 10) || null);
+  const cap     = parseInt(document.getElementById('sf-cap-' + tmpId).value)     || 1;
+  const buf     = parseInt(document.getElementById('sf-buf-' + tmpId).value)     || 0;
+  const desc    = document.getElementById('sf-desc-' + tmpId).value.trim() || null;
 
   const { error } = await _sb.from('services').insert({
-    place_id: _placeId, name, duration_minutes: dur, price, max_capacity: cap,
+    place_id: _placeId, name, duration_minutes: dur, price, deposit, max_capacity: cap,
     buffer_minutes: buf, description: desc, is_active: true,
   });
   if (error) { showToast('error','Алдаа', error.message); return; }
@@ -1096,16 +1105,18 @@ async function insertNewSvc(tmpId) {
 
 // ── Save inline edits ───────────────────────────────────────────────
 async function saveInlineSvc(id) {
-  const name  = document.getElementById('sf-name-' + id).value.trim();
+  const name    = document.getElementById('sf-name-' + id).value.trim();
   if (!name) { showToast('error','Алдаа','Үйлчилгээний нэрийг оруулна уу.'); return; }
-  const dur   = parseInt(document.getElementById('sf-dur-' + id).value)   || 30;
-  const price = parseInt(document.getElementById('sf-price-' + id).value) || 0;
-  const cap   = parseInt(document.getElementById('sf-cap-' + id).value)   || 1;
-  const buf   = parseInt(document.getElementById('sf-buf-' + id).value)   || 0;
-  const desc  = document.getElementById('sf-desc-' + id).value.trim() || null;
+  const dur     = parseInt(document.getElementById('sf-dur-' + id).value)     || 30;
+  const price   = parseInt(document.getElementById('sf-price-' + id).value)   || 0;
+  const depRaw  = document.getElementById('sf-deposit-' + id).value.trim();
+  const deposit = depRaw === '' ? null : (parseInt(depRaw, 10) || null);
+  const cap     = parseInt(document.getElementById('sf-cap-' + id).value)     || 1;
+  const buf     = parseInt(document.getElementById('sf-buf-' + id).value)     || 0;
+  const desc    = document.getElementById('sf-desc-' + id).value.trim() || null;
 
   const { error } = await _sb.from('services').update({
-    name, duration_minutes: dur, price, max_capacity: cap,
+    name, duration_minutes: dur, price, deposit, max_capacity: cap,
     buffer_minutes: buf, description: desc,
   }).eq('id', id);
   if (error) { showToast('error','Алдаа', error.message); return; }
@@ -1281,18 +1292,6 @@ function copyHoursToOpenDays(fromDay) {
   showToast('success','Хуулагдлаа','Цаг бусад нээлттэй өдрүүдэд хуулагдлаа.');
 }
 
-function applyPreset(preset) {
-  DAYS_MN.forEach(day => {
-    if (preset === 'weekdays-9-18') {
-      _hoursState[day.id] = { open: !day.weekend, start: '09:00', end: '18:00', breakStart: '', breakEnd: '' };
-    } else if (preset === 'all-10-22') {
-      _hoursState[day.id] = { open: true, start: '10:00', end: '22:00', breakStart: '', breakEnd: '' };
-    } else if (preset === 'closed') {
-      _hoursState[day.id] = { open: false, start: '09:00', end: '18:00', breakStart: '', breakEnd: '' };
-    }
-  });
-  renderHours();
-}
 
 async function saveHours() {
   if (!_placeId) { showToast('error','Алдаа','Байршлийн мэдээлэл олдсонгүй.'); return; }
@@ -1329,9 +1328,27 @@ async function saveRules() {
   const depositRaw = document.getElementById('ruleDepositAmount').value.trim();
   const depositAmount = depositRaw === '' ? null : (parseInt(depositRaw, 10) || null);
   if (_placeId) {
-    await _sb.from('places').update({ slot_capacity: cap, deposit_amount: depositAmount }).eq('place_id', _placeId);
+    const { error } = await _sb.from('places').update({ slot_capacity: cap, deposit_amount: depositAmount }).eq('place_id', _placeId);
+    if (error) { showToast('error', 'Алдаа', error.message); return; }
+    // Keep the services-tab field in sync
+    document.getElementById('svcDepositAmount').value = depositAmount ?? '';
   }
   showToast('success','Хадгалагдлаа','Тохиргоо хадгалагдлаа.');
+}
+
+async function saveDepositFromServices() {
+  if (!_placeId) return;
+  const raw = document.getElementById('svcDepositAmount').value.trim();
+  const depositAmount = raw === '' ? null : (parseInt(raw, 10) || null);
+  const { error } = await _sb.from('places')
+    .update({ deposit_amount: depositAmount })
+    .eq('place_id', _placeId);
+  if (error) { showToast('error','Алдаа', error.message); return; }
+  // Keep the Capacity tab field in sync too
+  document.getElementById('ruleDepositAmount').value = depositAmount ?? '';
+  showToast('success','Хадгалагдлаа', depositAmount
+    ? `Баталгааны төлбөр ₮${depositAmount.toLocaleString()} болгон тохируулагдлаа.`
+    : 'Баталгааны төлбөр арилгагдлаа.');
 }
 
 // ════════════════════════════════════════════════════════════════

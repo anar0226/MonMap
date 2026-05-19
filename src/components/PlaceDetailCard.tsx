@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -28,6 +28,7 @@ import {
 } from '../constants/categories';
 import { useReviews, computeRatingBars, computeAverageRating, type Review } from '../hooks/useReviews';
 import { useBooking, generateTimeSlots, parseTodayHours, todayDateString, type PaymentIntentData } from '../hooks/useBooking';
+import { useServices, type PlaceService } from '../hooks/useServices';
 import PaymentModal from './PaymentModal';
 import { useClosureReport } from '../hooks/useClosureReport';
 import { useConfirmOpen } from '../hooks/useConfirmOpen';
@@ -448,8 +449,53 @@ function reminderDate(dateStr: string, timeSlot: string): Date | null {
   return reminderMs > Date.now() ? new Date(reminderMs) : null;
 }
 
+// Generate the next `count` bookable calendar days starting at MNT today.
+// Dates on which the business is closed (per weekday_descriptions) are
+// included but flagged isClosed=true so the chip is shown dimmed and
+// non-selectable — the user can see the calendar is gapped rather than
+// wondering why days are missing.
+interface BookableDate {
+  iso: string;       // YYYY-MM-DD (MNT calendar day)
+  label: string;     // "Өнөөдөр" | "Маргааш" | "22-дах"
+  sub: string;       // "5/20" — month/day
+  dayNum: number;
+  isClosed: boolean;
+}
+
+// weekday_descriptions index 0=Monday … 6=Sunday (Google Places convention).
+// JS Date.getDay() returns 0=Sunday … 6=Saturday.
+function isClosedDay(weekdayDescriptions: string[] | null | undefined, jsDay: number): boolean {
+  if (!weekdayDescriptions?.length) return false;
+  const googleIdx = (jsDay + 6) % 7; // convert JS→Google weekday index
+  const line = weekdayDescriptions[googleIdx] ?? '';
+  return /closed/i.test(line);
+}
+
+function buildDateOptions(
+  todayIso: string,
+  count: number,
+  weekdayDescriptions?: string[] | null,
+): BookableDate[] {
+  const [y, m, d] = todayIso.split('-').map(Number);
+  const anchor = new Date(y, m - 1, d);
+  const out: BookableDate[] = [];
+  for (let i = 0; i < count; i++) {
+    const dt = new Date(anchor);
+    dt.setDate(anchor.getDate() + i);
+    const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+    const label =
+      i === 0 ? 'Өнөөдөр' :
+      i === 1 ? 'Маргааш' :
+      `${dt.getDate()}-дах`;
+    const sub = `${dt.getMonth() + 1}/${dt.getDate()}`;
+    const closed = isClosedDay(weekdayDescriptions, dt.getDay());
+    out.push({ iso, label, sub, dayNum: dt.getDate(), isClosed: closed });
+  }
+  return out;
+}
+
 const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) => {
-  const today = todayDateString();
+  const todayIso = todayDateString();
   // slot_capacity is total covers (sum of party_size) allowed per 30-min slot.
   // DB column is NOT NULL default 8; ?? fallback is a safety net only.
   const slotCapacity = place.slot_capacity ?? 8;
@@ -457,16 +503,6 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     (place.booking_open_hour != null && place.booking_close_hour != null)
       ? { openHour: place.booking_open_hour, closeHour: place.booking_close_hour }
       : parseTodayHours(place.regular_opening_hours?.weekday_descriptions);
-  // Last-seating buffer = typical service duration for this category. A
-  // 30-min cut shouldn't be blocked from booking 30 min before close, and
-  // a 90-min spa shouldn't be sold a slot that ends after close. Until
-  // places.slot_duration_minutes lands, derive from primary_category.
-  const slotDurationMinutes = bookingBufferForCategory(place.primary_category);
-  const timeSlots = generateTimeSlots(
-    hours?.openHour ?? 10,
-    hours?.closeHour ?? 20,
-    slotDurationMinutes,
-  );
   const {
     slots, loadingSlots,
     submitting, initiatingPayment,
@@ -474,8 +510,53 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     error, submitted,
     fetchSlots, submitBooking, initiatePaymentBooking, resetSubmitted,
   } = useBooking();
+  // Pull configured services for this place. Salons typically have 2–6;
+  // restaurants might have none (we render the section as "general booking"
+  // when empty). Loading state is folded into the UI so the user knows the
+  // list is still being fetched rather than empty.
+  const { services, loading: loadingServices } = useServices(isBookable ? place.place_id : null);
   const { session } = useSupabase();
   const defaultName = session?.user?.user_metadata?.full_name ?? session?.user?.email?.split('@')[0] ?? '';
+
+  // Date selection — pass weekday_descriptions so closed days are flagged.
+  // useRef so the list is stable across re-renders (dates don't change mid-session).
+  const weekdayDescs = place.regular_opening_hours?.weekday_descriptions;
+  const dateOptions = useRef(buildDateOptions(todayIso, 14, weekdayDescs)).current;
+  // Default to today if open, otherwise the first open day in the list.
+  const firstOpenIso = dateOptions.find(d => !d.isClosed)?.iso ?? todayIso;
+  const [selectedDate, setSelectedDate] = useState(firstOpenIso);
+
+  // Service selection. Initialised lazily to the first active service once
+  // the list loads, so the user doesn't have to tap before booking — but
+  // they can still switch. `null` means "no specific service" (legacy
+  // behaviour) which the bookings table accepts.
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  useEffect(() => {
+    if (selectedServiceId == null && services.length > 0) {
+      setSelectedServiceId(services[0].id);
+    }
+  }, [services, selectedServiceId]);
+  const selectedService: PlaceService | null =
+    services.find(sv => sv.id === selectedServiceId) ?? null;
+
+  // Per-service deposit takes priority over the place-level global default.
+  const effectiveDeposit: number | null =
+    selectedService?.deposit != null ? selectedService.deposit : place.deposit_amount;
+
+  // Last-seating buffer: prefer the picked service's own duration (so a
+  // 30-min haircut isn't capped by a 60-min default). Falls back to the
+  // category map until places.slot_duration_minutes lands in the schema.
+  const slotDurationMinutes =
+    selectedService?.duration_minutes ??
+    bookingBufferForCategory(place.primary_category);
+  // timeSlots depends on the selected service's duration, so it has to be
+  // re-derived whenever the user switches services. Stable for the same
+  // (open, close, duration) triple.
+  const timeSlots = useMemo(
+    () => generateTimeSlots(hours?.openHour ?? 10, hours?.closeHour ?? 20, slotDurationMinutes),
+    [hours?.openHour, hours?.closeHour, slotDurationMinutes],
+  );
+
   const [selectedSlotIdx, setSelectedSlotIdx] = useState(0);
   const [partySize, setPartySize] = useState(2);
   const [guestName, setGuestName] = useState(defaultName);
@@ -486,8 +567,11 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
   const partySizes: Array<string | number> = [1, 2, 3, 4, '5+'];
 
   useEffect(() => {
-    if (isBookable) fetchSlots(place.place_id, today, timeSlots, slotCapacity);
-  }, [place.place_id, isBookable]);
+    if (isBookable) fetchSlots(place.place_id, selectedDate, timeSlots, slotCapacity);
+    // Re-fetch whenever the date or the time-slot grid (driven by service
+    // duration) changes — both alter what "available" means.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [place.place_id, isBookable, selectedDate, slotDurationMinutes]);
 
   // Re-fetch slots when the user expands the booking form, and every 60s
   // while it's open. Without this, a user who takes 5 minutes to fill in
@@ -496,19 +580,13 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
   // balances accuracy with Supabase RPC quota.
   useEffect(() => {
     if (!isBookable || !showForm) return;
-    // Refresh once immediately on expand.
-    fetchSlots(place.place_id, today, timeSlots, slotCapacity);
+    fetchSlots(place.place_id, selectedDate, timeSlots, slotCapacity);
     const id = setInterval(() => {
-      fetchSlots(place.place_id, today, timeSlots, slotCapacity);
+      fetchSlots(place.place_id, selectedDate, timeSlots, slotCapacity);
     }, 60_000);
     return () => clearInterval(id);
-    // timeSlots is derived from booking hours (stable) + slotDurationMinutes
-    // (category-derived, also stable) — we deliberately do not list it as a
-    // dep to avoid a re-fetch storm on every render. slotCapacity is also
-    // stable per place. The interval will pick up new slots if the user
-    // re-opens the card for a different place.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBookable, showForm, place.place_id, today]);
+  }, [isBookable, showForm, place.place_id, selectedDate, slotDurationMinutes]);
 
   // Request notification permissions when user opens the booking tab.
   // We surface the *result* in the form copy below so a user with denied
@@ -536,26 +614,36 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     const slot = slots[selectedSlotIdx];
     if (!slot?.available) return;
 
-    const needsDeposit = place.deposit_amount != null && place.deposit_amount > 0;
+    const needsDeposit = effectiveDeposit != null && effectiveDeposit > 0;
 
     if (needsDeposit) {
-      // Payment flow: create QPay invoice + slot hold, then show PaymentModal
       const intent = await initiatePaymentBooking({
-        placeId:    place.place_id,
-        date:       today,
-        timeSlot:   slot.slot,
+        placeId:         place.place_id,
+        date:            selectedDate,
+        timeSlot:        slot.slot,
         partySize,
-        guestName:  guestName.trim(),
-        guestPhone: guestPhone.trim() || undefined,
+        guestName:       guestName.trim(),
+        guestPhone:      guestPhone.trim() || undefined,
+        service:         selectedService?.name ?? undefined,
+        serviceId:       selectedService?.id ?? undefined,
+        durationMinutes: selectedService?.duration_minutes ?? undefined,
       });
-      if (intent) setShowPaymentModal(true);
+      if (intent && 'paymentId' in intent) {
+        // Stamp the service info client-side so PaymentModal can show it.
+        (intent as any).serviceName  = selectedService?.name ?? undefined;
+        (intent as any).servicePrice = selectedService?.price != null ? Number(selectedService.price) : undefined;
+        setShowPaymentModal(true);
+      }
       return;
     }
 
-    // Standard free booking flow (unchanged)
+    // Standard free booking flow. NOTE: create_booking RPC doesn't currently
+    // accept service/duration columns — when a non-deposit place adopts the
+    // services table that RPC will need a new signature + migration. For now
+    // the service is shown to the booker but not yet round-tripped.
     const ok = await submitBooking({
       placeId:    place.place_id,
-      date:       today,
+      date:       selectedDate,
       timeSlot:   slot.slot,
       partySize,
       guestName:  guestName.trim(),
@@ -564,17 +652,10 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
 
     if (ok) {
       // Schedule a local push notification 1 hour before the appointment.
-      // This is best-effort: if the device is off, the app is force-closed,
-      // or permissions are denied, the user gets no reminder. We surface the
-      // permission state in the form copy and fall back to the server-side
-      // SMS reminder (send-reminders cron, which now notifies the guest too).
       if (notifPermission !== 'granted') {
-        // Permission denied — server-side SMS reminder (via send-reminders
-        // cron + guest_phone) is the only fallback. Do not silently no-op
-        // the schedule; the user already knows from the form hint.
         return;
       }
-      const trigger = reminderDate(today, slot.slot);
+      const trigger = reminderDate(selectedDate, slot.slot);
       if (trigger) {
         try {
           await Notifications.scheduleNotificationAsync({
@@ -630,7 +711,7 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
         </Text>
         <TouchableOpacity
           style={[s.ctaSecondary, { marginTop: 16, alignSelf: 'stretch' }]}
-          onPress={() => { resetSubmitted(); setPaymentSucceeded(false); setShowForm(false); fetchSlots(place.place_id, today, timeSlots, slotCapacity); }}
+          onPress={() => { resetSubmitted(); setPaymentSucceeded(false); setShowForm(false); fetchSlots(place.place_id, selectedDate, timeSlots, slotCapacity); }}
           activeOpacity={0.8}
         >
           <Text style={s.ctaSecondaryText}>Буцах</Text>
@@ -649,10 +730,10 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
   const selectedSlot = availableSlots[selectedSlotIdx];
   const nextAvailIdx = availableSlots.findIndex(s => s.available);
 
-  const retryFetchSlots = () => fetchSlots(place.place_id, today, timeSlots, slotCapacity);
+  const retryFetchSlots = () => fetchSlots(place.place_id, selectedDate, timeSlots, slotCapacity);
 
   // For deposit-required places, unauthenticated users can't pay — show login prompt
-  if (place.deposit_amount != null && !session) {
+  if (effectiveDeposit != null && effectiveDeposit > 0 && !session) {
     return (
       <View style={s.emptyState}>
         <View style={s.emptyIcon}>
@@ -669,15 +750,6 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
 
   return (
     <View style={{ gap: 16 }}>
-      {place.deposit_amount != null && place.deposit_amount > 0 && (
-        <View style={s.depositBanner}>
-          <Ionicons name="card-outline" size={14} color={C.amber} />
-          <Text style={s.depositBannerText}>
-            Захиалгын баталгааны төлбөр: ₮{place.deposit_amount.toLocaleString()}
-          </Text>
-        </View>
-      )}
-
       {paymentIntent && (
         <PaymentModal
           visible={showPaymentModal}
@@ -691,7 +763,7 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
           onExpired={() => {
             setShowPaymentModal(false);
             clearPaymentIntent();
-            fetchSlots(place.place_id, today, timeSlots, slotCapacity);
+            fetchSlots(place.place_id, selectedDate, timeSlots, slotCapacity);
           }}
           onCancel={() => {
             setShowPaymentModal(false);
@@ -710,6 +782,76 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
         </View>
       )}
 
+      {/* Service picker — only rendered when the place actually has services
+          configured. Empty list → fall back to legacy "general booking" UX
+          so we don't show an empty section. */}
+      {(loadingServices || services.length > 0) && (
+        <View>
+          <Text style={s.sectionLabel}>ҮЙЛЧИЛГЭЭ</Text>
+          {loadingServices ? (
+            <ActivityIndicator size="small" color={C.primaryLt} style={{ alignSelf: 'flex-start' }} />
+          ) : (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingRight: 8 }}
+            >
+              {services.map(sv => {
+                const sel = sv.id === selectedServiceId;
+                return (
+                  <TouchableOpacity
+                    key={sv.id}
+                    onPress={() => setSelectedServiceId(sv.id)}
+                    activeOpacity={0.7}
+                    style={[s.serviceBtn, sel && s.serviceBtnSel]}
+                  >
+                    <Text style={[s.serviceName, sel && s.serviceNameSel]} numberOfLines={1}>
+                      {sv.name}
+                    </Text>
+                    <Text style={[s.serviceMeta, sel && s.serviceMetaSel]} numberOfLines={1}>
+                      {sv.duration_minutes ? `${sv.duration_minutes} мин` : 'Хугацаа тогтохгүй'}
+                      {sv.price != null ? `  ·  ₮${Number(sv.price).toLocaleString()}` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+      )}
+
+      {/* Date picker — was hardcoded to today; now spans 14 days so the user
+          can book ahead. The selected date drives slot availability and the
+          "next available" label below. */}
+      <View>
+        <Text style={s.sectionLabel}>ОГНОО</Text>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{ gap: 8, paddingRight: 8 }}
+        >
+          {dateOptions.map(d => {
+            const sel = d.iso === selectedDate;
+            return (
+              <TouchableOpacity
+                key={d.iso}
+                onPress={() => { if (!d.isClosed) { setSelectedDate(d.iso); setSelectedSlotIdx(0); } }}
+                activeOpacity={d.isClosed ? 1 : 0.7}
+                disabled={d.isClosed}
+                style={[s.dateBtn, sel && s.dateBtnSel, d.isClosed && s.dateBtnClosed]}
+              >
+                <Text style={[s.dateLabel, sel && s.dateLabelSel, d.isClosed && s.dateLabelClosed]} numberOfLines={1}>
+                  {d.label}
+                </Text>
+                <Text style={[s.dateSub, sel && s.dateSubSel, d.isClosed && s.dateLabelClosed]} numberOfLines={1}>
+                  {d.isClosed ? 'Хаалттай' : d.sub}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
       <View style={s.nextSlotBanner}>
         <View>
           <Text style={s.nextSlotLabel}>Дараагийн боломжит цаг</Text>
@@ -719,8 +861,8 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
               : error
                 ? 'Боломжит цагийг шалгаж чадсангүй'
                 : nextAvailIdx >= 0
-                  ? `Өнөөдөр, ${availableSlots[nextAvailIdx].slot}`
-                  : 'Өнөөдөр захиалга дүүрсэн'}
+                  ? `${selectedDate === todayIso ? 'Өнөөдөр' : selectedDate}, ${availableSlots[nextAvailIdx].slot}`
+                  : `${selectedDate === todayIso ? 'Өнөөдөр' : selectedDate} захиалга дүүрсэн`}
           </Text>
         </View>
         {loadingSlots
@@ -730,7 +872,7 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
       </View>
 
       <View>
-        <Text style={s.sectionLabel}>ӨНӨӨДРИЙН ЦАГИЙН ХУВААРЬ</Text>
+        <Text style={s.sectionLabel}>ЦАГИЙН ХУВААРЬ</Text>
         <View style={s.slotGrid}>
           {availableSlots.map((item, i) => {
             const unavail = !item.available;
@@ -770,6 +912,39 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
           })}
         </View>
       </View>
+
+      {/* Cost summary — only shown when at least one of service price or deposit is known */}
+      {(selectedService?.price != null || effectiveDeposit != null) && (
+        <View style={s.costSummary}>
+          {selectedService?.price != null && (
+            <View style={s.costSummaryRow}>
+              <Text style={s.costSummaryKey}>
+                {selectedService.name} үнэ
+              </Text>
+              <Text style={s.costSummaryVal}>
+                ₮{Number(selectedService.price).toLocaleString()}
+              </Text>
+            </View>
+          )}
+          {effectiveDeposit != null && effectiveDeposit > 0 && (
+            <View style={s.costSummaryRow}>
+              <Text style={s.costSummaryKey}>Баталгааны төлбөр (одоо)</Text>
+              <Text style={[s.costSummaryVal, { color: C.amber }]}>
+                ₮{effectiveDeposit.toLocaleString()}
+              </Text>
+            </View>
+          )}
+          {selectedService?.price != null && effectiveDeposit != null &&
+           Number(selectedService.price) > effectiveDeposit && (
+            <View style={s.costSummaryRow}>
+              <Text style={s.costSummaryKey}>Газар дээр төлөх</Text>
+              <Text style={s.costSummaryVal}>
+                ₮{(Number(selectedService.price) - effectiveDeposit).toLocaleString()}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       <Div />
 
@@ -821,7 +996,7 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
             {(submitting || initiatingPayment)
               ? <ActivityIndicator size="small" color="#fff" />
               : <Text style={s.ctaPrimaryText}>
-                  {place.deposit_amount != null ? 'Төлбөр хийх' : 'Захиалгыг баталгаажуулах'}
+                  {effectiveDeposit != null && effectiveDeposit > 0 ? 'Төлбөр хийх' : 'Захиалгыг баталгаажуулах'}
                 </Text>
             }
           </TouchableOpacity>
@@ -1519,6 +1694,78 @@ const s = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
+
+  // Service chip — wider than slots to fit name + price/duration sub-line.
+  serviceBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: C.border,
+    minWidth: 140,
+    maxWidth: 240,
+  },
+  serviceBtnSel: {
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+  },
+  serviceName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.text,
+    marginBottom: 2,
+  },
+  serviceNameSel: {
+    color: '#fff',
+  },
+  serviceMeta: {
+    fontSize: 11,
+    color: C.textSec,
+  },
+  serviceMetaSel: {
+    color: 'rgba(255,255,255,0.85)',
+  },
+
+  // Date chip — compact, two-line label ("Өнөөдөр" + "5/20") so weekdays
+  // stay readable even after the user scrolls past the named days.
+  dateBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.07)',
+    borderWidth: 1,
+    borderColor: C.border,
+    alignItems: 'center',
+    minWidth: 72,
+  },
+  dateBtnSel: {
+    backgroundColor: C.primary,
+    borderColor: C.primary,
+  },
+  dateBtnClosed: {
+    opacity: 0.35,
+  },
+  dateLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.text,
+  },
+  dateLabelSel: {
+    color: '#fff',
+  },
+  dateLabelClosed: {
+    color: C.textMuted,
+    fontWeight: '400',
+  },
+  dateSub: {
+    fontSize: 11,
+    color: C.textSec,
+    marginTop: 2,
+  },
+  dateSubSel: {
+    color: 'rgba(255,255,255,0.85)',
+  },
   slotBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -1765,6 +2012,31 @@ const s = StyleSheet.create({
   reportBtnText: {
     fontSize: 12,
     color: C.textMuted,
+  },
+
+  costSummary: {
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: C.borderSub,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 8,
+  },
+  costSummaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  costSummaryKey: {
+    fontSize: 12,
+    color: C.textMuted,
+    flex: 1,
+  },
+  costSummaryVal: {
+    fontSize: 12,
+    color: C.textSec,
+    fontWeight: '600',
   },
 
   confirmCta: {

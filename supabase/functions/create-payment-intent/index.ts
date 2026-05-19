@@ -33,7 +33,7 @@ Deno.serve(async (req) => {
     const {
       idempotencyKey,
       placeId, date, timeSlot, partySize,
-      guestName, guestPhone, service, durationMinutes,
+      guestName, guestPhone, service, serviceId, durationMinutes,
       applyCreditMnt,
     } = body
     const requestedCredit = Math.max(0, Number(applyCreditMnt) || 0)
@@ -107,7 +107,21 @@ Deno.serve(async (req) => {
     if (placeErr || !place) {
       return new Response('Place not found', { status: 404 })
     }
-    if (place.deposit_amount == null || place.deposit_amount <= 0) {
+
+    // Resolve the deposit amount: per-service deposit takes priority over
+    // the place-level default so owners can price deposits individually.
+    let effectiveDeposit: number | null = place.deposit_amount
+    if (serviceId) {
+      const { data: svc } = await db
+        .from('services')
+        .select('deposit')
+        .eq('id', serviceId)
+        .eq('place_id', placeId)
+        .maybeSingle()
+      if (svc?.deposit != null) effectiveDeposit = svc.deposit
+    }
+
+    if (effectiveDeposit == null || effectiveDeposit <= 0) {
       return new Response(
         'This place does not require a deposit — use the standard booking flow',
         { status: 400 },
@@ -161,7 +175,7 @@ Deno.serve(async (req) => {
         hold_id:         holdId,
         place_id:        placeId,
         user_id:         callerId,
-        amount:          place.deposit_amount,
+        amount:          effectiveDeposit,
         idempotency_key: idempotencyKey ?? null,
       })
       .select('id')
@@ -185,7 +199,7 @@ Deno.serve(async (req) => {
       else creditApplied = Number(c) || 0
     }
 
-    const qpayAmount = Math.max(0, place.deposit_amount - creditApplied)
+    const qpayAmount = Math.max(0, effectiveDeposit - creditApplied)
 
     // If credit covers the full deposit, skip QPay and confirm immediately.
     if (qpayAmount === 0) {
@@ -201,7 +215,7 @@ Deno.serve(async (req) => {
         p_guest_phone:    guestPhone ?? null,
         p_service:        service ?? null,
         p_duration_mins:  durationMinutes ?? null,
-        p_deposit_amount: place.deposit_amount,
+        p_deposit_amount: effectiveDeposit,
       })
       if (confirmErr) {
         console.error('confirm_credit_only_booking failed', confirmErr)
@@ -214,7 +228,7 @@ Deno.serve(async (req) => {
           bookingId,
           creditApplied,
           amount:           0,
-          originalDeposit:  place.deposit_amount,
+          originalDeposit:  effectiveDeposit,
         }),
         { headers: { 'Content-Type': 'application/json' } },
       )
@@ -246,7 +260,7 @@ Deno.serve(async (req) => {
         holdId:          holdId,
         holdExpiresAt,
         amount:          qpayAmount,
-        originalDeposit: place.deposit_amount,
+        originalDeposit: effectiveDeposit,
         creditApplied,
         qpayQrImage:     invoice.qrImage,
         qpayUrls:        invoice.urls,

@@ -17,6 +17,10 @@ export interface PaymentIntentData {
   qpayUrls: QPayBankLink[];
   creditApplied?: number;
   originalDeposit?: number;
+  // Populated client-side before opening PaymentModal so the modal can show
+  // which service + price the customer is booking.
+  serviceName?: string;
+  servicePrice?: number;
 }
 
 export interface CreditOnlyResult {
@@ -175,12 +179,21 @@ export function useBooking() {
     guestName: string;
     guestPhone?: string;
     service?: string;
+    serviceId?: string;
     durationMinutes?: number;
     applyCreditMnt?: number;
   }): Promise<PaymentIntentData | CreditOnlyResult | null> => {
     setInitiatingPayment(true);
     setError(null);
     try {
+      // Same preflight as submitBooking — the deposit path was missing this,
+      // so a salon with slot_capacity=1 booking party_size=2 went all the way
+      // to the server only to come back as a generic "slot_full" 409.
+      const slotData = slots.find(s => s.slot === params.timeSlot);
+      if (slotData && params.partySize > slotData.remaining) {
+        setError(`Энэ цагт ${slotData.remaining} хүний сул суудал байна.`);
+        return null;
+      }
       if (!idempotencyKeyRef.current) {
         idempotencyKeyRef.current = generateIdempotencyKey();
       }
@@ -194,20 +207,59 @@ export function useBooking() {
           guestName:       params.guestName,
           guestPhone:      params.guestPhone ?? null,
           service:         params.service ?? null,
+          serviceId:       params.serviceId ?? null,
           durationMinutes: params.durationMinutes ?? null,
           applyCreditMnt:  Math.max(0, params.applyCreditMnt ?? 0),
         },
       });
-      if (err) throw err;
-      if (data?.error === 'slot_full') {
-        setError(data.message ?? 'Уучлаарай, энэ цаг захиалгаар дүүрсэн байна.');
-        return null;
-      }
-      if (data?.error === 'idempotency_key_stale') {
-        // The prior hold tied to this key has expired. Reset the key so the
-        // next attempt creates a fresh hold + invoice.
-        idempotencyKeyRef.current = null;
-        setError(data.message ?? 'Захиалгын хугацаа дууссан байна. Дахин оролдоно уу.');
+      // supabase-js sets `data` to null on any non-2xx — so the structured
+      // 4xx/409 bodies the edge function returns (slot_full,
+      // idempotency_key_stale, "place doesn't require deposit", etc.) arrive
+      // here as `err`, not as `data`. Pull the body off the FunctionsHttpError
+      // before falling back to the generic message, otherwise every server
+      // error looks identical to the user.
+      if (err) {
+        const parsed = await parseFunctionError(err);
+        if (parsed?.error === 'slot_full') {
+          setError(parsed.message ?? 'Уучлаарай, энэ цаг захиалгаар дүүрсэн байна.');
+          return null;
+        }
+        if (parsed?.error === 'idempotency_key_stale') {
+          idempotencyKeyRef.current = null;
+          setError(parsed.message ?? 'Захиалгын хугацаа дууссан байна. Дахин оролдоно уу.');
+          return null;
+        }
+        if (parsed?.error === 'already_paid') {
+          setError('Энэ захиалга аль хэдийн төлөгдсөн байна.');
+          return null;
+        }
+        if (parsed?.bodyText?.includes('does not require a deposit')) {
+          setError('Энэ газар баталгааны төлбөр шаарддаггүй. Хуудсыг шинэчилнэ үү.');
+          return null;
+        }
+        if (parsed?.bodyText === 'Place not found' || parsed?.status === 404) {
+          setError('Газрын мэдээлэл олдсонгүй.');
+          return null;
+        }
+        if (parsed?.status === 401) {
+          setError('Захиалга үүсгэхийн тулд дахин нэвтэрнэ үү.');
+          return null;
+        }
+        // Unknown failure — usually a 500 from the edge function (QPay token
+        // failed, DB error, etc.) or a network blip. Log the full payload for
+        // dev console, and surface a *diagnostic* message to the UI so the
+        // developer/owner can see the actual reason instead of guessing. This
+        // is what kept the demo-salon error opaque in early testing — every
+        // QPay misconfiguration looked identical to a slot-full collision.
+        console.warn('create-payment-intent failed', parsed);
+        const hint =
+          parsed?.message ||
+          (typeof parsed?.error === 'string' ? parsed.error : null) ||
+          parsed?.bodyText ||
+          'тодорхойгүй алдаа';
+        const trimmedHint = String(hint).slice(0, 160);
+        const statusBits = parsed?.status ? ` (${parsed.status})` : '';
+        setError(`Төлбөрийн мэдээлэл бэлдэхэд алдаа гарлаа${statusBits}: ${trimmedHint}`);
         return null;
       }
       // Credit covered the full deposit — booking is already created server-side.
@@ -220,12 +272,17 @@ export function useBooking() {
       setPaymentIntent(intent);
       return intent;
     } catch (e: any) {
-      setError('Төлбөрийн мэдээлэл бэлдэхэд алдаа гарлаа. Дахин оролдоно уу.');
+      // Network failure / fetch threw before we got a Response. Include the
+      // raw exception message so the user (and Sentry, if present) can see
+      // the real cause — empty toast is the worst possible debugging UX.
+      console.warn('initiatePaymentBooking threw:', e);
+      const msg = String(e?.message ?? e ?? 'unknown').slice(0, 160);
+      setError(`Сүлжээний алдаа: ${msg}`);
       return null;
     } finally {
       setInitiatingPayment(false);
     }
-  }, []);
+  }, [slots]);
 
   const clearPaymentIntent = useCallback(() => {
     setPaymentIntent(null);
@@ -328,6 +385,33 @@ export function generateTimeSlots(
 export function todayDateString(): string {
   const mnt = new Date(Date.now() + 8 * 60 * 60 * 1000);
   return mnt.toISOString().split('T')[0];
+}
+
+// Pull a structured error out of a FunctionsHttpError. supabase-js stows the
+// raw Response on `.context` (or in older builds on `.response`). We try JSON
+// first because that's what create-payment-intent returns for the cases the
+// caller actually wants to branch on (slot_full, idempotency_key_stale,
+// already_paid), and fall back to text so plain-string 4xx bodies still come
+// through readable.
+async function parseFunctionError(err: any): Promise<{
+  status?: number;
+  error?: string;
+  message?: string;
+  bodyText?: string;
+} | null> {
+  const res: Response | undefined = err?.context ?? err?.response;
+  if (!res || typeof res.clone !== 'function') return null;
+  try {
+    const text = await res.clone().text();
+    try {
+      const json = JSON.parse(text);
+      return { status: res.status, ...json, bodyText: text };
+    } catch {
+      return { status: res.status, bodyText: text };
+    }
+  } catch {
+    return { status: res.status };
+  }
 }
 
 // crypto.randomUUID is available on Hermes/JSC in recent RN; the timestamp

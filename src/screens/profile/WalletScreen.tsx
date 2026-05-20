@@ -17,8 +17,8 @@ import { useSupabase, supabase } from '../../context/SupabaseContext';
 import type { Palette } from '../../theme/palettes';
 import type { AppStackParamList } from '../../navigation';
 
-const WITHDRAW_THRESHOLD_MNT = 50_000;
-const DAILY_CAP_MNT          = 2_000;
+const WITHDRAW_THRESHOLD_MNT = 20_000;
+const DAILY_CAP_MNT          = 1_500;
 
 type Props = { navigation: NativeStackNavigationProp<AppStackParamList, 'Wallet'> };
 
@@ -203,7 +203,7 @@ export default function WalletScreen({ navigation }: Props) {
         )}
 
         <Text style={s.legalNote}>
-          Замын түгжрэлийн орлого: минут тутамд ₮20, өдөрт хамгийн ихдээ ₮{DAILY_CAP_MNT.toLocaleString()}. ₮{WITHDRAW_THRESHOLD_MNT.toLocaleString()}-аас банк руу шилжүүлэх боломжтой.
+          Замын түгжрэлийн орлого: минут тутамд ₮15, өдөрт хамгийн ихдээ ₮{DAILY_CAP_MNT.toLocaleString()}. ₮{WITHDRAW_THRESHOLD_MNT.toLocaleString()}-аас банк руу шилжүүлэх боломжтой.
         </Text>
       </ScrollView>
     </SafeAreaView>

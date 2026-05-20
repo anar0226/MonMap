@@ -723,6 +723,17 @@ function exportCsv() {
     return;
   }
 
+  if (!biz.verified) {
+    document.getElementById('custTableBody').innerHTML = `<tr><td colspan="6">
+      <div class="empty-state" style="padding:48px 0;">
+        <div class="empty-icon">⏳</div>
+        <h4>Баталгаажуулалт хүлээгдэж байна</h4>
+        <p>Таны бизнес МонМэп-ийн багийн хяналтад байна. Баталгаажсаны дараа харилцагчдын мэдээлэл харагдана.</p>
+      </div>
+    </td></tr>`;
+    return;
+  }
+
   // Load pending badge
   try {
     const { count } = await _sb.from('bookings')

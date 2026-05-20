@@ -47,7 +47,13 @@ export function SupabaseProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      // PASSWORD_RECOVERY means verifyOtp({ type: 'recovery' }) just succeeded.
+      // The user is still on ForgotPasswordScreen and hasn't set a new password yet —
+      // applying the session here would kick them to AppNavigator prematurely.
+      // Let ForgotPasswordScreen finish the flow; USER_UPDATED fires after updateUser()
+      // and will be handled normally.
+      if (event === 'PASSWORD_RECOVERY') return;
       applySession(session);
     });
 

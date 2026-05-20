@@ -145,10 +145,11 @@
       <div class="modal-body">
         <p style="color:var(--gray-600);margin-bottom:20px;">Бүртгэлтэй и-мэйл хаягаа оруулна уу. Нууц үг сэргээх
           холбоос илгээнэ.</p>
-        <div class="form-group" style="margin-bottom:0;">
+        <div class="form-group">
           <label class="form-label">И-мэйл хаяг</label>
           <input type="email" class="form-control" placeholder="example@business.mn" />
         </div>
+        <div id="hcaptcha-forgot-widget"></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="closeForgot()">Цуцлах</button>
@@ -168,11 +169,16 @@
     // and the manual window.hcaptcha check can both fire; the guard prevents
     // the "Only one captcha per container" duplicate-render error.
     let _hcaptchaWidgetId = null;
+    let _hcaptchaForgotWidgetId = null;
     window.onHcaptchaLoad = function () {
-      if (_hcaptchaWidgetId !== null) return;
-      const container = document.getElementById('hcaptcha-widget');
-      if (!container) return;
-      _hcaptchaWidgetId = hcaptcha.render(container, { sitekey: window._HCAPTCHA_SITE_KEY });
+      if (_hcaptchaWidgetId === null) {
+        const container = document.getElementById('hcaptcha-widget');
+        if (container) _hcaptchaWidgetId = hcaptcha.render(container, { sitekey: window._HCAPTCHA_SITE_KEY });
+      }
+      if (_hcaptchaForgotWidgetId === null) {
+        const forgotContainer = document.getElementById('hcaptcha-forgot-widget');
+        if (forgotContainer) _hcaptchaForgotWidgetId = hcaptcha.render(forgotContainer, { sitekey: window._HCAPTCHA_SITE_KEY });
+      }
     };
     if (window.hcaptcha) window.onHcaptchaLoad();
 
@@ -261,9 +267,16 @@
       const emailInput = document.querySelector('#forgotModal input[type="email"]');
       const email = emailInput ? emailInput.value.trim() : '';
       if (!email) { showToast('error', 'Алдаа', 'И-мэйл хаяг оруулна уу.'); return; }
+
+      const captchaToken = _hcaptchaForgotWidgetId !== null ? hcaptcha.getResponse(_hcaptchaForgotWidgetId) : '';
+      if (!captchaToken) { showToast('error', 'Алдаа', 'Хүний баталгаажуулалтыг бөглөнө үү.'); return; }
+
       const { error } = await _sb.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://monmap.net/reset-password.html'
+        redirectTo: 'https://monmap.net/reset-password.html',
+        captchaToken,
       });
+
+      try { hcaptcha.reset(_hcaptchaForgotWidgetId); } catch (_) {}
       closeForgot();
       if (error) {
         showToast('error', 'Алдаа', error.message);

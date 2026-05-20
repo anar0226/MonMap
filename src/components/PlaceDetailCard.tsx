@@ -496,9 +496,6 @@ function buildDateOptions(
 
 const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) => {
   const todayIso = todayDateString();
-  // slot_capacity is total covers (sum of party_size) allowed per 30-min slot.
-  // DB column is NOT NULL default 8; ?? fallback is a safety net only.
-  const slotCapacity = place.slot_capacity ?? 8;
   const hours =
     (place.booking_open_hour != null && place.booking_close_hour != null)
       ? { openHour: place.booking_open_hour, closeHour: place.booking_close_hour }
@@ -543,6 +540,12 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
   const effectiveDeposit: number | null =
     selectedService?.deposit != null ? selectedService.deposit : place.deposit_amount;
 
+  // Capacity (max concurrent bookings per slot) is per-service when a service
+  // is configured, otherwise the place-level fallback (DB default is 1).
+  // The `?? 1` is a final safety net for legacy places where slot_capacity is null.
+  const slotCapacity =
+    selectedService?.max_capacity ?? place.slot_capacity ?? 1;
+
   // Last-seating buffer: prefer the picked service's own duration (so a
   // 30-min haircut isn't capped by a 60-min default). Falls back to the
   // category map until places.slot_duration_minutes lands in the schema.
@@ -578,10 +581,10 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
 
   useEffect(() => {
     if (isBookable) fetchSlots(place.place_id, selectedDate, timeSlots, slotCapacity);
-    // Re-fetch whenever the date or the time-slot grid (driven by service
-    // duration) changes — both alter what "available" means.
+    // Re-fetch whenever the date, the time-slot grid (service duration), or
+    // the capacity (service switch) changes — all three alter "available".
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [place.place_id, isBookable, selectedDate, slotDurationMinutes]);
+  }, [place.place_id, isBookable, selectedDate, slotDurationMinutes, slotCapacity]);
 
   // Re-fetch slots when the user expands the booking form, and every 60s
   // while it's open. Without this, a user who takes 5 minutes to fill in
@@ -596,7 +599,7 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     }, 60_000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isBookable, showForm, place.place_id, selectedDate, slotDurationMinutes]);
+  }, [isBookable, showForm, place.place_id, selectedDate, slotDurationMinutes, slotCapacity]);
 
   // Request notification permissions when user opens the booking tab.
   // We surface the *result* in the form copy below so a user with denied

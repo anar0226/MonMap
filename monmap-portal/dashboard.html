@@ -333,7 +333,7 @@
           <div class="schedule-service">${escapeHtml(b.service)} • ${escapeHtml(b.duration)} мин</div>
         </div>
         <div class="schedule-actions">
-          ${statusBadge(b.status)}
+          ${statusBadge(b.status, b.cancelledBy)}
           ${b.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="quickConfirm('${escapeHtml(b.id)}')">✓</button>` : ''}
         </div>
       </div>
@@ -372,7 +372,7 @@
           <div style="font-weight:600;">${escapeHtml(relativeDate(b.date))}</div>
           <div style="font-size:0.8125rem;color:var(--gray-500);">${escapeHtml(b.time)} • ${escapeHtml(b.duration)} мин</div>
         </td>
-        <td>${statusBadge(b.status)}</td>
+        <td>${statusBadge(b.status, b.cancelledBy)}</td>
         <td>
           <button class="btn btn-ghost btn-sm" onclick="openBookingModal('${escapeHtml(b.id)}')">Харах</button>
           ${b.status === 'pending' ? `<button class="btn btn-success btn-sm" onclick="quickConfirm('${escapeHtml(b.id)}')">✓ Батлах</button>` : ''}
@@ -400,7 +400,7 @@
         <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Хугацаа</div><div class="font-semibold">${escapeHtml(b.duration)} минут</div></div>
         <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Огноо</div><div class="font-semibold">${escapeHtml(formatDate(b.date))}</div></div>
         <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Цаг</div><div class="font-semibold">${escapeHtml(b.time)}</div></div>
-        <div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Төлөв</div>${statusBadge(b.status)}</div>
+        <div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Төлөв</div>${statusBadge(b.status, b.cancelledBy)}</div>
         ${b.note ? `<div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Тэмдэглэл</div><div>${escapeHtml(b.note)}</div></div>` : ''}
       </div>`;
   }

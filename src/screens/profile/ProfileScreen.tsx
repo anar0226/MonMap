@@ -370,13 +370,13 @@ export default function ProfileScreen({ navigation }: Props) {
             let failed = false;
             if (hasDeposit) {
               const { error } = await supabase.functions.invoke('cancel-booking', {
-                body: { bookingId },
+                body: { bookingId, cancelledBy: 'customer' },
               });
               if (error) failed = true;
             } else {
               const { error } = await supabase
                 .from('bookings')
-                .update({ status: 'cancelled' })
+                .update({ status: 'cancelled', cancelled_by: 'customer' })
                 .eq('id', bookingId)
                 .eq('user_id', user?.id ?? '');
               if (error) failed = true;

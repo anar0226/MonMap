@@ -27,6 +27,7 @@ interface Booking {
   party_size: number;
   guest_name: string;
   status: string;
+  cancelled_by: 'customer' | 'business' | 'system' | null;
   created_at: string;
   deposit_amount: number | null;
   payment_id: string | null;
@@ -64,14 +65,14 @@ export default function BookingsScreen({ navigation }: Props) {
             if (hasDeposit) {
               // Use edge function — it handles the QPay refund based on timing policy
               const { error } = await supabase.functions.invoke('cancel-booking', {
-                body: { bookingId: b.id },
+                body: { bookingId: b.id, cancelledBy: 'customer' },
               });
               if (error) failed = true;
             } else {
               // Standard free booking — direct DB update
               const { error } = await supabase
                 .from('bookings')
-                .update({ status: 'cancelled' })
+                .update({ status: 'cancelled', cancelled_by: 'customer' })
                 .eq('id', b.id);
               if (error) {
                 failed = true;
@@ -103,7 +104,7 @@ export default function BookingsScreen({ navigation }: Props) {
       try {
         const { data, error } = await supabase
           .from('bookings')
-          .select('id, place_id, booked_date, time_slot, party_size, guest_name, status, created_at, deposit_amount, payment_id')
+          .select('id, place_id, booked_date, time_slot, party_size, guest_name, status, cancelled_by, created_at, deposit_amount, payment_id')
           .eq('user_id', session.user.id)
           .order('created_at', { ascending: false })
           .limit(50);
@@ -195,7 +196,7 @@ export default function BookingsScreen({ navigation }: Props) {
                   <Text style={s.cardName} numberOfLines={1}>{b.place_name ?? b.place_id}</Text>
                   <Text style={s.cardDate}>{b.booked_date} · {b.time_slot}</Text>
                 </View>
-                <StatusBadge status={b.status} />
+                <StatusBadge status={b.status} cancelledBy={b.cancelled_by} />
               </View>
               <View style={s.cardDetails}>
                 <Text style={s.detailText}>👤 {b.guest_name}</Text>
@@ -220,7 +221,7 @@ export default function BookingsScreen({ navigation }: Props) {
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({ status, cancelledBy }: { status: string; cancelledBy?: string | null }) {
   const { colors } = useTheme();
   const isConfirmed = status === 'confirmed';
   const isCancelled = status === 'cancelled';
@@ -243,7 +244,7 @@ function StatusBadge({ status }: { status: string }) {
     : colors.textSec;
 
   const label = isConfirmed ? 'Баталгаажсан'
-    : isCancelled ? 'Татгалзсан'
+    : isCancelled ? (cancelledBy === 'customer' ? 'Цуцлагдсан (хэрэглэгч)' : 'Цуцлагдсан')
     : isPending   ? 'Хүлээгдэж байна'
     : isExpired   ? 'Хариу ирээгүй'
     : status;

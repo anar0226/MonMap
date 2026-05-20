@@ -664,7 +664,7 @@ async function openModal(key) {
         <span class="hist-date">${escapeHtml(formatDate(b.date).replace(' он, ', ' / ').replace('-ны өдөр', ''))}</span>
         <span class="hist-service">${escapeHtml(b.service || '—')}</span>
         <span class="hist-time">${escapeHtml(b.time)}</span>
-        ${statusBadge(b.status)}
+        ${statusBadge(b.status, b.cancelledBy)}
       </div>`).join('')
     : '<div class="empty-state" style="padding:24px 0"><div class="empty-icon">📭</div><p>Захиалга байхгүй</p></div>';
   const body = document.getElementById('custHistoryBody');

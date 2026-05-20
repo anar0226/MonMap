@@ -40,8 +40,19 @@ Deno.serve(async (req) => {
       callerId = userData.user.id
     }
 
-    const { bookingId, reason = 'user_cancel' } = await req.json()
+    const { bookingId, reason = 'user_cancel', cancelledBy } = await req.json()
     if (!bookingId) return new Response('Missing bookingId', { status: 400 })
+
+    // Derive cancelled_by if the caller didn't supply it explicitly:
+    //   - service-role calls default to 'system' (cron jobs etc.)
+    //   - reason='no_show' / 'owner_cancel' come from the owner portal
+    //   - everything else from a real user JWT is the customer themselves
+    const resolvedCancelledBy: 'customer' | 'business' | 'system' =
+      cancelledBy === 'customer' || cancelledBy === 'business' || cancelledBy === 'system'
+        ? cancelledBy
+        : isServiceRole
+          ? 'system'
+          : (reason === 'no_show' || reason === 'owner_cancel') ? 'business' : 'customer'
 
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
@@ -113,7 +124,7 @@ Deno.serve(async (req) => {
     // Cancel the booking
     await db
       .from('bookings')
-      .update({ status: 'cancelled' })
+      .update({ status: 'cancelled', cancelled_by: resolvedCancelledBy })
       .eq('id', bookingId)
 
     // Notify owner fire-and-forget

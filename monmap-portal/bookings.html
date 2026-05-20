@@ -394,7 +394,7 @@
         <td style="font-size:0.9rem;">${escapeHtml(b.service)}</td>
         <td><span style="font-weight:600;">${escapeHtml(b.time)}</span></td>
         <td style="font-size:0.875rem;">${escapeHtml(b.duration)} мин</td>
-        <td>${statusBadge(b.status)}</td>
+        <td>${statusBadge(b.status, b.cancelledBy)}</td>
         <td>
           <div class="booking-row-actions">
             <button class="btn btn-ghost btn-sm" onclick="openDetail('${escapeHtml(b.id)}')">Харах</button>
@@ -453,7 +453,7 @@
         <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Хугацаа</div><div class="font-semibold">${escapeHtml(b.duration)} минут</div></div>
         <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Огноо</div><div class="font-semibold">${escapeHtml(formatDate(b.date))}</div></div>
         <div><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Цаг</div><div class="font-semibold">${escapeHtml(b.time)}</div></div>
-        <div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Төлөв</div>${statusBadge(b.status)}</div>
+        <div style="grid-column:1/-1;"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Төлөв</div>${statusBadge(b.status, b.cancelledBy)}</div>
         ${b.note ? `<div style="grid-column:1/-1;background:var(--gray-50);padding:12px;border-radius:var(--radius);"><div class="text-xs text-muted" style="text-transform:uppercase;font-weight:700;letter-spacing:.04em;margin-bottom:3px;">Тэмдэглэл</div><div style="font-size:0.9rem;">${escapeHtml(b.note)}</div></div>` : ''}
       </div>`;
     const footer = document.getElementById('detailModalFooter');

@@ -267,6 +267,7 @@ function _mapBooking(b) {
     date:          b.booked_date,
     time:          b.time_slot,
     status:        statusNorm,
+    cancelledBy:   b.cancelled_by ?? null,
     service:       b.service      || '',
     duration:      Math.max(1, parseInt(b.duration_minutes, 10) || 60),
     note:          b.note         || '',
@@ -439,10 +440,12 @@ async function retryStuckOwnerNotify(placeId) {
 // cancel-booking edge function which handles the time-based refund policy.
 // Pass reason='no_show' to keep the deposit regardless of timing.
 async function cancelAndNotify(id, reason, { depositAmount, paymentId } = {}) {
+  // All portal cancellations come from the venue owner — tag them as 'business'
+  // so the bookings list can distinguish "owner cancelled" from "customer cancelled".
   if (depositAmount != null && paymentId) {
     // Edge function handles status update + optional QPay refund + notify-booking
     const { error } = await _sb.functions.invoke('cancel-booking', {
-      body: { bookingId: id, reason: reason || 'user_cancel' },
+      body: { bookingId: id, reason: reason || 'owner_cancel', cancelledBy: 'business' },
     });
     if (error) return error;
     // Also notify guest of cancellation
@@ -451,8 +454,10 @@ async function cancelAndNotify(id, reason, { depositAmount, paymentId } = {}) {
     return null;
   }
   // Standard free booking — direct DB update
-  const err = await updateBookingStatus(id, 'cancelled');
-  if (err) return err;
+  const { error: updErr } = await _sb.from('bookings')
+    .update({ status: 'cancelled', cancelled_by: 'business' })
+    .eq('id', id);
+  if (updErr) return updErr;
   const { error: fnErr } = await _sb.functions.invoke('notify-guest', { body: { bookingId: id, reason } });
   if (fnErr) console.warn('notify-guest:', fnErr);
   return null;
@@ -476,12 +481,18 @@ async function addPortalBooking(placeId, _ownerId, { client, phone, service, dat
 }
 
 // ── Status display ──
-function statusLabel(s) {
+// cancelledBy (optional) qualifies the 'cancelled'/'canceled' label:
+//   'customer' → "Цуцлагдсан (хэрэглэгч)"  — venue owner sees who cancelled
+//   'business' / null → "Цуцлагдсан"        — owner cancelled it themselves
+function statusLabel(s, cancelledBy) {
+  if ((s === 'cancelled' || s === 'canceled') && cancelledBy === 'customer') {
+    return 'Цуцлагдсан (хэрэглэгч)';
+  }
   return { confirmed: 'Баталгаажсан', pending: 'Хүлээгдэж буй', canceled: 'Цуцлагдсан', cancelled: 'Цуцлагдсан', expired: 'Хугацаа дууссан' }[s] || s;
 }
-function statusBadge(s) {
+function statusBadge(s, cancelledBy) {
   const cls = { confirmed: 'badge-success', pending: 'badge-warning', canceled: 'badge-danger', cancelled: 'badge-danger', expired: 'badge-gray' };
-  return `<span class="badge ${cls[s] || 'badge-gray'}">${statusLabel(s)}</span>`;
+  return `<span class="badge ${cls[s] || 'badge-gray'}">${statusLabel(s, cancelledBy)}</span>`;
 }
 
 // ── Date helpers ──

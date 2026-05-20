@@ -240,12 +240,6 @@ export default function MapScreen() {
     cameraRef.current?.fitBounds(ne, sw, [120, 60, 220, 60], 800);
   }, []);
 
-  const handleRequestDirections = useCallback((target: Place) => {
-    setDirectionsTo({ name: target.name, lng: target.lng, lat: target.lat, place_id: target.place_id });
-    clear();
-    setSearchOpen(true);
-  }, [clear]);
-
   const handleRouteRequest = useCallback(async (from: RouteWaypoint, to: RouteWaypoint) => {
     const fromCoord: [number, number] | null =
       from.type === 'current' ? userLocation : [from.lng, from.lat];
@@ -263,6 +257,25 @@ export default function MapScreen() {
     clearRoute();
     await fetchRoute(fromCoord, toCoord);
   }, [userLocation, fetchRoute, clear, clearRoute]);
+
+  // Immediately route from current location — SearchScreen is skipped.
+  // directionsTo is kept so the user can open SearchScreen later to edit.
+  const handleRequestDirections = useCallback((target: Place) => {
+    const to: RouteWaypoint = {
+      type: 'place',
+      place_id: target.place_id,
+      name: target.name,
+      lng: target.lng,
+      lat: target.lat,
+    };
+    setDirectionsTo({ name: target.name, lng: target.lng, lat: target.lat, place_id: target.place_id });
+    clear();
+    handleRouteRequest({ type: 'current', name: 'Таны байршил' }, to);
+  }, [clear, handleRouteRequest]);
+
+  const handleEditRoute = useCallback(() => {
+    setSearchOpen(true);
+  }, []);
 
   const handleCloseRoute = useCallback(() => {
     clearRoute();
@@ -622,6 +635,7 @@ export default function MapScreen() {
           onStart={handleStartNavigation}
           onSelectMode={selectMode}
           onSelectAlternative={selectAlternative}
+          onEditRoute={handleEditRoute}
         />
       )}
 

@@ -42,6 +42,7 @@ interface Props {
   onStart: () => void;
   onSelectMode: (m: TransportMode) => void;
   onSelectAlternative?: (altIdx: number) => void;
+  onEditRoute?: () => void;
 }
 
 function trafficLabel(route: ModeRoute): { color: string; label: string } | null {
@@ -162,6 +163,7 @@ export function DirectionsPanel({
   onStart,
   onSelectMode,
   onSelectAlternative,
+  onEditRoute,
 }: Props) {
   if (!loading && !multi && !error) return null;
 
@@ -181,6 +183,16 @@ export function DirectionsPanel({
             <Text style={s.dest} numberOfLines={1}>{destinationName}</Text>
           )}
         </View>
+        {onEditRoute && (
+          <TouchableOpacity
+            onPress={onEditRoute}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            style={s.editBtn}
+          >
+            <Ionicons name="swap-vertical-outline" size={14} color={C.primaryLt} />
+            <Text style={s.editBtnText}>Эхлэх цэг</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} style={s.closeBtn}>
           <Ionicons name="close" size={18} color={C.textSec} />
         </TouchableOpacity>
@@ -343,6 +355,23 @@ const s = StyleSheet.create({
     fontWeight: '600',
     color: C.text,
     marginTop: 2,
+  },
+  editBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(26,111,196,0.15)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(26,111,196,0.30)',
+    marginRight: 8,
+  },
+  editBtnText: {
+    color: C.primaryLt,
+    fontSize: 11,
+    fontWeight: '600',
   },
   closeBtn: {
     width: 28,

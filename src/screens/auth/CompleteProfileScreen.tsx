@@ -28,7 +28,7 @@ export default function CompleteProfileScreen() {
   async function handleSave() {
     const trimmed = name.trim();
     if (!trimmed) {
-      setError('Нэрээ оруулна уу');
+      setError('Нэвтрэх нэрээ оруулна уу');
       return;
     }
     setError('');
@@ -63,20 +63,20 @@ export default function CompleteProfileScreen() {
             </View>
 
             <Text style={s.intro}>
-              Таны нэрийг оруулна уу. Энэ нь таны профайлд харагдана.
+              Нэвтрэх нэрээ сонго. Энэ нь таны профайлд харагдах хэрэглэгчийн нэр байна.
             </Text>
 
-            <Text style={s.label}>НЭРИЙН ЭХ</Text>
+            <Text style={s.label}>НЭВТРЭХ НЭР</Text>
             <View style={[s.inputWrap, focused && s.inputFocused]}>
               <TextInput
                 style={s.input}
-                placeholder="Бат-Эрдэнэ"
+                placeholder="bat_erdene123"
                 placeholderTextColor={colors.textMuted}
                 value={name}
                 onChangeText={setName}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
-                autoCapitalize="words"
+                autoCapitalize="none"
                 autoFocus
                 returnKeyType="done"
                 onSubmitEditing={handleSave}

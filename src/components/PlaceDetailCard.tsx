@@ -557,14 +557,24 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     [hours?.openHour, hours?.closeHour, slotDurationMinutes],
   );
 
+  // Whether the business has configured this as a solo-only service (one
+  // person per slot). When true the party-size picker is hidden entirely and
+  // partySize is locked to 1 — showing "Хүний тоо" for a haircut or clinic
+  // appointment is confusing and pointless.
+  const isSoloCapacity = slotCapacity <= 1;
+
   const [selectedSlotIdx, setSelectedSlotIdx] = useState(0);
-  const [partySize, setPartySize] = useState(2);
+  const [partySize, setPartySize] = useState(isSoloCapacity ? 1 : 2);
   const [guestName, setGuestName] = useState(defaultName);
   const [guestPhone, setGuestPhone] = useState('');
   const [showForm, setShowForm] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentSucceeded, setPaymentSucceeded] = useState(false);
-  const partySizes: Array<string | number> = [1, 2, 3, 4, '5+'];
+  // Cap picker options to slot_capacity when the owner set a small limit (e.g.
+  // 2–4 seats). For solo or larger venues use the full 1–5+ range.
+  const partySizes: Array<string | number> = slotCapacity >= 5 || isSoloCapacity
+    ? [1, 2, 3, 4, '5+']
+    : Array.from({ length: slotCapacity }, (_, i) => i + 1);
 
   useEffect(() => {
     if (isBookable) fetchSlots(place.place_id, selectedDate, timeSlots, slotCapacity);
@@ -894,55 +904,36 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
         </View>
       </View>
 
-      <View>
-        <Text style={s.sectionLabel}>ХҮНИЙ ТОО</Text>
-        <View style={s.partySizeRow}>
-          {partySizes.map((n, i) => {
-            const sel = i + 1 === partySize || (i === 4 && partySize > 4);
-            return (
-              <TouchableOpacity
-                key={String(n)}
-                onPress={() => setPartySize(i < 4 ? i + 1 : 5)}
-                activeOpacity={0.7}
-                style={[s.sizeBtn, sel && s.sizeBtnSel]}
-              >
-                <Text style={[s.sizeText, sel && s.sizeTextSel]}>{n}</Text>
-              </TouchableOpacity>
-            );
-          })}
+      {!isSoloCapacity && (
+        <View>
+          <Text style={s.sectionLabel}>ХҮНИЙ ТОО</Text>
+          <View style={s.partySizeRow}>
+            {partySizes.map((n, i) => {
+              const sel = i + 1 === partySize || (i === 4 && partySize > 4);
+              return (
+                <TouchableOpacity
+                  key={String(n)}
+                  onPress={() => setPartySize(i < 4 ? i + 1 : 5)}
+                  activeOpacity={0.7}
+                  style={[s.sizeBtn, sel && s.sizeBtnSel]}
+                >
+                  <Text style={[s.sizeText, sel && s.sizeTextSel]}>{n}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
-      </View>
+      )}
 
-      {/* Cost summary — only shown when at least one of service price or deposit is known */}
-      {(selectedService?.price != null || effectiveDeposit != null) && (
+      {/* Cost summary — show booking fee only */}
+      {effectiveDeposit != null && effectiveDeposit > 0 && (
         <View style={s.costSummary}>
-          {selectedService?.price != null && (
-            <View style={s.costSummaryRow}>
-              <Text style={s.costSummaryKey}>
-                {selectedService.name} үнэ
-              </Text>
-              <Text style={s.costSummaryVal}>
-                ₮{Number(selectedService.price).toLocaleString()}
-              </Text>
-            </View>
-          )}
-          {effectiveDeposit != null && effectiveDeposit > 0 && (
-            <View style={s.costSummaryRow}>
-              <Text style={s.costSummaryKey}>Баталгааны төлбөр (одоо)</Text>
-              <Text style={[s.costSummaryVal, { color: C.amber }]}>
-                ₮{effectiveDeposit.toLocaleString()}
-              </Text>
-            </View>
-          )}
-          {selectedService?.price != null && effectiveDeposit != null &&
-           Number(selectedService.price) > effectiveDeposit && (
-            <View style={s.costSummaryRow}>
-              <Text style={s.costSummaryKey}>Газар дээр төлөх</Text>
-              <Text style={s.costSummaryVal}>
-                ₮{(Number(selectedService.price) - effectiveDeposit).toLocaleString()}
-              </Text>
-            </View>
-          )}
+          <View style={s.costSummaryRow}>
+            <Text style={s.costSummaryKey}>Баталгааны төлбөр</Text>
+            <Text style={[s.costSummaryVal, { color: C.amber }]}>
+              ₮{effectiveDeposit.toLocaleString()}
+            </Text>
+          </View>
         </View>
       )}
 

@@ -114,10 +114,6 @@ export default function PaymentModal({ visible, paymentIntent, onSuccess, onExpi
   const ss = String(secondsLeft % 60).padStart(2, '0');
 
   const depositAmount = paymentIntent.amount;
-  const originalPrice = paymentIntent.servicePrice;
-  const remaining     = (originalPrice != null && originalPrice > depositAmount)
-    ? originalPrice - depositAmount
-    : null;
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} statusBarTranslucent>
@@ -149,30 +145,10 @@ export default function PaymentModal({ visible, paymentIntent, onSuccess, onExpi
                 </View>
               )}
 
-              {/* Amount */}
+              {/* Amount — show booking fee only */}
               <View style={s.amountBlock}>
                 <Text style={s.amountLabel}>Баталгааны төлбөр</Text>
                 <Text style={s.amount}>₮{depositAmount.toLocaleString()}</Text>
-
-                {/* Cost breakdown if we know the full service price */}
-                {originalPrice != null && (
-                  <View style={s.costBreakdown}>
-                    <View style={s.costRow}>
-                      <Text style={s.costKey}>Үйлчилгээний үнэ</Text>
-                      <Text style={s.costVal}>₮{originalPrice.toLocaleString()}</Text>
-                    </View>
-                    <View style={s.costRow}>
-                      <Text style={s.costKey}>Одоо төлөх</Text>
-                      <Text style={[s.costVal, { color: C.amber }]}>₮{depositAmount.toLocaleString()}</Text>
-                    </View>
-                    {remaining != null && (
-                      <View style={s.costRow}>
-                        <Text style={s.costKey}>Газар дээр төлөх</Text>
-                        <Text style={s.costVal}>₮{remaining.toLocaleString()}</Text>
-                      </View>
-                    )}
-                  </View>
-                )}
               </View>
 
               {/* Countdown */}

@@ -1295,6 +1295,13 @@
         }
       }
       renderVerifyBanner(_biz);
+
+      // Show a one-time confirmation when arriving from the registration flow.
+      if (new URLSearchParams(location.search).get('onboarded') === '1') {
+        history.replaceState(null, '', 'profile.html');
+        showToast('success', 'Бүртгэл амжилттай',
+          'Таны мэдээллүүд бизнесийн профайлд автоматаар нэмэгдлээ. Үйлчилгээ болон цагийн тохиргоог «Үйлчилгээ & Цаг» хэсгээс харна уу.');
+      }
     } else {
       // No business linked yet — banner stays hidden by removing the
       // .verify-status class entirely.

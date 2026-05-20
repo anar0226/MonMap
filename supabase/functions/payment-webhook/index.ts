@@ -1,63 +1,141 @@
 // QPay payment webhook — called by QPay's servers when a payment is completed.
 // This is the authoritative point where a booking row is created after payment.
 //
-// Security: We verify the payment is genuine by calling QPay's check-payment API
-// rather than relying solely on the webhook body. This prevents fake webhook calls
-// from creating bookings without actual payment.
+// IMPORTANT: This endpoint MUST be deployed with verify_jwt=false. QPay's servers
+// don't have a Supabase JWT and the gateway returns 401 before this handler runs
+// if verify_jwt is on. We do not rely on this endpoint being unauthenticated for
+// security — every callback is independently verified by calling QPay's check API
+// before any booking is created.
+//
+// QPay v2 webhook delivery quirks:
+//   - May be GET or POST depending on merchant config
+//   - GET: payload is in query string (?qpay_payment_id=...&qpay_invoice_id=...&sender_invoice_no=...)
+//   - POST: payload is JSON body with similar fields
+// We accept either shape and extract whatever identifiers are present, then look
+// up our payment row by sender_invoice_no → qpay_invoice_id → (fetch QPay payment
+// to get the invoice id) in that order.
 //
 // Required secrets:
 //   QPAY_CLIENT_ID, QPAY_CLIENT_SECRET, QPAY_INVOICE_CODE
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { checkQPayInvoice, refundQPayPayment } from '../_shared/qpay.ts'
+import { checkQPayInvoice, getQPayPaymentById, refundQPayPayment } from '../_shared/qpay.ts'
 import { reportError } from '../_shared/errors.ts'
 
 const SUPABASE_URL              = Deno.env.get('SUPABASE_URL')!
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
+interface CallbackPayload {
+  qpay_payment_id?: string
+  qpay_invoice_id?: string
+  invoice_id?: string
+  sender_invoice_no?: string
+  payment_status?: string
+  status?: string
+  paid_amount?: number
+}
+
+async function extractPayload(req: Request): Promise<CallbackPayload> {
+  // 1) Pull everything from the URL query string. QPay v2 typically GETs the
+  //    callback with qpay_payment_id (and sometimes the others) as query params.
+  const url = new URL(req.url)
+  const fromQuery: CallbackPayload = {
+    qpay_payment_id:   url.searchParams.get('qpay_payment_id')   ?? undefined,
+    qpay_invoice_id:   url.searchParams.get('qpay_invoice_id')   ?? undefined,
+    invoice_id:        url.searchParams.get('invoice_id')        ?? undefined,
+    sender_invoice_no: url.searchParams.get('sender_invoice_no') ?? undefined,
+    payment_status:    url.searchParams.get('payment_status')    ?? undefined,
+    status:            url.searchParams.get('status')            ?? undefined,
+  }
+
+  // 2) Merge in the JSON body if present (only POST/PUT typically have bodies).
+  let fromBody: CallbackPayload = {}
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    try {
+      const text = await req.text()
+      if (text) fromBody = JSON.parse(text) as CallbackPayload
+    } catch {
+      // Body wasn't valid JSON — fall through with the query-only payload.
+    }
+  }
+
+  return { ...fromQuery, ...fromBody }
+}
+
 Deno.serve(async (req) => {
   try {
-    const body = await req.json()
-
-    // QPay sends: { payment_id, invoice_id, payment_status, paid_amount, sender_invoice_no, ... }
-    const senderInvoiceNo: string = body.sender_invoice_no  // this is our payments.id
-    const qpayInvoiceId:   string = body.invoice_id ?? body.qpay_invoice_id
-
-    if (!senderInvoiceNo && !qpayInvoiceId) {
-      console.warn('payment-webhook: missing invoice identifiers', body)
-      return new Response('Bad Request', { status: 400 })
-    }
-
+    const body = await extractPayload(req)
     const db = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-    // Look up our payment record
-    let query = db.from('payments').select('*')
-    if (senderInvoiceNo) {
-      query = query.eq('id', senderInvoiceNo)
-    } else {
-      query = query.eq('qpay_invoice_id', qpayInvoiceId)
-    }
-    const { data: payment, error: pErr } = await query.single()
+    // Resolve our local payment row from whichever identifiers QPay sent.
+    let payment: Record<string, any> | null = null
+    let qpayInvoiceIdFromLookup: string | null = null
 
-    if (pErr || !payment) {
-      console.warn('payment-webhook: payment record not found', senderInvoiceNo, qpayInvoiceId)
-      // Return 200 so QPay doesn't retry — we don't know this invoice
-      return new Response(JSON.stringify({ ok: true }), {
+    if (body.sender_invoice_no) {
+      const { data } = await db
+        .from('payments')
+        .select('*')
+        .eq('id', body.sender_invoice_no)
+        .maybeSingle()
+      payment = data ?? null
+    }
+
+    if (!payment && (body.qpay_invoice_id || body.invoice_id)) {
+      const inv = body.qpay_invoice_id ?? body.invoice_id!
+      const { data } = await db
+        .from('payments')
+        .select('*')
+        .eq('qpay_invoice_id', inv)
+        .maybeSingle()
+      payment = data ?? null
+    }
+
+    // QPay sometimes sends ONLY qpay_payment_id. Fetch the payment from QPay,
+    // pull out its invoice_id/sender_invoice_no, then look up our row.
+    if (!payment && body.qpay_payment_id) {
+      try {
+        const qpayPayment = await getQPayPaymentById(body.qpay_payment_id)
+        qpayInvoiceIdFromLookup = qpayPayment.invoiceId
+
+        if (qpayPayment.senderInvoiceNo) {
+          const { data } = await db
+            .from('payments')
+            .select('*')
+            .eq('id', qpayPayment.senderInvoiceNo)
+            .maybeSingle()
+          payment = data ?? null
+        }
+        if (!payment && qpayPayment.invoiceId) {
+          const { data } = await db
+            .from('payments')
+            .select('*')
+            .eq('qpay_invoice_id', qpayPayment.invoiceId)
+            .maybeSingle()
+          payment = data ?? null
+        }
+      } catch (lookupErr) {
+        console.warn('payment-webhook: QPay payment lookup failed', lookupErr)
+      }
+    }
+
+    if (!payment) {
+      console.warn('payment-webhook: payment record not found', body)
+      // 200 so QPay doesn't retry — we don't know this invoice.
+      return new Response(JSON.stringify({ ok: true, found: false }), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
-    // Idempotency — QPay may retry; if already paid, acknowledge and stop
+    // Idempotency — if already paid, acknowledge and stop.
     if (payment.status === 'paid') {
       return new Response(JSON.stringify({ ok: true, alreadyProcessed: true }), {
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
-    // Mark non-paid statuses immediately
-    const incomingStatus: string = body.payment_status ?? body.status ?? 'UNKNOWN'
-
+    // Explicit failure from the callback — mark failed and release the hold.
+    const incomingStatus = body.payment_status ?? body.status ?? ''
     if (incomingStatus === 'CANCELLED' || incomingStatus === 'FAILED') {
       await db.from('payments').update({ status: 'failed', webhook_payload: body }).eq('id', payment.id)
       if (payment.hold_id) {
@@ -68,11 +146,17 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Verify the payment is genuine by calling QPay's check API
-    // (this prevents fake webhook calls from creating bookings)
-    const invoiceIdToCheck = payment.qpay_invoice_id ?? qpayInvoiceId
-    const checkResult = await checkQPayInvoice(invoiceIdToCheck)
+    // Verify the payment is genuine by calling QPay's check API.
+    // This is the security boundary — we never trust the callback body alone.
+    const invoiceIdToCheck = payment.qpay_invoice_id ?? body.qpay_invoice_id ?? body.invoice_id ?? qpayInvoiceIdFromLookup
+    if (!invoiceIdToCheck) {
+      console.warn('payment-webhook: no qpay_invoice_id available to verify', payment.id)
+      return new Response(JSON.stringify({ ok: true, verified: false }), {
+        headers: { 'Content-Type': 'application/json' },
+      })
+    }
 
+    const checkResult = await checkQPayInvoice(invoiceIdToCheck)
     if (checkResult.status !== 'PAID') {
       console.warn('payment-webhook: QPay check returned non-PAID status', checkResult)
       return new Response(JSON.stringify({ ok: true, verified: false }), {
@@ -80,20 +164,19 @@ Deno.serve(async (req) => {
       })
     }
 
-    // Fetch the associated slot hold
+    // Fetch the associated slot hold.
     let hold: Record<string, unknown> | null = null
     if (payment.hold_id) {
       const { data: holdData } = await db
         .from('slot_holds')
         .select('*')
         .eq('id', payment.hold_id)
-        .single()
+        .maybeSingle()
       hold = holdData
     }
 
-    // Check if the slot hold has expired
     if (!hold || new Date(hold.expires_at as string) < new Date()) {
-      // Hold expired — refund the payment since we can't honour the slot
+      // Hold expired — refund since we can't honour the slot.
       console.warn('payment-webhook: hold expired, initiating refund', payment.id)
       if (checkResult.paymentId) {
         try {
@@ -108,11 +191,9 @@ Deno.serve(async (req) => {
             webhook_payload: body,
           }).eq('id', payment.id)
         } catch (refundErr) {
-          // Auto-refund failure is a P0 — the user paid, the hold expired, and
-          // we couldn't return their money. This needs human attention now.
           reportError(refundErr, {
             source: 'payment-webhook',
-            context: { phase: 'auto-refund', paymentId: payment.id, qpayInvoiceId, qpayPaymentId: checkResult.paymentId },
+            context: { phase: 'auto-refund', paymentId: payment.id, qpayInvoiceId: invoiceIdToCheck, qpayPaymentId: checkResult.paymentId },
           })
           await db.from('payments').update({ status: 'failed', webhook_payload: body }).eq('id', payment.id)
         }
@@ -124,9 +205,7 @@ Deno.serve(async (req) => {
       })
     }
 
-    // All checks passed — create the booking and confirm the payment atomically.
-    // We use an RPC for atomicity since Supabase JS client doesn't expose
-    // explicit transactions. The RPC does: INSERT bookings + UPDATE payments + DELETE slot_holds.
+    // Atomic: create booking + mark payment paid + delete hold.
     const { data: newBooking, error: rpcErr } = await db.rpc('confirm_paid_booking', {
       p_payment_id:      payment.id,
       p_hold_id:         hold.id as string,
@@ -141,14 +220,10 @@ Deno.serve(async (req) => {
       p_duration_mins:   (hold.duration_minutes as number) ?? null,
       p_deposit_amount:  payment.amount,
       p_webhook_payload: body,
-      p_qpay_payment_id: checkResult.paymentId ?? null,
+      p_qpay_payment_id: checkResult.paymentId ?? body.qpay_payment_id ?? null,
     })
 
     if (rpcErr) {
-      // RPC failure here means the user paid but no booking exists — P0.
-      // confirm_paid_booking is atomic so either everything succeeded or
-      // nothing did; if rpcErr is set the user is owed either a refund or
-      // a manual booking creation.
       reportError(rpcErr, {
         source: 'payment-webhook',
         context: { phase: 'confirm_paid_booking', paymentId: payment.id, holdId: hold.id, userId: payment.user_id },
@@ -161,7 +236,7 @@ Deno.serve(async (req) => {
 
     const bookingId = newBooking
 
-    // Fire notify-booking for the new booking — fire-and-forget
+    // Fire notify-booking — fire-and-forget.
     fetch(`${SUPABASE_URL}/functions/v1/notify-booking`, {
       method: 'POST',
       headers: {
@@ -176,12 +251,7 @@ Deno.serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (err) {
-    // Any throw from the webhook handler is treated as P0 — QPay only fires
-    // the webhook once per payment under normal conditions, so a 500 here
-    // means a paid booking may be silently dropped.
     reportError(err, { source: 'payment-webhook', context: { phase: 'top-level' } })
-    // Return 200 to QPay so they don't retry on our internal errors;
-    // we've already reported to the external sink for human follow-up.
     return new Response(JSON.stringify({ ok: false, error: String(err) }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },

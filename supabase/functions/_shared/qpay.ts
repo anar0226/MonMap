@@ -85,30 +85,73 @@ export async function createQPayInvoice(opts: {
   }
 }
 
-// Verify a payment by calling QPay — used in the webhook to confirm authenticity.
+// Verify a payment by calling QPay — used to confirm authenticity before
+// converting a payment into a booking.
+//
+// QPay v2 spec: POST /v2/payment/check with JSON body
+//   { object_type: "INVOICE", object_id: <invoice_id>, offset: { page_number, page_limit } }
+// Response: { count, paid_amount, rows: [{ payment_id, payment_status, payment_amount, ... }] }
 export async function checkQPayInvoice(invoiceId: string): Promise<QPayPaymentCheck> {
   const token = await getQPayToken()
-  const res = await fetch(
-    `${QPAY_BASE_URL}/payment/check?qpay_invoice_id=${encodeURIComponent(invoiceId)}`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  )
+  const res = await fetch(`${QPAY_BASE_URL}/payment/check`, {
+    method: 'POST',
+    headers: {
+      Authorization:  `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      object_type: 'INVOICE',
+      object_id:   invoiceId,
+      offset: { page_number: 1, page_limit: 100 },
+    }),
+  })
   if (!res.ok) {
-    throw new Error(`QPay check failed: ${res.status} ${await res.text()}`)
+    const errText = await res.text()
+    console.warn(`QPay check failed: ${res.status} ${errText}`)
+    throw new Error(`QPay check failed: ${res.status} ${errText}`)
   }
   const json = await res.json()
-  // QPay returns count + rows; a row with payment_status='PAID' means paid.
-  const rows: Array<{ payment_status: string; paid_amount?: number; payment_id?: string }> =
+  const rows: Array<{ payment_status?: string; payment_amount?: number; paid_amount?: number; payment_id?: string }> =
     json.rows ?? []
   const paidRow = rows.find(r => r.payment_status === 'PAID')
   if (paidRow) {
     return {
       invoiceId,
-      status: 'PAID',
-      paidAmount: paidRow.paid_amount,
-      paymentId: paidRow.payment_id,
+      status:     'PAID',
+      paidAmount: paidRow.payment_amount ?? paidRow.paid_amount,
+      paymentId:  paidRow.payment_id,
     }
   }
+  console.log(`QPay check: invoice ${invoiceId} not paid yet (rows=${rows.length}, count=${json.count ?? 0})`)
   return { invoiceId, status: 'UNPAID' }
+}
+
+// Fetch a single QPay payment by its internal payment ID.
+// Used when QPay's webhook gives us only qpay_payment_id (not invoice_id).
+export async function getQPayPaymentById(qpayPaymentId: string): Promise<{
+  paymentId: string
+  invoiceId: string | null
+  senderInvoiceNo: string | null
+  status: 'PAID' | 'UNPAID' | 'CANCELLED' | 'FAILED' | string
+  paidAmount?: number
+  raw: unknown
+}> {
+  const token = await getQPayToken()
+  const res = await fetch(`${QPAY_BASE_URL}/payment/${encodeURIComponent(qpayPaymentId)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!res.ok) {
+    throw new Error(`QPay payment lookup failed: ${res.status} ${await res.text()}`)
+  }
+  const json = await res.json()
+  return {
+    paymentId:       json.payment_id ?? qpayPaymentId,
+    invoiceId:       json.object_id ?? json.invoice_id ?? null,
+    senderInvoiceNo: json.sender_invoice_no ?? null,
+    status:          json.payment_status ?? 'UNKNOWN',
+    paidAmount:      json.payment_amount,
+    raw:             json,
+  }
 }
 
 // Issue a refund for a previously paid QPay payment.

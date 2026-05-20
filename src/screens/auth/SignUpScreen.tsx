@@ -99,17 +99,23 @@ export default function SignUpScreen({ navigation }: Props) {
     const trimmedName  = name.trim();
     const trimmedEmail = email.trim();
     setLoading(true);
-    const { error: authError } = await supabase.auth.signUp({
+    const { data: signUpData, error: authError } = await supabase.auth.signUp({
       email: trimmedEmail,
       password,
       options: { data: { full_name: trimmedName }, captchaToken },
     });
     setLoading(false);
+    // Supabase silently succeeds for duplicate emails when email confirmation is
+    // enabled — no error is returned, but identities will be empty.
+    if (!authError && signUpData.user?.identities?.length === 0) {
+      setError('Энэ имэйл хаяг бүртгэлтэй байна. Нэвтрэх хуудас руу орно уу.');
+      return;
+    }
     if (authError) {
       const msg = authError.message ?? '';
-      // "already registered" → masked as success to prevent email enumeration
-      if (msg.includes('already registered')) {
-        // fall through to navigate — same UX as a fresh signup
+      if (/already registered|already in use|already taken|email.*exist/i.test(msg)) {
+        setError('Энэ имэйл хаяг бүртгэлтэй байна. Нэвтрэх хуудас руу орно уу.');
+        return;
       } else if (/captcha|expired|verification/i.test(msg)) {
         // hCaptcha token timed out before reaching Supabase. The next submit
         // opens a fresh captcha modal, generating a new token.
@@ -129,7 +135,6 @@ export default function SignUpScreen({ navigation }: Props) {
         return;
       }
     }
-    // Navigate on both success and "already registered" — same UX prevents email enumeration
     navigation.navigate('VerifyOtp', {
       method: 'email',
       identifier: trimmedEmail,

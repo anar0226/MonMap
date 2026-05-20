@@ -86,7 +86,7 @@
     .service-card {
       border: 1px solid var(--gray-200);
       border-radius: var(--radius-lg);
-      background: var(--white);
+      background: var(--gray-100);
       overflow: hidden;
       box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     }
@@ -127,13 +127,64 @@
       gap: 6px;
       padding: 5px 10px;
       border-radius: 999px;
-      background: var(--gray-50);
-      color: var(--gray-600);
+      background: var(--gray-200);
+      color: var(--gray-700);
       font-size: 0.75rem;
       font-weight: 600;
       line-height: 1;
       white-space: nowrap;
     }
+
+    /* Info tooltip for field labels */
+    .info-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      border: 1.5px solid var(--gray-400);
+      background: none;
+      color: var(--gray-400);
+      font-size: 0.625rem;
+      font-weight: 700;
+      cursor: pointer;
+      margin-left: 5px;
+      vertical-align: middle;
+      transition: border-color var(--transition), color var(--transition), background var(--transition);
+      position: relative;
+    }
+    .info-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+    .info-tooltip {
+      display: none;
+      position: absolute;
+      bottom: calc(100% + 8px);
+      left: 50%;
+      transform: translateX(-50%);
+      width: 240px;
+      background: var(--gray-900);
+      color: var(--gray-50);
+      font-size: 0.75rem;
+      font-weight: 400;
+      line-height: 1.55;
+      padding: 10px 12px;
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      z-index: 99;
+      pointer-events: none;
+      white-space: normal;
+    }
+    .info-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 5px solid transparent;
+      border-top-color: var(--gray-900);
+    }
+    .info-btn:hover .info-tooltip,
+    .info-btn:focus .info-tooltip { display: block; }
 
     .service-actions {
       display: flex;
@@ -204,8 +255,8 @@
     .service-details {
       display: none;
       padding: 0 16px 16px;
-      border-top: 1px solid var(--gray-100);
-      background: linear-gradient(180deg, rgba(248, 250, 252, 0.9), rgba(255, 255, 255, 1));
+      border-top: 1px solid var(--gray-200);
+      background: var(--gray-100);
     }
 
     .service-card.expanded .service-details {
@@ -1273,7 +1324,13 @@
                 <input type="number" class="form-control" min="0" step="1000" value="${escapeHtml(service.price)}" placeholder="25000" oninput="updateServiceField('${service.id}','price',this.value)" />
               </div>
               <div class="form-group">
-                <label class="form-label">Зэрэгцэх чадавх</label>
+                <label class="form-label">
+                  Захиалгын Багтаамж
+                  <button type="button" class="info-btn" tabindex="-1">
+                    i
+                    <span class="info-tooltip">Нэг цагийн завсарт хэдэн захиалга зэрэг авах вэ? Жишээ: 1 үсчин = 1, 2 үсчин = 2. Ресторан бол нэг зэрэг хүлээн авах суудлын тоо.</span>
+                  </button>
+                </label>
                 <div class="stepper-control">
                   <button type="button" onclick="adjustServiceCapacity('${service.id}',-1)">−</button>
                   <span>${service.capacity}</span>
@@ -2302,8 +2359,8 @@
           id: placeId, name: bizName, type: bizType, verified: false,
         }));
 
-        console.log('[register] redirecting to dashboard…');
-        window.location.href = 'dashboard.html';
+        console.log('[register] redirecting to profile…');
+        window.location.href = 'profile.html?onboarded=1';
       } catch (e) {
         console.error('[monmap-portal] completeRegistration threw:', e);
         _resetOtpFlow();

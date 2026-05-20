@@ -37,7 +37,8 @@ Deno.serve(async (req: Request) => {
   const page   = Math.max(0, parseInt(url.searchParams.get('page') || '0', 10))
   const limit  = Math.min(100, Math.max(1, parseInt(url.searchParams.get('limit') || '25', 10)))
 
-  // Fetch business_owners rows with place + doc counts.
+  // verification_documents has no FK to business_owners (only to places),
+  // so it cannot be embedded via PostgREST. Fetch the two tables separately.
   let q = service
     .from('business_owners')
     .select(`
@@ -48,8 +49,7 @@ Deno.serve(async (req: Request) => {
       reviewed_at,
       reviewed_by,
       created_at,
-      places ( name, primary_category, formatted_address, short_address ),
-      verification_documents ( id, storage_path, doc_type )
+      places ( name, primary_category, formatted_address, short_address )
     `, { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(page * limit, page * limit + limit - 1)
@@ -60,6 +60,21 @@ Deno.serve(async (req: Request) => {
   if (rowsErr) {
     console.error('admin-list-claims query:', rowsErr)
     return jsonResponse({ error: 'db_error' }, 500)
+  }
+
+  // Fetch verification_documents for the returned page keyed by place_id:user_id.
+  const docsMap: Record<string, { storage_path: string; doc_type: string }[]> = {}
+  const placeIds = [...new Set((rows ?? []).map((r: any) => r.place_id))]
+  if (placeIds.length > 0) {
+    const { data: docs } = await service
+      .from('verification_documents')
+      .select('place_id, user_id, storage_path, doc_type')
+      .in('place_id', placeIds)
+    for (const d of docs ?? []) {
+      const key = `${d.place_id}:${d.user_id}`
+      if (!docsMap[key]) docsMap[key] = []
+      docsMap[key].push({ storage_path: d.storage_path, doc_type: d.doc_type })
+    }
   }
 
   // Fetch auth user emails for the owner IDs.
@@ -74,28 +89,29 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  const claims = (rows ?? []).map((r: any) => ({
-    user_id:         r.user_id,
-    place_id:        r.place_id,
-    claim_status:    r.claim_status,
-    rejected_reason: r.rejected_reason ?? null,
-    reviewed_at:     r.reviewed_at ?? null,
-    reviewed_by:     r.reviewed_by ?? null,
-    submitted_at:    r.created_at,
-    doc_count:       Array.isArray(r.verification_documents) ? r.verification_documents.length : 0,
-    docs:            Array.isArray(r.verification_documents)
-                       ? r.verification_documents.map((d: any) => ({ storage_path: d.storage_path, doc_type: d.doc_type }))
-                       : [],
-    place: {
-      name:              r.places?.name ?? r.place_id,
-      primary_category:  r.places?.primary_category ?? '',
-      formatted_address: r.places?.formatted_address ?? r.places?.short_address ?? '',
-    },
-    owner: {
-      email:     emailMap[r.user_id] ?? '',
-      full_name: nameMap[r.user_id]  ?? '',
-    },
-  }))
+  const claims = (rows ?? []).map((r: any) => {
+    const docs = docsMap[`${r.place_id}:${r.user_id}`] ?? []
+    return {
+      user_id:         r.user_id,
+      place_id:        r.place_id,
+      claim_status:    r.claim_status,
+      rejected_reason: r.rejected_reason ?? null,
+      reviewed_at:     r.reviewed_at ?? null,
+      reviewed_by:     r.reviewed_by ?? null,
+      submitted_at:    r.created_at,
+      doc_count:       docs.length,
+      docs,
+      place: {
+        name:              r.places?.name ?? r.place_id,
+        primary_category:  r.places?.primary_category ?? '',
+        formatted_address: r.places?.formatted_address ?? r.places?.short_address ?? '',
+      },
+      owner: {
+        email:     emailMap[r.user_id] ?? '',
+        full_name: nameMap[r.user_id]  ?? '',
+      },
+    }
+  })
 
   return jsonResponse({ claims, total: count ?? 0, page, limit })
 })

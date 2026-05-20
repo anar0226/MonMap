@@ -135,25 +135,68 @@
     </div>
   </div>
 
-  <!-- Forgot password modal -->
+  <!-- Forgot password modal (3-step: email → OTP → new password) -->
   <div class="modal-overlay" id="forgotModal">
     <div class="modal">
       <div class="modal-header">
-        <span class="modal-title">Нууц үг сэргээх</span>
+        <span class="modal-title" id="forgotTitle">Нууц үг сэргээх</span>
         <button class="modal-close" onclick="closeForgot()">✕</button>
       </div>
-      <div class="modal-body">
-        <p style="color:var(--gray-600);margin-bottom:20px;">Бүртгэлтэй и-мэйл хаягаа оруулна уу. Нууц үг сэргээх
-          холбоос илгээнэ.</p>
-        <div class="form-group">
-          <label class="form-label">И-мэйл хаяг</label>
-          <input type="email" class="form-control" placeholder="example@business.mn" />
+
+      <!-- Step 1: Email + captcha -->
+      <div id="forgotStep1">
+        <div class="modal-body">
+          <p style="color:var(--gray-600);margin-bottom:20px;">Бүртгэлтэй и-мэйл хаягаа оруулна уу. 6 оронтой баталгаажуулах код илгээнэ.</p>
+          <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">И-мэйл хаяг</label>
+            <input type="email" id="forgotEmail" class="form-control" placeholder="example@business.mn" autocomplete="email" />
+          </div>
+          <div id="hcaptcha-forgot-widget"></div>
         </div>
-        <div id="hcaptcha-forgot-widget"></div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeForgot()">Цуцлах</button>
+          <button class="btn btn-primary" id="forgotSendBtn" onclick="sendReset()">Код илгээх</button>
+        </div>
       </div>
-      <div class="modal-footer">
-        <button class="btn btn-ghost" onclick="closeForgot()">Цуцлах</button>
-        <button class="btn btn-primary" onclick="sendReset()">Илгээх</button>
+
+      <!-- Step 2: 6-digit OTP -->
+      <div id="forgotStep2" class="hidden">
+        <div class="modal-body">
+          <p style="color:var(--gray-600);margin-bottom:20px;"><strong id="forgotEmailHint" style="color:var(--gray-800);"></strong> руу илгээсэн 6 оронтой кодыг оруулна уу.</p>
+          <div style="display:flex;gap:8px;justify-content:center;margin-bottom:16px;">
+            <input class="form-control forgot-otp-box" maxlength="1" inputmode="numeric" autocomplete="one-time-code" style="width:46px;height:52px;text-align:center;font-size:1.25rem;font-weight:600;padding:0;" />
+            <input class="form-control forgot-otp-box" maxlength="1" inputmode="numeric" style="width:46px;height:52px;text-align:center;font-size:1.25rem;font-weight:600;padding:0;" />
+            <input class="form-control forgot-otp-box" maxlength="1" inputmode="numeric" style="width:46px;height:52px;text-align:center;font-size:1.25rem;font-weight:600;padding:0;" />
+            <input class="form-control forgot-otp-box" maxlength="1" inputmode="numeric" style="width:46px;height:52px;text-align:center;font-size:1.25rem;font-weight:600;padding:0;" />
+            <input class="form-control forgot-otp-box" maxlength="1" inputmode="numeric" style="width:46px;height:52px;text-align:center;font-size:1.25rem;font-weight:600;padding:0;" />
+            <input class="form-control forgot-otp-box" maxlength="1" inputmode="numeric" style="width:46px;height:52px;text-align:center;font-size:1.25rem;font-weight:600;padding:0;" />
+          </div>
+          <p id="forgotOtpErr" class="hidden" style="color:var(--danger,#dc3545);font-size:0.875rem;text-align:center;margin-top:4px;">Код буруу эсвэл хугацаа дууссан. Дахин оролдоно уу.</p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="forgotGoBack()">Буцах</button>
+          <button class="btn btn-primary" id="forgotVerifyBtn" onclick="verifyForgotOtp()" disabled>Баталгаажуулах</button>
+        </div>
+      </div>
+
+      <!-- Step 3: New password -->
+      <div id="forgotStep3" class="hidden">
+        <div class="modal-body">
+          <p style="color:var(--gray-600);margin-bottom:20px;">Шинэ нууц үгээ оруулна уу.</p>
+          <div class="form-group">
+            <label class="form-label">Шинэ нууц үг</label>
+            <input type="password" id="forgotNewPwd" class="form-control" placeholder="Хамгийн багадаа 8 тэмдэгт" autocomplete="new-password" />
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label class="form-label">Нууц үг давтах</label>
+            <input type="password" id="forgotConfirmPwd" class="form-control" placeholder="Нууц үгийг давтана уу" autocomplete="new-password" />
+          </div>
+          <p id="forgotPwdErr" class="hidden" style="color:var(--danger,#dc3545);font-size:0.875rem;margin-top:10px;"></p>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-ghost" onclick="closeForgot()">Цуцлах</button>
+          <button class="btn btn-primary" id="forgotSaveBtn" onclick="saveForgotPassword()">Хадгалах</button>
+        </div>
       </div>
     </div>
   </div>
@@ -260,29 +303,124 @@
       setTimeout(() => { window.location.href = 'dashboard.html'; }, 700);
     });
 
-    function showForgot(e) { e.preventDefault(); document.getElementById('forgotModal').classList.add('open'); }
+    let _forgotEmail = '';
+
+    function _forgotShowStep(n) {
+      [1, 2, 3].forEach(i => document.getElementById('forgotStep' + i).classList.toggle('hidden', i !== n));
+      document.getElementById('forgotTitle').textContent = ['', 'Нууц үг сэргээх', 'Код оруулах', 'Шинэ нууц үг'][n];
+    }
+
+    function showForgot(e) {
+      e.preventDefault();
+      _forgotShowStep(1);
+      document.getElementById('forgotEmail').value = '';
+      document.querySelectorAll('.forgot-otp-box').forEach(el => { el.value = ''; });
+      document.getElementById('forgotNewPwd').value = '';
+      document.getElementById('forgotConfirmPwd').value = '';
+      document.getElementById('forgotOtpErr').classList.add('hidden');
+      document.getElementById('forgotPwdErr').classList.add('hidden');
+      document.getElementById('forgotVerifyBtn').disabled = true;
+      try { hcaptcha.reset(_hcaptchaForgotWidgetId); } catch (_) {}
+      document.getElementById('forgotModal').classList.add('open');
+    }
+
     function closeForgot() { document.getElementById('forgotModal').classList.remove('open'); }
 
-    async function sendReset() {
-      const emailInput = document.querySelector('#forgotModal input[type="email"]');
-      const email = emailInput ? emailInput.value.trim() : '';
-      if (!email) { showToast('error', 'Алдаа', 'И-мэйл хаяг оруулна уу.'); return; }
+    function forgotGoBack() {
+      document.querySelectorAll('.forgot-otp-box').forEach(el => { el.value = ''; });
+      document.getElementById('forgotOtpErr').classList.add('hidden');
+      document.getElementById('forgotVerifyBtn').disabled = true;
+      try { hcaptcha.reset(_hcaptchaForgotWidgetId); } catch (_) {}
+      _forgotShowStep(1);
+    }
 
+    async function sendReset() {
+      const email = document.getElementById('forgotEmail').value.trim();
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showToast('error', 'Алдаа', 'Зөв и-мэйл хаяг оруулна уу.'); return;
+      }
       const captchaToken = _hcaptchaForgotWidgetId !== null ? hcaptcha.getResponse(_hcaptchaForgotWidgetId) : '';
       if (!captchaToken) { showToast('error', 'Алдаа', 'Хүний баталгаажуулалтыг бөглөнө үү.'); return; }
 
-      const { error } = await _sb.auth.resetPasswordForEmail(email, {
-        redirectTo: 'https://monmap.net/reset-password.html',
-        captchaToken,
-      });
+      const btn = document.getElementById('forgotSendBtn');
+      btn.disabled = true; btn.textContent = 'Илгээж байна...';
 
+      const { error } = await _sb.auth.resetPasswordForEmail(email, { captchaToken });
+
+      btn.disabled = false; btn.textContent = 'Код илгээх';
       try { hcaptcha.reset(_hcaptchaForgotWidgetId); } catch (_) {}
-      closeForgot();
-      if (error) {
-        showToast('error', 'Алдаа', error.message);
-      } else {
-        showToast('success', 'И-мэйл илгээгдлээ', 'Нууц үг сэргээх холбоос и-мэйл рүү илгээгдлээ.');
+
+      if (error) { showToast('error', 'Алдаа', error.message); return; }
+
+      _forgotEmail = email;
+      document.getElementById('forgotEmailHint').textContent = email;
+      _forgotShowStep(2);
+      setTimeout(() => document.querySelector('.forgot-otp-box')?.focus(), 100);
+    }
+
+    // OTP box: auto-advance, backspace, paste
+    document.addEventListener('DOMContentLoaded', function () {
+      const boxes = Array.from(document.querySelectorAll('.forgot-otp-box'));
+      function syncVerifyBtn() {
+        document.getElementById('forgotVerifyBtn').disabled = boxes.some(b => !b.value);
       }
+      boxes.forEach((box, i) => {
+        box.addEventListener('input', function () {
+          this.value = this.value.replace(/\D/g, '').slice(0, 1);
+          if (this.value && i < boxes.length - 1) boxes[i + 1].focus();
+          syncVerifyBtn();
+        });
+        box.addEventListener('keydown', function (e) {
+          if (e.key === 'Backspace' && !this.value && i > 0) boxes[i - 1].focus();
+        });
+        box.addEventListener('paste', function (e) {
+          e.preventDefault();
+          const digits = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g, '').slice(0, 6);
+          boxes.forEach((b, idx) => { b.value = digits[idx] || ''; });
+          const last = Math.min(digits.length, 6) - 1;
+          if (last >= 0) boxes[last].focus();
+          syncVerifyBtn();
+          if (digits.length === 6) verifyForgotOtp();
+        });
+      });
+    });
+
+    async function verifyForgotOtp() {
+      const code = Array.from(document.querySelectorAll('.forgot-otp-box')).map(b => b.value).join('');
+      if (code.length !== 6) return;
+      document.getElementById('forgotOtpErr').classList.add('hidden');
+      const btn = document.getElementById('forgotVerifyBtn');
+      btn.disabled = true; btn.textContent = 'Шалгаж байна...';
+
+      const { error } = await _sb.auth.verifyOtp({ email: _forgotEmail, token: code, type: 'recovery' });
+
+      btn.disabled = false; btn.textContent = 'Баталгаажуулах';
+      if (error) { document.getElementById('forgotOtpErr').classList.remove('hidden'); return; }
+
+      _forgotShowStep(3);
+      setTimeout(() => document.getElementById('forgotNewPwd')?.focus(), 100);
+    }
+
+    async function saveForgotPassword() {
+      const pwd = document.getElementById('forgotNewPwd').value;
+      const confirm = document.getElementById('forgotConfirmPwd').value;
+      const errEl = document.getElementById('forgotPwdErr');
+      errEl.classList.add('hidden');
+      if (pwd.length < 8) { errEl.textContent = 'Нууц үг дор хаяж 8 тэмдэгт байх ёстой'; errEl.classList.remove('hidden'); return; }
+      if (pwd !== confirm) { errEl.textContent = 'Нууц үг таарахгүй байна'; errEl.classList.remove('hidden'); return; }
+
+      const btn = document.getElementById('forgotSaveBtn');
+      btn.disabled = true; btn.textContent = 'Хадгалж байна...';
+
+      const { error } = await _sb.auth.updateUser({ password: pwd });
+
+      btn.disabled = false; btn.textContent = 'Хадгалах';
+      if (error) { errEl.textContent = error.message || 'Алдаа гарлаа. Дахин оролдоно уу.'; errEl.classList.remove('hidden'); return; }
+
+      closeForgot();
+      localStorage.removeItem('mm_biz');
+      showToast('success', 'Нууц үг шинэчлэгдлээ', 'Самбар руу шилжиж байна...');
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 1000);
     }
 
     document.getElementById('forgotModal').addEventListener('click', function (e) {

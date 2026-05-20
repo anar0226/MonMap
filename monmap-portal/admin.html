@@ -2,7 +2,7 @@
 <html lang="mn">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co; img-src 'self' data: blob: https:; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co; img-src 'self' data: blob: https:; media-src 'self' blob: https://brykoxmygtiyrssmsvys.supabase.co; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin — МонМэп</title>
   <link rel="stylesheet" href="css/style.css" />
@@ -82,6 +82,32 @@
     .reject-reason-wrap { width: 100%; display: none; }
     .reject-reason-wrap textarea { width: 100%; min-height: 72px; padding: 10px 12px; border: 1px solid var(--gray-200); border-radius: var(--radius); font-size: 0.875rem; font-family: var(--font); resize: vertical; }
     .footer-actions { display: flex; gap: 10px; width: 100%; justify-content: flex-end; }
+
+    /* Admin section tabs (Claims / Ads) */
+    .admin-tabs { display: flex; gap: 4px; background: var(--white); border-radius: var(--radius); padding: 4px; border: 1px solid var(--gray-200); margin-bottom: 24px; width: fit-content; }
+    .admin-tab { padding: 8px 22px; border-radius: 8px; border: none; background: none; font-size: 0.875rem; font-weight: 600; color: var(--gray-500); cursor: pointer; transition: all .15s; }
+    .admin-tab.active { background: var(--primary); color: #fff; }
+    .admin-tab:hover:not(.active) { background: var(--gray-100); color: var(--gray-700); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Ads tab */
+    .ads-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .ad-card { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; }
+    .ad-card video { width: 100%; aspect-ratio: 16/9; background: #000; object-fit: cover; display: block; }
+    .ad-card-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; }
+    .ad-title { font-size: 0.9375rem; font-weight: 700; color: var(--gray-900); }
+    .ad-meta { font-size: 0.75rem; color: var(--gray-500); display: flex; gap: 12px; flex-wrap: wrap; }
+    .ad-actions { padding: 10px 16px 14px; border-top: 1px solid var(--gray-100); display: flex; gap: 8px; align-items: center; }
+    .ad-actions .ad-toggle { display: flex; align-items: center; gap: 6px; font-size: 0.8125rem; color: var(--gray-600); }
+    .ad-actions .order-input { width: 60px; padding: 4px 8px; border: 1px solid var(--gray-200); border-radius: 6px; font-size: 0.8125rem; text-align: center; }
+    .upload-card { background: var(--white); border: 1px dashed var(--gray-300); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; }
+    .upload-row { display: grid; grid-template-columns: 1fr 140px 120px auto; gap: 12px; align-items: end; }
+    @media (max-width: 720px) { .upload-row { grid-template-columns: 1fr; } }
+    .upload-field { display: flex; flex-direction: column; gap: 4px; }
+    .upload-field label { font-size: 0.75rem; font-weight: 700; color: var(--gray-500); text-transform: uppercase; letter-spacing: .04em; }
+    .upload-field input { padding: 8px 12px; border: 1px solid var(--gray-200); border-radius: 8px; font-size: 0.875rem; font-family: inherit; }
+    .upload-progress { font-size: 0.8125rem; color: var(--gray-500); margin-top: 12px; min-height: 1.2em; }
   </style>
 </head>
 <body>
@@ -102,55 +128,97 @@
 
   <main class="admin-main">
 
-    <!-- Stats -->
-    <div class="stats-row">
-      <div class="stat-card pending">
-        <div class="stat-num" id="statPending">—</div>
-        <div class="stat-label">Хүлээгдэж буй</div>
-      </div>
-      <div class="stat-card approved">
-        <div class="stat-num" id="statApproved">—</div>
-        <div class="stat-label">7 хоногт баталгаажсан</div>
-      </div>
-      <div class="stat-card rejected">
-        <div class="stat-num" id="statRejected">—</div>
-        <div class="stat-label">Татгалзсан</div>
-      </div>
+    <!-- Section tabs -->
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="claims" onclick="switchAdminTab('claims')">📋 Баталгаажуулалт</button>
+      <button class="admin-tab"        data-tab="ads"    onclick="switchAdminTab('ads')">🎬 Сурталчилгаа</button>
     </div>
 
-    <!-- Filter tabs -->
-    <div class="filter-tabs">
-      <button class="filter-tab active" data-status="pending"  onclick="switchFilter('pending')">Хүлээгдэж буй</button>
-      <button class="filter-tab"        data-status="all"      onclick="switchFilter('all')">Бүгд</button>
-      <button class="filter-tab"        data-status="verified" onclick="switchFilter('verified')">Баталгаажсан</button>
-      <button class="filter-tab"        data-status="rejected" onclick="switchFilter('rejected')">Татгалзсан</button>
-    </div>
-
-    <!-- Table -->
-    <div class="table-card">
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Бизнес</th>
-              <th>Эзэмшигч</th>
-              <th>Ирүүлсэн</th>
-              <th>Баримт</th>
-              <th>Төлөв</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody id="claimsBody">
-            <tr><td colspan="6" class="empty-state">Ачааллаж байна…</td></tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="pagination" id="pagination" style="display:none;">
-        <span id="pageInfo"></span>
-        <div style="display:flex;gap:8px;">
-          <button class="btn btn-ghost" id="prevBtn" onclick="loadPage(_page - 1)" disabled>← Өмнөх</button>
-          <button class="btn btn-ghost" id="nextBtn" onclick="loadPage(_page + 1)">Дараах →</button>
+    <!-- ─────────── CLAIMS TAB ─────────── -->
+    <div id="tab-claims" class="tab-panel active">
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card pending">
+          <div class="stat-num" id="statPending">—</div>
+          <div class="stat-label">Хүлээгдэж буй</div>
         </div>
+        <div class="stat-card approved">
+          <div class="stat-num" id="statApproved">—</div>
+          <div class="stat-label">7 хоногт баталгаажсан</div>
+        </div>
+        <div class="stat-card rejected">
+          <div class="stat-num" id="statRejected">—</div>
+          <div class="stat-label">Татгалзсан</div>
+        </div>
+      </div>
+
+      <!-- Filter tabs -->
+      <div class="filter-tabs">
+        <button class="filter-tab active" data-status="pending"  onclick="switchFilter('pending')">Хүлээгдэж буй</button>
+        <button class="filter-tab"        data-status="all"      onclick="switchFilter('all')">Бүгд</button>
+        <button class="filter-tab"        data-status="verified" onclick="switchFilter('verified')">Баталгаажсан</button>
+        <button class="filter-tab"        data-status="rejected" onclick="switchFilter('rejected')">Татгалзсан</button>
+      </div>
+
+      <!-- Table -->
+      <div class="table-card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Бизнес</th>
+                <th>Эзэмшигч</th>
+                <th>Ирүүлсэн</th>
+                <th>Баримт</th>
+                <th>Төлөв</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="claimsBody">
+              <tr><td colspan="6" class="empty-state">Ачааллаж байна…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="pagination" id="pagination" style="display:none;">
+          <span id="pageInfo"></span>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-ghost" id="prevBtn" onclick="loadPage(_page - 1)" disabled>← Өмнөх</button>
+            <button class="btn btn-ghost" id="nextBtn" onclick="loadPage(_page + 1)">Дараах →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ─────────── ADS TAB ─────────── -->
+    <div id="tab-ads" class="tab-panel">
+      <div class="upload-card">
+        <div style="font-size:0.9375rem;font-weight:700;color:var(--gray-900);margin-bottom:14px;">+ Шинэ сурталчилгаа нэмэх</div>
+        <form id="adUploadForm" class="upload-row" onsubmit="event.preventDefault(); uploadAd();">
+          <div class="upload-field">
+            <label for="adTitle">Гарчиг</label>
+            <input type="text" id="adTitle" placeholder="жш: Зуны кампанит ажил" required maxlength="120" />
+          </div>
+          <div class="upload-field">
+            <label for="adDuration">Үргэлжлэх (сек)</label>
+            <input type="number" id="adDuration" min="5" max="120" value="15" required />
+          </div>
+          <div class="upload-field">
+            <label for="adOrder">Дараалал</label>
+            <input type="number" id="adOrder" min="0" value="0" />
+          </div>
+          <div class="upload-field">
+            <label for="adFile">Видео файл</label>
+            <input type="file" id="adFile" accept="video/mp4,video/webm,video/quicktime" required />
+          </div>
+          <div style="grid-column:1/-1;display:flex;align-items:center;gap:12px;">
+            <button type="submit" id="adUploadBtn" class="btn btn-primary">Илгээх</button>
+            <span class="upload-progress" id="adUploadStatus"></span>
+          </div>
+        </form>
+      </div>
+
+      <div id="adsBody">
+        <div class="empty-state" style="padding:40px 0;text-align:center;color:var(--gray-400);">Ачааллаж байна…</div>
       </div>
     </div>
 
@@ -521,6 +589,153 @@
   document.getElementById('reviewModal').addEventListener('click', function(e) {
     if (e.target === this) closeModal();
   });
+
+  // ════════════════════════════════════════════════════════════════
+  // ADS MANAGEMENT
+  // ════════════════════════════════════════════════════════════════
+  // Direct PostgREST + Supabase Storage from the browser — admins are
+  // gated by the "admins read/insert/update/delete ads" RLS policies
+  // and the matching storage.objects policies on the 'ads' bucket.
+
+  let _adsLoaded = false;
+
+  function switchAdminTab(name) {
+    document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+    if (name === 'ads' && !_adsLoaded) { _adsLoaded = true; loadAds(); }
+  }
+
+  async function loadAds() {
+    const body = document.getElementById('adsBody');
+    body.innerHTML = '<div class="empty-state" style="padding:40px 0;text-align:center;color:var(--gray-400);">Ачааллаж байна…</div>';
+    const { data: ads, error } = await _sb
+      .from('ads')
+      .select('id, title, storage_path, duration_seconds, active, display_order, created_at')
+      .order('active', { ascending: false })
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: false });
+    if (error) {
+      body.innerHTML = `<div class="empty-state" style="padding:40px 0;text-align:center;color:var(--danger);">Алдаа: ${escapeHtml(error.message)}</div>`;
+      return;
+    }
+    if (!ads.length) {
+      body.innerHTML = '<div class="empty-state" style="padding:40px 0;text-align:center;color:var(--gray-400);">Сурталчилгаа байхгүй байна. Дээрх формоор шинээр нэмнэ үү.</div>';
+      return;
+    }
+    // Sign each storage_path for a short preview window (5 min).
+    const cards = await Promise.all(ads.map(async (a) => {
+      const { data: signed } = await _sb.storage.from('ads').createSignedUrl(a.storage_path, 300);
+      const url = signed?.signedUrl || '';
+      return `
+        <div class="ad-card" data-ad-id="${escapeHtml(a.id)}">
+          <video src="${escapeHtml(url)}" controls preload="metadata" muted></video>
+          <div class="ad-card-body">
+            <div class="ad-title">${escapeHtml(a.title)}</div>
+            <div class="ad-meta">
+              <span>⏱ ${a.duration_seconds}s</span>
+              <span>📅 ${fmtDate(a.created_at)}</span>
+              <span style="font-family:monospace;font-size:0.7rem;">${escapeHtml(a.storage_path)}</span>
+            </div>
+          </div>
+          <div class="ad-actions">
+            <label class="ad-toggle">
+              <input type="checkbox" ${a.active ? 'checked' : ''} onchange="toggleAdActive('${escapeHtml(a.id)}', this.checked)" />
+              Идэвхтэй
+            </label>
+            <span style="flex:1;"></span>
+            <label class="ad-toggle">Дараалал
+              <input type="number" class="order-input" value="${a.display_order}" min="0"
+                onchange="updateAdOrder('${escapeHtml(a.id)}', parseInt(this.value, 10) || 0)" />
+            </label>
+            <button class="btn btn-ghost" style="color:var(--danger);font-size:0.8125rem;padding:6px 12px;"
+              onclick="deleteAd('${escapeHtml(a.id)}', '${escapeHtml(a.storage_path)}', '${escapeHtml(a.title)}')">🗑 Устгах</button>
+          </div>
+        </div>`;
+    }));
+    body.innerHTML = `<div class="ads-grid">${cards.join('')}</div>`;
+  }
+
+  async function uploadAd() {
+    const title    = document.getElementById('adTitle').value.trim();
+    const duration = parseInt(document.getElementById('adDuration').value, 10);
+    const order    = parseInt(document.getElementById('adOrder').value, 10) || 0;
+    const file     = document.getElementById('adFile').files[0];
+    const btn      = document.getElementById('adUploadBtn');
+    const status   = document.getElementById('adUploadStatus');
+
+    if (!title || !file) { showToast('error', 'Алдаа', 'Гарчиг болон файлыг бөглөнө үү.'); return; }
+    if (!(duration >= 5 && duration <= 120)) {
+      showToast('error', 'Алдаа', 'Үргэлжлэх хугацаа 5–120 секунд хооронд байна.'); return;
+    }
+
+    btn.disabled = true;
+    status.style.color = 'var(--gray-500)';
+    status.textContent = 'Файл байршуулж байна…';
+
+    try {
+      // Unique storage path so retries / re-uploads with the same filename don't collide.
+      const ext  = (file.name.split('.').pop() || 'mp4').toLowerCase();
+      const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+
+      const { error: upErr } = await _sb.storage.from('ads').upload(path, file, {
+        contentType: file.type,
+        upsert: false,
+      });
+      if (upErr) throw upErr;
+
+      status.textContent = 'Бичлэгийг хадгалж байна…';
+      const { error: insErr } = await _sb.from('ads').insert({
+        title, storage_path: path, duration_seconds: duration,
+        display_order: order, active: true,
+      });
+      if (insErr) {
+        // Roll back the storage upload if the metadata insert fails.
+        await _sb.storage.from('ads').remove([path]).catch(() => {});
+        throw insErr;
+      }
+
+      document.getElementById('adUploadForm').reset();
+      document.getElementById('adDuration').value = '15';
+      document.getElementById('adOrder').value = '0';
+      status.style.color = 'var(--success)';
+      status.textContent = 'Амжилттай нэмэгдлээ!';
+      showToast('success', 'Нэмэгдлээ', `"${title}" сурталчилгаа нэмэгдлээ.`);
+      await loadAds();
+      setTimeout(() => { status.textContent = ''; }, 2500);
+    } catch (e) {
+      status.style.color = 'var(--danger)';
+      status.textContent = e.message || 'Алдаа гарлаа';
+      showToast('error', 'Алдаа', e.message || String(e));
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function toggleAdActive(id, active) {
+    const { error } = await _sb.from('ads').update({ active }).eq('id', id);
+    if (error) {
+      showToast('error', 'Алдаа', error.message);
+      loadAds();   // revert checkbox state
+      return;
+    }
+    showToast('success', active ? 'Идэвхжлээ' : 'Идэвхгүй боллоо', '');
+  }
+
+  async function updateAdOrder(id, order) {
+    const { error } = await _sb.from('ads').update({ display_order: order }).eq('id', id);
+    if (error) { showToast('error', 'Алдаа', error.message); loadAds(); return; }
+  }
+
+  async function deleteAd(id, storagePath, title) {
+    if (!confirm(`"${title}" сурталчилгааг устгах уу?\n\nЭнэ үйлдлийг буцаах боломжгүй.`)) return;
+    // Delete row first; the storage cleanup is best-effort (file becomes orphaned
+    // if it fails, but no fetch-rewarded-ad caller will ever reach it).
+    const { error: delErr } = await _sb.from('ads').delete().eq('id', id);
+    if (delErr) { showToast('error', 'Алдаа', delErr.message); return; }
+    await _sb.storage.from('ads').remove([storagePath]).catch(e => console.warn('storage remove failed:', e));
+    showToast('success', 'Устгагдлаа', `"${title}" сурталчилгаа устгагдлаа.`);
+    await loadAds();
+  }
 
   // Derive the project URL from the already-initialised _sb client.
   window._SUPABASE_URL = window._SUPABASE_URL

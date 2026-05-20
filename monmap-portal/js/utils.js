@@ -144,7 +144,9 @@ async function requireAuth() {
   _markActive();
 
   let biz = JSON.parse(localStorage.getItem('mm_biz') || 'null');
-  if (!biz || biz.claim_status === undefined) {
+  // Always re-fetch until verified — status changes (pending→verified, pending→rejected)
+  // must be reflected immediately without the owner having to log out and back in.
+  if (!biz || biz.claim_status === undefined || biz.claim_status !== 'verified') {
     const { data } = await _sb
       .from('business_owners')
       .select('place_id, claim_status, rejected_reason, places(name, primary_category)')

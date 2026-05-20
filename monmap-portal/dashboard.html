@@ -124,14 +124,9 @@
 
     <div class="page-content">
 
-      <!-- Verification status -->
-      <div class="verify-status verified" id="verifyBanner">
-        <span class="verify-icon">✅</span>
-        <div class="verify-info">
-          <div class="verify-title">Бизнес баталгаажсан</div>
-          <div class="verify-desc">Таны бизнес МонМэп платформд бүрэн баталгаажиж, харилцагч нарт харагдаж байна.</div>
-        </div>
-      </div>
+      <!-- Verification status — hidden until JS knows the real state to avoid flashing
+           "verified" before the live claim_status is fetched. -->
+      <div class="verify-status" id="verifyBanner" style="display:none;"></div>
 
       <!-- Stats -->
       <div class="stats-grid" id="statsGrid">
@@ -466,14 +461,17 @@
     document.getElementById('sbAvatar').textContent  = bizName[0] || 'Б';
     document.getElementById('topAvatar').textContent = (_user.email || 'Б')[0].toUpperCase();
 
-    // Verification banner
+    // Verification banner — populated entirely from JS now so we don't flash a
+    // hardcoded "verified" state before the live claim_status loads.
+    const banner = document.getElementById('verifyBanner');
     if (_biz && _biz.verified) {
-      document.getElementById('verifyBanner').className = 'verify-status verified';
+      banner.className = 'verify-status verified';
+      banner.innerHTML = '<span class="verify-icon">✅</span><div class="verify-info"><div class="verify-title">Бизнес баталгаажсан</div><div class="verify-desc">Таны бизнес МонМэп платформд бүрэн баталгаажиж, харилцагч нарт харагдаж байна.</div></div>';
     } else {
-      const banner = document.getElementById('verifyBanner');
       banner.className = 'verify-status pending';
       banner.innerHTML = '<span class="verify-icon">⏳</span><div class="verify-info"><div class="verify-title">Баталгаажуулалт хүлээгдэж байна</div><div class="verify-desc">Таны бизнес МонМэп-ийн багийн хяналтад байна. 24 цагт и-мэйлээр мэдэгдэнэ.</div></div>';
     }
+    banner.style.display = '';
 
     initMobileSidebar();
     wireThemeToggle('#themeToggle');

@@ -1259,11 +1259,34 @@
         .eq('place_id', _bizId).maybeSingle();
       if (pRow) {
         document.getElementById('pBizName').value  = pRow.name || '';
-        document.getElementById('pBizPhone').value = pRow.phone_national || '';
+        document.getElementById('pBizPhone').value = pRow.phone_national || _user.phone || meta.phone || '';
         document.getElementById('pWebsite').value  = pRow.website_uri || '';
         document.getElementById('pAddress').value  = pRow.short_address || pRow.formatted_address || '';
         const raw = pRow.raw || {};
         document.getElementById('pBizDesc').value  = raw.description || '';
+
+        // Business email defaults to the owner's auth email (most common case;
+        // they registered with their business email anyway).
+        const pBizEmailEl = document.getElementById('pBizEmail');
+        if (pBizEmailEl) pBizEmailEl.value = raw.business_email || _user.email || '';
+
+        // Map primary_category back to the dropdown option text.
+        const CATEGORY_REVERSE_MAP = {
+          salon:         'Үсчин / Салон',
+          restaurant:    'Ресторан / Кафе',
+          clinic:        'Эмнэлэг / Эмч',
+          gym:           'Спорт заал / Фитнесс',
+          spa:           'Спа / Массаж',
+          training:      'Сургалт / Дасгалжуулалт',
+          auto_repair:   'Авто засвар',
+          photo_studio:  'Фото студио',
+          other:         'Бусад',
+        };
+        const bizTypeText = CATEGORY_REVERSE_MAP[pRow.primary_category];
+        if (bizTypeText) {
+          const bizTypeSel = document.getElementById('pBizType');
+          [...bizTypeSel.options].forEach(o => { if (o.text === bizTypeText) o.selected = true; });
+        }
 
         // Hydrate social handles from raw blob. Show the canonical URL we stored
         // so the user sees exactly what's saved (and can edit it freely).
@@ -1285,13 +1308,29 @@
             el.textContent              = '';
           }
         }
+
+        // District/khoroo: prefer raw, fall back to parsing the formatted_address
+        // for businesses that were claimed (not registered through the portal).
+        let district = raw.district;
+        let khoroo   = raw.khoroo;
+        if ((!district || !khoroo) && pRow.formatted_address) {
+          const parts = pRow.formatted_address.split(',').map(s => s.trim());
+          const DISTRICTS = ['Баянзүрх', 'Баянгол', 'Сүхбаатар', 'Чингэлтэй', 'Хан-Уул', 'Налайх', 'Сонгинохайрхан'];
+          for (const part of parts) {
+            if (!khoroo && /^\d+\s*-?\s*р?\s*хороо$/i.test(part)) khoroo = part;
+            else if (!district) {
+              const hit = DISTRICTS.find(d => part === d || part.includes(d));
+              if (hit) district = hit;
+            }
+          }
+        }
         const distSel = document.getElementById('pDistrict');
-        if (raw.district) {
-          [...distSel.options].forEach(o => { if (o.value === raw.district || o.text === raw.district) o.selected = true; });
+        if (district) {
+          [...distSel.options].forEach(o => { if (o.value === district || o.text === district) o.selected = true; });
         }
         const khorSel = document.getElementById('pKhoroo');
-        if (raw.khoroo) {
-          [...khorSel.options].forEach(o => { if (o.value === raw.khoroo || o.text === raw.khoroo) o.selected = true; });
+        if (khoroo) {
+          [...khorSel.options].forEach(o => { if (o.value === khoroo || o.text === khoroo) o.selected = true; });
         }
       }
       renderVerifyBanner(_biz);

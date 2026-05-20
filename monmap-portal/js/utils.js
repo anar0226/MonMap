@@ -187,20 +187,19 @@ async function _searchPlacesRest(cleaned) {
   const supabaseKey = window._SUPABASE_KEY;
   if (!supabaseUrl || !supabaseKey || !window.fetch || !window.AbortController) return null;
 
-  const params = new URLSearchParams();
-  params.set('select', 'place_id,name,primary_category,formatted_address');
-  params.set('or', `(name.ilike.*${cleaned}*,formatted_address.ilike.*${cleaned}*)`);
-  params.set('order', 'rating.desc.nullslast');
-  params.set('limit', '15');
-
+  // Use the search_unclaimed_places RPC so RLS on business_owners is bypassed
+  // correctly (the anon key can't see foreign rows via plain table queries).
   const timeout = _withTimeout(8000);
   try {
-    const res = await fetch(`${supabaseUrl}/rest/v1/places?${params.toString()}`, {
+    const res = await fetch(`${supabaseUrl}/rest/v1/rpc/search_unclaimed_places`, {
+      method: 'POST',
       headers: {
         apikey: supabaseKey,
         Authorization: `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
         Accept: 'application/json',
       },
+      body: JSON.stringify({ query: cleaned }),
       signal: timeout.controller.signal,
     });
     if (!res.ok) {
@@ -235,20 +234,12 @@ async function searchPlaces(query) {
 
   const timeout = _withTimeout(8000);
   try {
-    const pat = `*${cleaned}*`;
     const { data, error } = await _sb
-      .from('places')
-      .select('place_id, name, primary_category, formatted_address')
-      .or(`name.ilike.${pat},formatted_address.ilike.${pat}`)
-      .order('rating', { ascending: false, nullsFirst: false })
-      .limit(15)
+      .rpc('search_unclaimed_places', { query: cleaned })
       .abortSignal(timeout.controller.signal);
     if (error) throw error;
     return data || [];
   } catch (error) {
-    // Bubble through console so the inevitable "search doesn't work" bug
-    // report has something to grep for. Callers still get `[]` so the UI
-    // shows the empty-state branch instead of crashing.
     console.error('searchPlaces failed:', error);
     return [];
   } finally {

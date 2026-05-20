@@ -36,6 +36,7 @@ export interface SlotAvailability {
   booked: number;
   available: boolean;
   remaining: number;
+  bookedByMe?: boolean;
 }
 
 export function useBooking() {
@@ -63,9 +64,12 @@ export function useBooking() {
     setLoadingSlots(true);
     setError(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const meId = session?.user?.id ?? null;
+
       const { data, error: err } = await supabase
         .from('bookings')
-        .select('time_slot, party_size')
+        .select('time_slot, party_size, user_id')
         .eq('place_id', placeId)
         .eq('booked_date', date)
         .neq('status', 'cancelled');
@@ -74,16 +78,22 @@ export function useBooking() {
       // Sum covers (party_size) per slot, not booking count.
       // slot_capacity is a covers limit, so 8 means 8 seated guests, not 8 bookings.
       const coversBySlot: Record<string, number> = {};
+      const mineBySlot: Record<string, boolean> = {};
       for (const row of (data ?? [])) {
         coversBySlot[row.time_slot] = (coversBySlot[row.time_slot] ?? 0) + (row.party_size ?? 1);
+        if (meId && row.user_id === meId) mineBySlot[row.time_slot] = true;
       }
 
       setSlots(timeSlots.map(slot => {
         const booked = coversBySlot[slot] ?? 0;
+        const bookedByMe = mineBySlot[slot] ?? false;
         return {
           slot,
           booked,
-          available: booked < slotCapacity,
+          bookedByMe,
+          // Block double-booking: if the current user already has a booking
+          // at this slot, treat it as unavailable regardless of remaining capacity.
+          available: !bookedByMe && booked < slotCapacity,
           remaining: Math.max(0, slotCapacity - booked),
         };
       }));

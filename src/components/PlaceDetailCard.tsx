@@ -898,6 +898,11 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
                 <Text style={[s.slotText, sel && s.slotTextSel, unavail && s.slotTextUnavail]}>
                   {item.slot}
                 </Text>
+                {item.bookedByMe && (
+                  <Text style={[s.slotText, s.slotTextUnavail, { fontSize: 9, marginTop: 2 }]}>
+                    Захиалсан
+                  </Text>
+                )}
               </TouchableOpacity>
             );
           })}

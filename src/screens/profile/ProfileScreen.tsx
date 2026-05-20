@@ -288,7 +288,7 @@ export default function ProfileScreen({ navigation }: Props) {
 
   const load = useCallback(async () => {
     if (!user?.id) return;
-    const now = new Date().toISOString();
+    const nowMs = Date.now();
 
     const [{ data: walletData }, { data: bkData }] = await Promise.all([
       supabase
@@ -296,13 +296,17 @@ export default function ProfileScreen({ navigation }: Props) {
         .select('available_mnt, lifetime_earned_mnt')
         .eq('user_id', user.id)
         .maybeSingle(),
+      // bookings stores booked_date (date) + time_slot (text "HH:MM") — there
+      // is no `booking_time` column. The old query selected a non-existent
+      // column and silently returned no rows, so the profile always showed
+      // "no bookings" even when the bookings list page rendered them.
       supabase
         .from('bookings')
-        .select('id, booking_time, party_size, status, deposit_amount, places(name, primary_category, short_address)')
+        .select('id, booked_date, time_slot, party_size, status, deposit_amount, places(name, primary_category, short_address)')
         .eq('user_id', user.id)
-        .neq('status', 'canceled')
         .neq('status', 'cancelled')
-        .order('booking_time', { ascending: false })
+        .order('booked_date', { ascending: false })
+        .order('time_slot', { ascending: false })
         .limit(30),
     ]);
 
@@ -315,7 +319,10 @@ export default function ProfileScreen({ navigation }: Props) {
       const mapped: Booking[] = (bkData as any[]).map((row) => {
         const place = row.places as any;
         const { icon, color } = catStyle(place?.primary_category ?? null);
-        const { dayLabel, fullDate, time } = parseBkDate(row.booking_time);
+        // Combine date + slot into a local ISO timestamp so parseBkDate /
+        // upcoming-vs-past comparison works the same as the old booking_time field.
+        const rawTime = `${row.booked_date}T${row.time_slot}:00`;
+        const { dayLabel, fullDate, time } = parseBkDate(rawTime);
         return {
           id: row.id,
           placeName: place?.name ?? 'Газар',
@@ -324,12 +331,12 @@ export default function ProfileScreen({ navigation }: Props) {
           party: row.party_size ?? 1,
           status: row.status ?? 'pending',
           address: place?.short_address ?? null,
-          rawTime: row.booking_time,
+          rawTime,
           depositAmount: row.deposit_amount ?? 0,
         };
       });
-      setUpcoming(mapped.filter(b => b.rawTime >= now));
-      setPast(mapped.filter(b => b.rawTime < now));
+      setUpcoming(mapped.filter(b => new Date(b.rawTime).getTime() >= nowMs));
+      setPast(mapped.filter(b => new Date(b.rawTime).getTime() < nowMs));
     }
   }, [user?.id]);
 

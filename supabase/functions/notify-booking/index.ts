@@ -88,8 +88,20 @@ Deno.serve(async (req) => {
 
     // For user-initiated calls, enforce ownership.
     // Service-role callers (internal edge functions) bypass this check.
+    // Accept three caller shapes:
+    //   1. The guest who created the booking (booking.user_id === callerId)
+    //   2. The verified business owner of the booked place (portal retry path)
+    //   3. Service-role (already handled above via isServiceRole)
     if (!isServiceRole && booking.user_id !== callerId) {
-      return new Response('Forbidden', { status: 403 })
+      const { data: ownerRow } = await db
+        .from('business_owners')
+        .select('user_id')
+        .eq('place_id', booking.place_id)
+        .eq('user_id', callerId)
+        .maybeSingle()
+      if (!ownerRow) {
+        return new Response('Forbidden', { status: 403 })
+      }
     }
 
     const { data: place } = await db

@@ -265,7 +265,8 @@ function _mapBooking(b) {
   const statusNorm = s === 'cancelled' ? 'canceled' : s;
   const partySize = Math.max(1, parseInt(b.party_size, 10) || 1);
   return {
-    id:            b.id,
+    // Normalize to string so onclick-embedded IDs (always strings) match with ===
+    id:            String(b.id),
     client:        b.guest_name   || 'Харилцагч',
     phone:         b.guest_phone  || '',
     partySize,
@@ -405,6 +406,35 @@ async function retryStuckGuestNotify(placeId) {
     }
   } catch (e) {
     console.warn('retryStuckGuestNotify:', e);
+  }
+}
+
+// Best-effort recovery for pending bookings whose notify-booking dispatch never
+// landed. Mirrors retryStuckGuestNotify but targets the owner side: finds pending
+// rows with owner_notified_at = NULL created in the last 24 h and re-invokes
+// notify-booking for each. The edge function now accepts the business owner's JWT
+// (in addition to service-role and the guest's JWT) so this call succeeds.
+async function retryStuckOwnerNotify(placeId) {
+  if (!placeId) return;
+  try {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await _sb
+      .from('bookings')
+      .select('id')
+      .eq('place_id', placeId)
+      .eq('status', 'pending')
+      .is('owner_notified_at', null)
+      .gte('created_at', since)
+      .limit(5);
+    if (error || !data || !data.length) return;
+    // Sequential, not Promise.all, to avoid hammering the function on first load
+    // after a long Twilio outage.
+    for (const row of data) {
+      const { error: fnErr } = await _sb.functions.invoke('notify-booking', { body: { bookingId: row.id } });
+      if (fnErr) console.warn('notify-booking owner retry:', fnErr);
+    }
+  } catch (e) {
+    console.warn('retryStuckOwnerNotify:', e);
   }
 }
 

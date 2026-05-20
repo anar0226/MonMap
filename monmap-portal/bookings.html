@@ -531,6 +531,11 @@
     // Fire-and-forget — the page is already rendered, this just runs in the
     // background to catch up on any Twilio outage from earlier in the day.
     retryStuckGuestNotify(_biz.id);
+
+    // Best-effort recovery for pending bookings whose owner notification never
+    // landed (mobile app fire-and-forget may have failed). Re-invokes notify-booking
+    // for any pending row where owner_notified_at is still NULL within the last 24h.
+    retryStuckOwnerNotify(_biz.id);
   })();
 </script>
 </body>

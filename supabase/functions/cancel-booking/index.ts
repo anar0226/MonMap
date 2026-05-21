@@ -78,14 +78,23 @@ Deno.serve(async (req) => {
       )
     }
 
-    // Determine refund eligibility
+    // Determine refund eligibility.
+    //   no_show       → never refund (deposit is the no-show deterrent)
+    //   owner_cancel  → always refund (the customer is not at fault)
+    //   user_cancel   → refund only if cancelled ≥2h before the booking time
     let shouldRefund = false
 
-    if (booking.payment_id && booking.deposit_amount && reason !== 'no_show') {
-      // Parse booking datetime — booked_date is "YYYY-MM-DD", time_slot is "HH:MM"
-      const bookingDateTime = new Date(`${booking.booked_date}T${booking.time_slot}:00`)
-      const hoursUntilBooking = (bookingDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
-      shouldRefund = hoursUntilBooking >= REFUND_WINDOW_HOURS
+    if (booking.payment_id && booking.deposit_amount) {
+      if (reason === 'no_show') {
+        shouldRefund = false
+      } else if (reason === 'owner_cancel') {
+        shouldRefund = true
+      } else {
+        // Parse booking datetime — booked_date is "YYYY-MM-DD", time_slot is "HH:MM"
+        const bookingDateTime = new Date(`${booking.booked_date}T${booking.time_slot}:00`)
+        const hoursUntilBooking = (bookingDateTime.getTime() - Date.now()) / (1000 * 60 * 60)
+        shouldRefund = hoursUntilBooking >= REFUND_WINDOW_HOURS
+      }
     }
 
     // Issue QPay refund if warranted
@@ -112,11 +121,23 @@ Deno.serve(async (req) => {
               .update({ status: 'refund_pending', refund_reason: reason })
               .eq('id', payment.id)
           } catch (refundErr) {
-            // Log but don't block cancellation — the deposit can be refunded manually
+            // Don't block cancellation — but flag the payment so a failed
+            // refund is queryable (status='refund_failed') instead of silently
+            // staying 'paid' and looking like a successful charge.
             console.error('QPay refund failed, booking will still be cancelled:', refundErr)
+            await db
+              .from('payments')
+              .update({ status: 'refund_failed', refund_reason: reason })
+              .eq('id', payment.id)
+              .then(() => {}, () => {})
           }
         } else {
           console.warn('No qpay_payment_id in webhook_payload, cannot auto-refund:', payment.id)
+          await db
+            .from('payments')
+            .update({ status: 'refund_failed', refund_reason: `${reason} (no qpay_payment_id)` })
+            .eq('id', payment.id)
+            .then(() => {}, () => {})
         }
       }
     }

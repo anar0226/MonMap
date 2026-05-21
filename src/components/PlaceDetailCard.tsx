@@ -579,6 +579,15 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     ? [1, 2, 3, 4, '5+']
     : Array.from({ length: slotCapacity }, (_, i) => i + 1);
 
+  // Keep partySize within the capacity. The state initialises before services
+  // load (when slotCapacity is still the place-level fallback), so once the
+  // selected service's max_capacity resolves we must clamp — otherwise a
+  // partySize of 2 against a capacity-1 service blocks every booking with
+  // "Энэ цагт 1 хүний сул суудал байна".
+  useEffect(() => {
+    setPartySize(p => Math.min(Math.max(1, p), Math.max(1, slotCapacity)));
+  }, [slotCapacity]);
+
   useEffect(() => {
     if (isBookable) fetchSlots(place.place_id, selectedDate, timeSlots, slotCapacity);
     // Re-fetch whenever the date, the time-slot grid (service duration), or

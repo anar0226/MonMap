@@ -67,12 +67,15 @@ export function useBooking() {
       const { data: { session } } = await supabase.auth.getSession();
       const meId = session?.user?.id ?? null;
 
+      // Only 'pending' and 'confirmed' bookings hold a slot. 'cancelled' and
+      // 'expired' (abandoned/timed-out booking attempts) must NOT count —
+      // otherwise a single expired attempt blocks the slot forever.
       const { data, error: err } = await supabase
         .from('bookings')
         .select('time_slot, party_size, user_id')
         .eq('place_id', placeId)
         .eq('booked_date', date)
-        .neq('status', 'cancelled');
+        .in('status', ['pending', 'confirmed']);
       if (err) throw err;
 
       // Sum covers (party_size) per slot, not booking count.

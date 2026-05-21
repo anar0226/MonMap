@@ -38,6 +38,14 @@ const STATIONARY_WINDOW_MS       = 10 * 60 * 1000
 const BG_AD_VALIDITY_MS          = 60 * 60 * 1000
 const EARNING_CONGESTION         = new Set(['moderate', 'heavy', 'severe'])
 
+// DEV/TEST ONLY. When NAV_TEST_BYPASS_GATES='true', the speed,
+// stationary-timeout, off-route and congestion gates are skipped so the
+// trip → ad → earnings → wallet chain can be exercised on an emulator where
+// there is no real Mapbox congestion. The background rewarded-ad gate and
+// the daily cap are intentionally KEPT so the ad path is still tested and
+// earnings stay bounded. MUST be unset (or 'false') in production.
+const TEST_BYPASS_GATES = Deno.env.get('NAV_TEST_BYPASS_GATES') === 'true'
+
 interface RouteSegment { start: number; end: number; congestion: string }
 interface RouteSummary {
   coordinates: LonLat[]
@@ -137,7 +145,7 @@ Deno.serve(async (req) => {
         stationary_anchor_lat: lat,
         stationary_anchor_lon: lon,
       }).eq('id', tripId)
-    } else if (nowMs - anchorAtMs > STATIONARY_WINDOW_MS) {
+    } else if (!TEST_BYPASS_GATES && nowMs - anchorAtMs > STATIONARY_WINDOW_MS) {
       await db.from('nav_trips').update({
         ended_at:     new Date(nowMs).toISOString(),
         ended_reason: 'auto_stationary',
@@ -145,7 +153,7 @@ Deno.serve(async (req) => {
       return reject('stationary_too_long')
     }
 
-    if (typeof speedMps === 'number' && speedMps > SPEED_STUCK_THRESHOLD_MPS) {
+    if (!TEST_BYPASS_GATES && typeof speedMps === 'number' && speedMps > SPEED_STUCK_THRESHOLD_MPS) {
       // Moving freely — write share position, record, but no credit.
       await updateSharePosition(db, tripId, lat, lon, etaSeconds)
       await recordHeartbeat(true, 'moving', 0)
@@ -157,22 +165,25 @@ Deno.serve(async (req) => {
       })
     }
 
-    const summary = trip.mapbox_route_summary as RouteSummary
-    if (!summary?.coordinates?.length) return reject('no_route')
+    // Route + congestion gates — skipped entirely under the test bypass.
+    if (!TEST_BYPASS_GATES) {
+      const summary = trip.mapbox_route_summary as RouteSummary
+      if (!summary?.coordinates?.length) return reject('no_route')
 
-    const { dist, segmentIndex } = distanceToPolyline([lon, lat], summary.coordinates)
-    if (dist > POLYLINE_MATCH_RADIUS_M) return reject('off_route')
+      const { dist, segmentIndex } = distanceToPolyline([lon, lat], summary.coordinates)
+      if (dist > POLYLINE_MATCH_RADIUS_M) return reject('off_route')
 
-    const congestion = matchCongestion(summary, segmentIndex)
-    if (!EARNING_CONGESTION.has(congestion)) {
-      await updateSharePosition(db, tripId, lat, lon, etaSeconds)
-      await recordHeartbeat(true, 'free_flow', 0)
-      return jsonResponse({
-        accepted: true,
-        creditedThisHeartbeat: 0,
-        earnedMntTotal: trip.earned_mnt,
-        dailyCapReached: false,
-      })
+      const congestion = matchCongestion(summary, segmentIndex)
+      if (!EARNING_CONGESTION.has(congestion)) {
+        await updateSharePosition(db, tripId, lat, lon, etaSeconds)
+        await recordHeartbeat(true, 'free_flow', 0)
+        return jsonResponse({
+          accepted: true,
+          creditedThisHeartbeat: 0,
+          earnedMntTotal: trip.earned_mnt,
+          dailyCapReached: false,
+        })
+      }
     }
 
     // All gates pass — compute credited seconds since last accepted heartbeat.

@@ -610,6 +610,16 @@ const BookTab = ({ place, isBookable }: { place: Place; isBookable: boolean }) =
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isBookable, showForm, place.place_id, selectedDate, slotDurationMinutes, slotCapacity]);
 
+  // If the currently selected slot isn't bookable (a past slot on today's
+  // date, or one that filled up), jump the selection to the first available
+  // slot so the user isn't staring at a disabled "confirm" button.
+  useEffect(() => {
+    if (!slots.length) return;
+    if (slots[selectedSlotIdx]?.available) return;
+    const nextIdx = slots.findIndex(sl => sl.available);
+    if (nextIdx >= 0) setSelectedSlotIdx(nextIdx);
+  }, [slots, selectedSlotIdx]);
+
   // Request notification permissions when user opens the booking tab.
   // We surface the *result* in the form copy below so a user with denied
   // permissions sees a hint that the reminder won't fire — silently failing

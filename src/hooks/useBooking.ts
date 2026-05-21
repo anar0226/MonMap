@@ -37,6 +37,7 @@ export interface SlotAvailability {
   available: boolean;
   remaining: number;
   bookedByMe?: boolean;
+  isPast?: boolean;
 }
 
 export function useBooking() {
@@ -87,16 +88,30 @@ export function useBooking() {
         if (meId && row.user_id === meId) mineBySlot[row.time_slot] = true;
       }
 
+      // When the chosen date is today (Asia/Ulaanbaatar), any slot whose start
+      // time has already passed must not be bookable — you can't reserve 10:00
+      // at 16:43. minutesNow is the current Mongolia wall-clock time in minutes;
+      // -1 disables the check entirely for future dates.
+      const isToday = date === todayDateString();
+      const minutesNow = isToday ? (() => {
+        const mnt = new Date(Date.now() + 8 * 60 * 60 * 1000);
+        return mnt.getUTCHours() * 60 + mnt.getUTCMinutes();
+      })() : -1;
+
       setSlots(timeSlots.map(slot => {
         const booked = coversBySlot[slot] ?? 0;
         const bookedByMe = mineBySlot[slot] ?? false;
+        const [h, m] = slot.split(':').map(Number);
+        const isPast = isToday && (h * 60 + m) <= minutesNow;
         return {
           slot,
           booked,
           bookedByMe,
+          isPast,
           // Block double-booking: if the current user already has a booking
           // at this slot, treat it as unavailable regardless of remaining capacity.
-          available: !bookedByMe && booked < slotCapacity,
+          // Past slots on today's date are never bookable.
+          available: !isPast && !bookedByMe && booked < slotCapacity,
           remaining: Math.max(0, slotCapacity - booked),
         };
       }));
@@ -140,6 +155,10 @@ export function useBooking() {
 
       // Validate against fetched slot capacity
       const slotData = slots.find(s => s.slot === params.timeSlot);
+      if (slotData?.isPast) {
+        setError('Энэ цаг аль хэдийн өнгөрсөн байна.');
+        return false;
+      }
       if (slotData && params.partySize > slotData.remaining) {
         setError(`Энэ цагт ${slotData.remaining} хүний сул суудал байна.`);
         return false;
@@ -203,6 +222,10 @@ export function useBooking() {
       // so a salon with slot_capacity=1 booking party_size=2 went all the way
       // to the server only to come back as a generic "slot_full" 409.
       const slotData = slots.find(s => s.slot === params.timeSlot);
+      if (slotData?.isPast) {
+        setError('Энэ цаг аль хэдийн өнгөрсөн байна.');
+        return null;
+      }
       if (slotData && params.partySize > slotData.remaining) {
         setError(`Энэ цагт ${slotData.remaining} хүний сул суудал байна.`);
         return null;

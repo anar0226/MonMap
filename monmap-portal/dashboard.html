@@ -75,7 +75,7 @@
       </a>
       <a href="bookings.html">
         <span class="nav-icon" data-icon="calendar"></span> Захиалга
-        <span class="nav-badge" id="pendingBadge">0</span>
+        <span class="nav-badge" id="pendingBadge" style="display:none;">0</span>
       </a>
 
       <span class="nav-section-label">Удирдлага</span>
@@ -100,7 +100,7 @@
     </nav>
 
     <div class="sidebar-footer">
-      <a href="profile.html"><span class="nav-icon" data-icon="user"></span> Профайл</a>
+      <a href="profile.html?tab=account"><span class="nav-icon" data-icon="user"></span> Профайл</a>
       <button type="button" class="nav-link" onclick="logout()"><span class="nav-icon" data-icon="logout"></span> Гарах</button>
     </div>
   </aside>
@@ -258,11 +258,7 @@
   let _pendingCount = 0;
 
   function onNotifClick() {
-    if (_pendingCount > 0) {
-      window.location.href = 'bookings.html?filter=pending';
-    } else {
-      showToast('info', 'Мэдэгдэл', 'Хүлээгдэж буй захиалга алга байна.');
-    }
+    window.location.href = 'notifications.html';
   }
 
   function renderStats() {

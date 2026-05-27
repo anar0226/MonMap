@@ -56,7 +56,7 @@
       <a href="dashboard.html"><span class="nav-icon" data-icon="home"></span> Самбар</a>
       <a href="bookings.html" class="active">
         <span class="nav-icon" data-icon="calendar"></span> Захиалга
-        <span class="nav-badge" id="pendingBadge">0</span>
+        <span class="nav-badge" id="pendingBadge" style="display:none;">0</span>
       </a>
       <span class="nav-section-label">Удирдлага</span>
       <a href="profile.html"><span class="nav-icon" data-icon="store"></span> Бизнесийн мэдээлэл</a>
@@ -70,7 +70,7 @@
       </a>
     </nav>
     <div class="sidebar-footer">
-      <a href="profile.html"><span class="nav-icon" data-icon="user"></span> Профайл</a>
+      <a href="profile.html?tab=account"><span class="nav-icon" data-icon="user"></span> Профайл</a>
       <button type="button" class="nav-link" onclick="logout()"><span class="nav-icon" data-icon="logout"></span> Гарах</button>
     </div>
   </aside>
@@ -101,13 +101,15 @@
           <button class="btn btn-ghost btn-sm" onclick="toggleAddForm()">✕ Хаах</button>
         </div>
         <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;">
-          <div class="form-group" style="margin-bottom:0;">
+          <div class="form-group" id="nClientGroup" style="margin-bottom:0;">
             <label class="form-label">Харилцагчийн нэр <span class="required">*</span></label>
             <input type="text" class="form-control" id="nClient" placeholder="Б. Нэр" />
+            <span class="form-error">Харилцагчийн нэр оруулна уу</span>
           </div>
-          <div class="form-group" style="margin-bottom:0;">
+          <div class="form-group" id="nPhoneGroup" style="margin-bottom:0;">
             <label class="form-label">Утасны дугаар <span class="required">*</span></label>
             <input type="tel" class="form-control" id="nPhone" placeholder="9900-0000" />
+            <span class="form-error">Утасны дугаар оруулна уу</span>
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label class="form-label">Үйлчилгээ <span class="required">*</span></label>
@@ -118,13 +120,15 @@
               <option>Бусад</option>
             </select>
           </div>
-          <div class="form-group" style="margin-bottom:0;">
+          <div class="form-group" id="nDateGroup" style="margin-bottom:0;">
             <label class="form-label">Огноо <span class="required">*</span></label>
             <input type="date" class="form-control" id="nDate" />
+            <span class="form-error">Огноо сонгоно уу</span>
           </div>
-          <div class="form-group" style="margin-bottom:0;">
+          <div class="form-group" id="nTimeGroup" style="margin-bottom:0;">
             <label class="form-label">Цаг <span class="required">*</span></label>
             <input type="time" class="form-control" id="nTime" value="10:00" />
+            <span class="form-error">Цаг сонгоно уу</span>
           </div>
           <div class="form-group" style="margin-bottom:0;">
             <label class="form-label">Хугацаа (мин)</label>
@@ -469,8 +473,16 @@
     document.getElementById('detailModal').classList.add('open');
   }
 
+  function _clearAddFormErrors() {
+    ['nClientGroup','nPhoneGroup','nDateGroup','nTimeGroup'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('has-error');
+    });
+  }
+
   function toggleAddForm() {
     document.getElementById('addForm').classList.toggle('open');
+    _clearAddFormErrors();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -482,14 +494,18 @@
     const time     = document.getElementById('nTime').value;
     const duration = parseInt(document.getElementById('nDuration').value);
     const note     = document.getElementById('nNote').value.trim();
-    if (!client || !phone || !date || !time) {
-      showToast('error', 'Мэдээлэл дутуу', 'Бүх заавал талбарыг бөглөнө үү.'); return;
-    }
+    _clearAddFormErrors();
+    let valid = true;
+    if (!client) { document.getElementById('nClientGroup').classList.add('has-error'); valid = false; }
+    if (!phone)  { document.getElementById('nPhoneGroup').classList.add('has-error');  valid = false; }
+    if (!date)   { document.getElementById('nDateGroup').classList.add('has-error');   valid = false; }
+    if (!time)   { document.getElementById('nTimeGroup').classList.add('has-error');   valid = false; }
+    if (!valid) return;
     const err = await addPortalBooking(_biz.id, _user.id, { client, phone, service, date, time, duration, note });
     if (err) { showToast('error', 'Алдаа', err.message); return; }
     _bookings = await getMonthBookings(_biz.id, calDate.getFullYear(), calDate.getMonth());
     selectedDate = date;
-    renderCalendar(); renderList(); toggleAddForm();
+    renderCalendar(); renderList(); _clearAddFormErrors(); toggleAddForm();
     showToast('success', 'Захиалга нэмэгдлээ', `${client}-ийн захиалга амжилттай нэмэгдлээ.`);
     document.getElementById('nClient').value = '';
     document.getElementById('nPhone').value  = '';

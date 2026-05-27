@@ -106,7 +106,7 @@
       </a>
     </nav>
     <div class="sidebar-footer">
-      <a href="profile.html"><span class="nav-icon" data-icon="user"></span> Профайл</a>
+      <a href="profile.html?tab=account"><span class="nav-icon" data-icon="user"></span> Профайл</a>
       <button type="button" class="nav-link" onclick="logout()"><span class="nav-icon" data-icon="logout"></span> Гарах</button>
     </div>
   </aside>
@@ -1321,6 +1321,15 @@
         }
       }
       renderVerifyBanner(_biz);
+
+      // Activate a specific tab when ?tab= is in the URL (e.g. from the
+      // sidebar Профайл link which deep-links to the account tab).
+      const _tabParam = new URLSearchParams(location.search).get('tab');
+      if (_tabParam) {
+        const _tabBtn = [...document.querySelectorAll('#profileTabs .tab')]
+          .find(b => (b.getAttribute('onclick') || '').includes(`'${_tabParam}'`));
+        if (_tabBtn) switchTab(_tabParam, _tabBtn);
+      }
 
       // Show a one-time confirmation when arriving from the registration flow.
       if (new URLSearchParams(location.search).get('onboarded') === '1') {

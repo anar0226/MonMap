@@ -1,0 +1,441 @@
+﻿<!DOCTYPE html>
+<html lang="mn">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0A0E1F" />
+  <title>МонМэп — Урилга</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-mark-primary.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://monmap.net/invite.html">
+  <meta property="og:site_name" content="МонМэп">
+  <meta property="og:title" content="МонМэп — Урилга">
+  <meta property="og:description" content="Найз тань МонМэп руу урьж байна. Татаад түгжрэлд сууж орлого олоорой.">
+  <meta property="og:image" content="https://monmap.net/assets/icon-192.png">
+  <meta name="description" content="Найз тань МонМэп руу урьж байна. Татаад түгжрэлд сууж орлого олоорой." />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: #0A0E1F;
+      color: #fff;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background:
+        radial-gradient(circle at 50% 0%, rgba(0,210,106,0.18) 0%, transparent 55%),
+        radial-gradient(circle at 50% 100%, rgba(30,95,230,0.20) 0%, transparent 55%),
+        #0A0E1F;
+    }
+
+    .wrap {
+      width: 100%;
+      max-width: 420px;
+      text-align: center;
+    }
+
+    .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      margin-bottom: 36px;
+      color: rgba(255,255,255,0.95);
+    }
+    .logo-pin {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: #00D26A; display: inline-flex;
+      align-items: center; justify-content: center;
+      font-size: 16px;
+    }
+    .logo .accent { color: #00D26A; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(0,210,106,0.12);
+      border: 1px solid rgba(0,210,106,0.30);
+      color: #00D26A;
+      font-size: 11.5px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      margin-bottom: 20px;
+    }
+    .pill .dot {
+      width: 6px; height: 6px; border-radius: 3px; background: #00D26A;
+    }
+
+    h1 {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1.18;
+      letter-spacing: -0.6px;
+      margin-bottom: 12px;
+    }
+    h1 .highlight { color: #00D26A; }
+
+    .sub {
+      font-size: 14.5px;
+      line-height: 1.55;
+      color: rgba(255,255,255,0.65);
+      margin-bottom: 28px;
+    }
+
+    .code-box {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 16px;
+      padding: 18px 16px;
+      margin-bottom: 24px;
+    }
+    .code-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.40);
+      letter-spacing: 1.5px;
+      margin-bottom: 8px;
+    }
+    .code-value {
+      font-size: 22px;
+      font-weight: 800;
+      color: #fff;
+      letter-spacing: 4px;
+      font-variant-numeric: tabular-nums;
+      font-family: 'SF Mono', 'Menlo', 'Monaco', 'Courier New', monospace;
+    }
+
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      height: 54px;
+      border-radius: 14px;
+      font-size: 15.5px;
+      font-weight: 700;
+      text-decoration: none;
+      transition: transform 0.1s ease, opacity 0.15s ease;
+      cursor: pointer;
+      border: none;
+      letter-spacing: -0.1px;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn-primary {
+      background: linear-gradient(135deg, #1E5FE6 0%, #1B53C9 100%);
+      color: #fff;
+      box-shadow: 0 8px 24px rgba(30,95,230,0.35);
+      margin-bottom: 10px;
+    }
+    .btn-secondary {
+      background: rgba(255,255,255,0.06);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+
+    .stores {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .store-btn {
+      flex: 1;
+      height: 50px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: #fff;
+      text-decoration: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 1px;
+      transition: background 0.15s ease;
+    }
+    .store-btn:hover { background: rgba(255,255,255,0.10); }
+    .store-btn .label-sm { font-size: 9.5px; opacity: 0.6; letter-spacing: 0.4px; }
+    .store-btn .label-lg { font-size: 13px; font-weight: 700; }
+
+    .benefits {
+      margin-top: 36px;
+      text-align: left;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .benefit {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      background: rgba(255,255,255,0.025);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+    }
+    .benefit-icon {
+      width: 32px; height: 32px;
+      border-radius: 9px;
+      background: rgba(0,210,106,0.14);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      font-size: 16px;
+    }
+    .benefit-text { font-size: 13px; line-height: 1.5; color: rgba(255,255,255,0.80); }
+    .benefit-text b { color: #fff; font-weight: 700; }
+
+    .error {
+      margin-top: 16px;
+      padding: 12px 14px;
+      background: rgba(239,68,68,0.10);
+      border: 1px solid rgba(239,68,68,0.30);
+      border-radius: 12px;
+      font-size: 13px;
+      color: #FCA5A5;
+    }
+
+    .footer {
+      margin-top: 36px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.30);
+    }
+    .footer a { color: rgba(255,255,255,0.45); text-decoration: none; }
+
+    .hidden { display: none !important; }
+
+    @media (max-width: 380px) {
+      h1 { font-size: 24px; }
+      .code-value { font-size: 18px; letter-spacing: 3px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="wrap">
+    <div class="logo">
+      <span class="logo-pin">📍</span>
+      Мон<span class="accent">Мэп</span>
+    </div>
+
+    <div class="pill">
+      <span class="dot"></span>
+      <span>НАЙЗЫН УРИЛГА</span>
+    </div>
+
+    <h1>Найз тань <span class="highlight">МонМэп</span> руу урьж байна</h1>
+    <p class="sub">
+      Татаад түгжрэлд сууж орлого ол. Урилга идэвхжүүлснээр та хоёулаа бонус авна.
+    </p>
+
+    <div id="codeBox" class="code-box">
+      <div class="code-label">УРИЛГЫН КОД</div>
+      <div class="code-value" id="codeValue">— — — — — — — — — —</div>
+    </div>
+
+    <button class="btn btn-primary" id="openBtn">
+      <span>МонМэп нээх</span>
+      <span style="font-size:18px;line-height:1;">›</span>
+    </button>
+
+    <button class="btn btn-secondary" id="copyBtn">
+      <span id="copyLabel">Кодыг хуулах</span>
+    </button>
+
+    <div class="stores" id="stores">
+      <a class="store-btn" id="iosStore" href="#" target="_blank" rel="noopener">
+        <span class="label-sm">Татах</span>
+        <span class="label-lg">App Store</span>
+      </a>
+      <a class="store-btn" id="androidStore" href="#" target="_blank" rel="noopener">
+        <span class="label-sm">Татах</span>
+        <span class="label-lg">Google Play</span>
+      </a>
+    </div>
+
+    <div id="errorBox" class="error hidden">
+      <span id="errorMsg"></span>
+    </div>
+
+    <div class="benefits">
+      <div class="benefit">
+        <div class="benefit-icon">🚗</div>
+        <div class="benefit-text">
+          <b>Түгжрэлд орлого олох.</b> Замдаа зогссон цаг бүхэн таны хэтэвчинд хуримтлагдана.
+        </div>
+      </div>
+      <div class="benefit">
+        <div class="benefit-icon">💰</div>
+        <div class="benefit-text">
+          <b>Банкаараа авах.</b> ₮20,000 болоход банкны данс руугаа шилжүүлж аваарай.
+        </div>
+      </div>
+      <div class="benefit">
+        <div class="benefit-icon">🗺</div>
+        <div class="benefit-text">
+          <b>Улаанбаатарын хамгийн дэлгэрэнгүй газрын зураг.</b> Бизнес, цэг, чиглэл нэг дор.
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <a href="index.html">monmap.net</a> · <a href="privacy.html">Нууцлал</a> · <a href="terms.html">Үйлчилгээний нөхцөл</a>
+    </div>
+  </div>
+
+<script>
+  (function () {
+    'use strict';
+
+    const APP_SCHEME           = 'monmap://invite/';
+    const APP_STORE_URL        = 'https://apps.apple.com/app/idYOUR_ID';
+    const PLAY_STORE_URL       = 'https://play.google.com/store/apps/details?id=com.monmap.app';
+    const CODE_REGEX           = /^[A-Z2-9]{10}$/;
+
+    // ── Read the invite code from URL ───────────────────────────────────────
+    function readCode() {
+      const path  = location.pathname || '';
+      const m     = path.match(/\/invite\/([A-Z2-9]{10})/i);
+      if (m && m[1]) return m[1].toUpperCase();
+      const qp    = new URLSearchParams(location.search);
+      const fromQuery = (qp.get('code') || qp.get('invite') || '').toUpperCase();
+      if (CODE_REGEX.test(fromQuery)) return fromQuery;
+      return null;
+    }
+
+    const code = readCode();
+    const ua   = navigator.userAgent || '';
+    const isIOS     = /iPhone|iPad|iPod/i.test(ua);
+    const isAndroid = /Android/i.test(ua);
+    const isMobile  = isIOS || isAndroid;
+
+    const codeValue = document.getElementById('codeValue');
+    const openBtn   = document.getElementById('openBtn');
+    const copyBtn   = document.getElementById('copyBtn');
+    const copyLabel = document.getElementById('copyLabel');
+    const iosStore  = document.getElementById('iosStore');
+    const playStore = document.getElementById('androidStore');
+    const errorBox  = document.getElementById('errorBox');
+    const errorMsg  = document.getElementById('errorMsg');
+
+    iosStore.href  = APP_STORE_URL  + (APP_STORE_URL.includes('?')  ? '&' : '?') + (code ? 'ref=' + encodeURIComponent(code) : '');
+    playStore.href = PLAY_STORE_URL + (PLAY_STORE_URL.includes('?') ? '&' : '?') + (code ? 'referrer=invite_' + encodeURIComponent(code) : '');
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorBox.classList.remove('hidden');
+    }
+
+    if (!code) {
+      codeValue.textContent = 'Буруу холбоос';
+      openBtn.disabled = true;
+      openBtn.style.opacity = '0.4';
+      copyBtn.disabled = true;
+      copyBtn.style.opacity = '0.4';
+      showError('Энэ урилгын холбоос буруу эсвэл хугацаа дууссан байна.');
+      return;
+    }
+
+    // Display the code (groups of 5 for readability)
+    codeValue.textContent = code.slice(0, 5) + ' ' + code.slice(5);
+
+    // ── Copy code to clipboard (best-effort) ───────────────────────────────
+    async function copyToClipboard(text) {
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+          return true;
+        }
+      } catch (_) { /* fall through */ }
+      try {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.opacity  = '0';
+        document.body.appendChild(ta);
+        ta.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(ta);
+        return ok;
+      } catch (_) { return false; }
+    }
+
+    copyBtn.addEventListener('click', async () => {
+      const ok = await copyToClipboard(code);
+      copyLabel.textContent = ok ? 'Хуулагдлаа ✓' : 'Хуулж чадсангүй';
+      setTimeout(() => { copyLabel.textContent = 'Кодыг хуулах'; }, 1800);
+    });
+
+    // ── Open the app ───────────────────────────────────────────────────────
+    //
+    // Strategy:
+    //   1. Copy the code to the clipboard so the app can pick it up
+    //      post-install via pickupTokenFromClipboard().
+    //   2. Try the custom scheme (monmap://invite/<code>). If the app is
+    //      installed it opens immediately.
+    //   3. After a short timeout, if we're still on this page, fall back to
+    //      the platform store install URL.
+    //
+    // On desktop, jump straight to "scan QR" hint — no deep-link attempt.
+    function openApp() {
+      copyToClipboard(code).catch(() => {});
+
+      if (!isMobile) {
+        showError('Энэ урилгыг гар утаснаасаа нээнэ үү. Кодыг хуулсан тул апп руугаа гар утсандаа орох үед автоматаар бөглөгдөнө.');
+        return;
+      }
+
+      const deepLink = APP_SCHEME + code;
+      const storeUrl = isIOS ? iosStore.href : playStore.href;
+
+      // Track whether the page lost focus — that means the app opened.
+      let appOpened = false;
+      const onVisibility = () => { if (document.hidden) appOpened = true; };
+      const onBlur       = () => { appOpened = true; };
+      document.addEventListener('visibilitychange', onVisibility);
+      window.addEventListener('blur', onBlur);
+
+      // Attempt to launch the app
+      const start = Date.now();
+      window.location.href = deepLink;
+
+      // After ~1.4s, if the app didn't open, fall back to the store
+      setTimeout(() => {
+        document.removeEventListener('visibilitychange', onVisibility);
+        window.removeEventListener('blur', onBlur);
+        const elapsed = Date.now() - start;
+        // If less time elapsed than expected (browser paused us), assume app opened
+        if (appOpened || elapsed > 2500) return;
+        window.location.href = storeUrl;
+      }, 1400);
+    }
+
+    openBtn.addEventListener('click', openApp);
+
+    // ── Auto-attempt deep link on mobile load ───────────────────────────────
+    // Many invite flows expect "tap link → open app immediately". Wait a beat
+    // so the user sees the page, then try. If it fails, the user can still
+    // tap the visible buttons.
+    if (isMobile) {
+      setTimeout(openApp, 350);
+    }
+  })();
+</script>
+
+</body>
+</html>

@@ -1,10 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="mn">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://*.hcaptcha.com https://hcaptcha.com; style-src 'self' 'unsafe-inline' https://*.hcaptcha.com; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co https://*.hcaptcha.com; img-src 'self' data: blob: https:; frame-src https://*.hcaptcha.com https://hcaptcha.com; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Бизнесийн профайл — МонМэп</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-mark-primary.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
   <link rel="stylesheet" href="css/style.css" />
   <style>
     .profile-avatar-wrap {
@@ -505,21 +508,12 @@
           <div class="section-card" style="margin-bottom:0;">
             <div class="section-card-body">
               <div style="font-size:0.8125rem;color:var(--gray-500);font-weight:600;margin-bottom:6px;">Шилжүүлэг хүртэл</div>
-              <div id="walletNeeded" style="font-size:1.25rem;font-weight:700;color:var(--gray-800);">₮50,000</div>
-              <div style="font-size:0.75rem;color:var(--gray-400);margin-top:2px;">₮50,000-аас шилжүүлэх боломжтой</div>
+              <div id="walletNeeded" style="font-size:1.25rem;font-weight:700;color:var(--gray-800);">₮20,000</div>
+              <div style="font-size:0.75rem;color:var(--gray-400);margin-top:2px;">₮20,000-аас шилжүүлэх боломжтой</div>
               <div style="height:6px;background:var(--gray-100);border-radius:999px;margin-top:12px;overflow:hidden;">
                 <div id="walletThreshBar" style="height:100%;background:var(--primary);border-radius:999px;width:0%;transition:width .4s ease;"></div>
               </div>
             </div>
-          </div>
-        </div>
-
-        <!-- KYC notice -->
-        <div id="walletKycBanner" class="alert alert-warning hidden" style="margin-bottom:24px;">
-          <span class="alert-icon">⚠️</span>
-          <div>
-            <strong>KYC баталгаажуулалт шаардлагатай</strong><br>
-            <span style="font-size:0.875rem;">Банк руу шилжүүлэхийн тулд иргэний үнэмлэхийн баталгаажуулалт хийнэ үү. Энэ функц удахгүй нэмэгдэнэ.</span>
           </div>
         </div>
 
@@ -534,14 +528,15 @@
                 <label class="form-label">Банк <span class="required">*</span></label>
                 <select class="form-control" id="payoutBank">
                   <option value="">— Сонгох —</option>
-                  <option value="Khan">Хаан банк</option>
-                  <option value="Golomt">Голомт банк</option>
-                  <option value="TDB">Худалдаа хөгжлийн банк</option>
-                  <option value="Xac">ХАС банк</option>
-                  <option value="State">Төрийн банк</option>
-                  <option value="Capitron">Капитрон банк</option>
-                  <option value="Ulaanbaatar">Улаанбаатар банк</option>
-                  <option value="Bogd">Богд банк</option>
+                  <option value="Хаан банк">Хаан банк</option>
+                  <option value="Голомт банк">Голомт банк</option>
+                  <option value="Худалдаа хөгжлийн банк">Худалдаа хөгжлийн банк</option>
+                  <option value="Хас банк">Хас банк</option>
+                  <option value="Төрийн банк">Төрийн банк</option>
+                  <option value="Капитрон банк">Капитрон банк</option>
+                  <option value="M банк">M банк</option>
+                  <option value="Ариг банк">Ариг банк</option>
+                  <option value="Богд банк">Богд банк</option>
                 </select>
               </div>
               <div class="form-group">
@@ -555,9 +550,9 @@
                 <input type="text" class="form-control" id="payoutAccName" placeholder="БОЛД ГАНТУЛГА" />
               </div>
               <div class="form-group">
-                <label class="form-label">Шилжүүлэх дүн (₮) <span class="required">*</span></label>
-                <input type="number" class="form-control" id="payoutAmount" min="50000" step="1000" placeholder="50000" />
-                <span class="form-hint">Доод хэмжээ: ₮50,000</span>
+                <label class="form-label">Шилжүүлэх дүн (₮)</label>
+                <input type="number" class="form-control" id="payoutAmount" readonly />
+                <span class="form-hint">Боломжтой бүх үлдэгдэл шилжүүлэгдэнэ. Доод хэмжээ: ₮20,000</span>
               </div>
             </div>
             <div style="display:flex;justify-content:flex-end;">
@@ -579,7 +574,7 @@
         </div>
 
         <p style="font-size:0.8125rem;color:var(--gray-400);line-height:1.6;margin-top:8px;margin-bottom:32px;">
-          Замын түгжрэлийн орлого: минут тутамд ₮15, өдөрт хамгийн ихдээ ₮1,500. ₮20,000-аас банк руу шилжүүлэх боломжтой. KYC баталгаажуулалт хийгдсний дараа шилжүүлэг 72 цагийн дотор боловсруулагдана.
+          Замын түгжрэлийн орлого: минут тутамд ₮15, өдөрт хамгийн ихдээ ₮1,500. ₮20,000-аас банк руу шилжүүлэх боломжтой. Шилжүүлгийг гар аргаар гүйцэтгэх ба ажлын 1–3 өдөрт багтаана.
         </p>
 
       </div>
@@ -1103,7 +1098,7 @@
     const today = new Date().toISOString().slice(0, 10);
     const [{ data: bal }, { data: rows }, { data: counter }] = await Promise.all([
       _sb.from('wallet_balances')
-         .select('available_mnt, pending_mnt, lifetime_earned_mnt, kyc_verified')
+         .select('available_mnt, pending_mnt, lifetime_earned_mnt')
          .eq('user_id', _user.id).maybeSingle(),
       _sb.from('wallet_ledger')
          .select('id, delta_mnt, kind, created_at, metadata')
@@ -1119,7 +1114,6 @@
     const avail    = bal?.available_mnt        ?? 0;
     const pending  = bal?.pending_mnt          ?? 0;
     const lifetime = bal?.lifetime_earned_mnt  ?? 0;
-    const kycOk    = bal?.kyc_verified         ?? false;
     const todayMnt = counter?.earned_mnt       ?? 0;
 
     document.getElementById('walletAvail').textContent    = fmtMnt(avail);
@@ -1134,13 +1128,11 @@
     document.getElementById('walletThreshBar').style.width =
       Math.min(100, (avail / WALLET_WITHDRAW_MNT) * 100) + '%';
 
-    document.getElementById('walletKycBanner').classList.toggle('hidden', kycOk);
-
     const payoutBtn = document.getElementById('payoutBtn');
-    if (payoutBtn) payoutBtn.disabled = avail < WALLET_WITHDRAW_MNT || !kycOk;
+    if (payoutBtn) payoutBtn.disabled = avail < WALLET_WITHDRAW_MNT;
 
     const amtEl = document.getElementById('payoutAmount');
-    if (amtEl && avail >= WALLET_WITHDRAW_MNT) amtEl.value = avail;
+    if (amtEl) amtEl.value = avail;
 
     renderWalletLedger(rows || []);
   }
@@ -1182,25 +1174,20 @@
 
   async function requestPayout() {
     if (!_user) return;
-    const bank      = document.getElementById('payoutBank').value;
-    const accNum    = document.getElementById('payoutAccNum').value.trim();
-    const accName   = document.getElementById('payoutAccName').value.trim();
-    const amountMnt = parseInt(document.getElementById('payoutAmount').value, 10);
+    const bank    = document.getElementById('payoutBank').value;
+    const accNum  = document.getElementById('payoutAccNum').value.trim();
+    const accName = document.getElementById('payoutAccName').value.trim();
 
-    if (!bank)    { showToast('error', 'Алдаа', 'Банк сонгоно уу.');                            return; }
-    if (!accNum)  { showToast('error', 'Алдаа', 'Дансны дугаар оруулна уу.');                   return; }
-    if (!accName) { showToast('error', 'Алдаа', 'Дансны эзний нэр оруулна уу.');                return; }
-    if (!amountMnt || amountMnt < WALLET_WITHDRAW_MNT) {
-      showToast('error', 'Алдаа', `Доод хэмжээ ${fmtMnt(WALLET_WITHDRAW_MNT)}.`);
-      return;
-    }
+    if (!bank)    { showToast('error', 'Алдаа', 'Банк сонгоно уу.');             return; }
+    if (!accNum)  { showToast('error', 'Алдаа', 'Дансны дугаар оруулна уу.');    return; }
+    if (!accName) { showToast('error', 'Алдаа', 'Дансны эзний нэр оруулна уу.'); return; }
 
     const btn = document.getElementById('payoutBtn');
     if (btn) { btn.disabled = true; btn.textContent = 'Илгээж байна…'; }
 
     const { data, error } = await _sb.functions.invoke('wallet-payout-request', {
       method: 'POST',
-      body: { amountMnt, bankAccount: { bank, accountNumber: accNum, accountName: accName } },
+      body: { bankName: bank, accountNumber: accNum, accountHolder: accName },
     });
 
     if (btn) { btn.disabled = false; btn.textContent = '💸 Шилжүүлэх хүсэлт гаргах'; }
@@ -1210,7 +1197,7 @@
       return;
     }
 
-    showToast('success', 'Хүсэлт илгээгдлээ', `72 цагийн дотор боловсруулагдана. Данс: ${bank} ${accNum}`);
+    showToast('success', 'Хүсэлт илгээгдлээ', `${fmtMnt(data.amountMnt || 0)} шилжүүлэх хүсэлт хүлээн авлаа. Гар аргаар шилжүүлэг хийгдэнэ.`);
     await loadWallet();
   }
 

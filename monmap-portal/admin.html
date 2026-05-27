@@ -1,10 +1,13 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="mn">
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; connect-src 'self' https://brykoxmygtiyrssmsvys.supabase.co wss://brykoxmygtiyrssmsvys.supabase.co; img-src 'self' data: blob: https:; media-src 'self' blob: https://brykoxmygtiyrssmsvys.supabase.co; font-src 'self' data:; base-uri 'self'; form-action 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Admin — МонМэп</title>
+  <link rel="icon" type="image/svg+xml" href="/assets/logo-mark-primary.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="/assets/icon-192.png">
+  <link rel="apple-touch-icon" href="/assets/icon-192.png">
   <link rel="stylesheet" href="css/style.css" />
   <style>
     body { background: var(--gray-100); }
@@ -130,8 +133,9 @@
 
     <!-- Section tabs -->
     <div class="admin-tabs">
-      <button class="admin-tab active" data-tab="claims" onclick="switchAdminTab('claims')">📋 Баталгаажуулалт</button>
-      <button class="admin-tab"        data-tab="ads"    onclick="switchAdminTab('ads')">🎬 Сурталчилгаа</button>
+      <button class="admin-tab active" data-tab="claims"  onclick="switchAdminTab('claims')">📋 Баталгаажуулалт</button>
+      <button class="admin-tab"        data-tab="ads"     onclick="switchAdminTab('ads')">🎬 Сурталчилгаа</button>
+      <button class="admin-tab"        data-tab="payouts" onclick="switchAdminTab('payouts')">💸 Шилжүүлэг</button>
     </div>
 
     <!-- ─────────── CLAIMS TAB ─────────── -->
@@ -222,6 +226,31 @@
       </div>
     </div>
 
+    <!-- ─────────── PAYOUTS TAB ─────────── -->
+    <div id="tab-payouts" class="tab-panel">
+      <div class="table-card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Хэрэглэгч</th>
+                <th>Дүн</th>
+                <th>Банк</th>
+                <th>Дансны дугаар</th>
+                <th>Данс эзэмшигч</th>
+                <th>Огноо</th>
+                <th>Төлөв</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="payoutsBody">
+              <tr><td colspan="8" class="empty-state">Ачааллаж байна…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -302,6 +331,12 @@
   const STATUS_HTML = {
     pending:  '<span class="badge badge-warning">Хүлээгдэж буй</span>',
     verified: '<span class="badge badge-success">Баталгаажсан</span>',
+    rejected: '<span class="badge badge-danger">Татгалзсан</span>',
+  };
+
+  const PAYOUT_STATUS_HTML = {
+    pending:  '<span class="badge badge-warning">Хүлээгдэж буй</span>',
+    paid:     '<span class="badge badge-success">Төлсөн</span>',
     rejected: '<span class="badge badge-danger">Татгалзсан</span>',
   };
 
@@ -599,10 +634,13 @@
 
   let _adsLoaded = false;
 
+  let _payoutsLoaded = false;
+
   function switchAdminTab(name) {
     document.querySelectorAll('.admin-tab').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
-    if (name === 'ads' && !_adsLoaded) { _adsLoaded = true; loadAds(); }
+    if (name === 'ads'     && !_adsLoaded)     { _adsLoaded = true;     loadAds(); }
+    if (name === 'payouts' && !_payoutsLoaded) { _payoutsLoaded = true; loadPayouts(); }
   }
 
   async function loadAds() {
@@ -735,6 +773,75 @@
     await _sb.storage.from('ads').remove([storagePath]).catch(e => console.warn('storage remove failed:', e));
     showToast('success', 'Устгагдлаа', `"${title}" сурталчилгаа устгагдлаа.`);
     await loadAds();
+  }
+
+  // ════════════════════════════════════════════════════════════════
+  // WITHDRAWAL REQUESTS
+  // ════════════════════════════════════════════════════════════════
+  // Listed directly via PostgREST — admins are gated by the
+  // "admins read all withdrawal requests" RLS policy. Reviewing a
+  // request (paid / rejected) goes through the admin-review-payout
+  // edge function because a rejection refunds the user's wallet.
+
+  async function loadPayouts() {
+    const body = document.getElementById('payoutsBody');
+    body.innerHTML = '<tr><td colspan="8" class="empty-state">Ачааллаж байна…</td></tr>';
+    const { data, error } = await _sb
+      .from('withdrawal_requests')
+      .select('id, user_email, amount_mnt, bank_name, account_number, account_holder, status, admin_note, created_at')
+      .order('created_at', { ascending: false });
+    if (error) {
+      body.innerHTML = `<tr><td colspan="8" class="empty-state" style="color:var(--danger);">Алдаа: ${escapeHtml(error.message)}</td></tr>`;
+      return;
+    }
+    if (!data.length) {
+      body.innerHTML = '<tr><td colspan="8" class="empty-state">Шилжүүлгийн хүсэлт байхгүй байна</td></tr>';
+      return;
+    }
+    body.innerHTML = data.map(r => {
+      const actionable = r.status === 'pending';
+      return `
+        <tr>
+          <td>${escapeHtml(r.user_email || '—')}</td>
+          <td style="font-weight:700;white-space:nowrap;">₮${Number(r.amount_mnt || 0).toLocaleString('en-US')}</td>
+          <td>${escapeHtml(r.bank_name)}</td>
+          <td style="font-family:monospace;">${escapeHtml(r.account_number)}</td>
+          <td style="font-weight:600;">${escapeHtml(r.account_holder)}</td>
+          <td style="white-space:nowrap;">${fmtDate(r.created_at)}</td>
+          <td>${PAYOUT_STATUS_HTML[r.status] || escapeHtml(r.status)}</td>
+          <td style="white-space:nowrap;">
+            ${actionable ? `
+              <button class="btn btn-primary" style="font-size:0.8rem;padding:5px 12px;"
+                onclick="reviewPayout('${escapeHtml(r.id)}','paid')">✅ Төлсөн</button>
+              <button class="btn" style="font-size:0.8rem;padding:5px 12px;background:var(--danger-light);color:var(--danger);border:none;"
+                onclick="reviewPayout('${escapeHtml(r.id)}','rejected')">⛔ Татгалзах</button>
+            ` : (r.admin_note ? `<span class="place-meta">${escapeHtml(r.admin_note)}</span>` : '')}
+          </td>
+        </tr>`;
+    }).join('');
+  }
+
+  async function reviewPayout(id, action) {
+    let note = null;
+    if (action === 'rejected') {
+      note = prompt('Татгалзах шалтгаан (заавал биш). Хэрэглэгчийн дүн хэтэвчинд буцаан орно:');
+      if (note === null) return;   // cancelled
+    } else if (!confirm('Энэ хүсэлтийг "Төлсөн" гэж тэмдэглэх үү?\n\nМөнгийг банк руу шилжүүлсэн эсэхээ баталгаажуулна уу.')) {
+      return;
+    }
+    try {
+      const { data: { session } } = await _sb.auth.getSession();
+      const res = await fetch(`${window._SUPABASE_URL}/functions/v1/admin-review-payout`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action, note }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      showToast('success', action === 'paid' ? 'Төлсөн гэж тэмдэглэлээ' : 'Татгалзлаа', '');
+      await loadPayouts();
+    } catch (e) {
+      showToast('error', 'Алдаа', String(e));
+    }
   }
 
   // Derive the project URL from the already-initialised _sb client.

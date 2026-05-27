@@ -156,9 +156,10 @@
       <div id="forgotStep1">
         <div class="modal-body">
           <p style="color:var(--gray-600);margin-bottom:20px;">Бүртгэлтэй и-мэйл хаягаа оруулна уу. 6 оронтой баталгаажуулах код илгээнэ.</p>
-          <div class="form-group" style="margin-bottom:16px;">
+          <div class="form-group" id="forgotEmailGroup" style="margin-bottom:16px;">
             <label class="form-label">И-мэйл хаяг</label>
             <input type="email" id="forgotEmail" class="form-control" placeholder="example@business.mn" autocomplete="email" />
+            <span class="form-error">Зөв и-мэйл хаяг оруулна уу</span>
           </div>
           <div id="hcaptcha-forgot-widget"></div>
         </div>
@@ -325,6 +326,7 @@
       e.preventDefault();
       _forgotShowStep(1);
       document.getElementById('forgotEmail').value = '';
+      document.getElementById('forgotEmailGroup').classList.remove('has-error');
       document.querySelectorAll('.forgot-otp-box').forEach(el => { el.value = ''; });
       document.getElementById('forgotNewPwd').value = '';
       document.getElementById('forgotConfirmPwd').value = '';
@@ -341,14 +343,17 @@
       document.querySelectorAll('.forgot-otp-box').forEach(el => { el.value = ''; });
       document.getElementById('forgotOtpErr').classList.add('hidden');
       document.getElementById('forgotVerifyBtn').disabled = true;
+      document.getElementById('forgotEmailGroup').classList.remove('has-error');
       try { hcaptcha.reset(_hcaptchaForgotWidgetId); } catch (_) {}
       _forgotShowStep(1);
     }
 
     async function sendReset() {
+      const emailGroup = document.getElementById('forgotEmailGroup');
+      emailGroup.classList.remove('has-error');
       const email = document.getElementById('forgotEmail').value.trim();
       if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        showToast('error', 'Алдаа', 'Зөв и-мэйл хаяг оруулна уу.'); return;
+        emailGroup.classList.add('has-error'); return;
       }
       const captchaToken = _hcaptchaForgotWidgetId !== null ? hcaptcha.getResponse(_hcaptchaForgotWidgetId) : '';
       if (!captchaToken) { showToast('error', 'Алдаа', 'Хүний баталгаажуулалтыг бөглөнө үү.'); return; }

@@ -34,6 +34,9 @@ yarn-error.*
 .env
 .env*.local
 
+# EAS local credentials (contains keystore passwords)
+credentials.json
+
 # scraper output (can be large and contains business data)
 data/raw_places.json
 data/progress.json

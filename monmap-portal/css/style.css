@@ -992,7 +992,7 @@ tr:hover td { background: var(--gray-50); }
   font-size: 1.5rem;
   margin-bottom: 18px;
 }
-.feature-card h4 { font-size: 1.0625rem; color: var(--gray-900); margin-bottom: 10px; }
+.feature-card h3 { font-size: 1.0625rem; color: var(--gray-900); margin-bottom: 10px; }
 .feature-card p { font-size: 0.9rem; color: var(--gray-500); line-height: 1.65; }
 
 .how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 40px; }
@@ -1007,7 +1007,7 @@ tr:hover td { background: var(--gray-50); }
   display: flex; align-items: center; justify-content: center;
   margin: 0 auto 18px;
 }
-.how-item h4 { font-size: 1.0625rem; color: var(--gray-800); margin-bottom: 10px; }
+.how-item h3 { font-size: 1.0625rem; color: var(--gray-800); margin-bottom: 10px; }
 .how-item p { font-size: 0.9rem; color: var(--gray-500); }
 
 .testimonials-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }

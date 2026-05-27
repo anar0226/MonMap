@@ -18,10 +18,21 @@
       "bundleIdentifier": "com.monmap.app",
       "buildNumber": "1",
       "infoPlist": {
-        "NSLocationWhenInUseUsageDescription": "MonMap uses your location to show you on the map and provide accurate ETAs.",
-        "NSCameraUsageDescription": "Camera is used for AR indoor navigation to help you find your way inside buildings.",
-        "LSApplicationQueriesSchemes": ["ubcab", "abataxi", "aba"]
+        "NSLocationWhenInUseUsageDescription": "MonMap uses your location to detect when you're stopped in traffic so we can credit your wallet, place you on the map, and save your home and work locations.",
+        "NSCameraUsageDescription": "MonMap uses the camera for AR indoor navigation so you can find your way inside buildings.",
+        "NSPhotoLibraryUsageDescription": "MonMap uses your photo library only when you choose a profile picture.",
+        "ITSAppUsesNonExemptEncryption": false,
+        "LSApplicationQueriesSchemes": [
+          "ubcab",
+          "abataxi",
+          "aba",
+          "fb-messenger",
+          "viber"
+        ]
       }
+    },
+    "locales": {
+      "mn": "./locales/ios/mn.json"
     },
     "android": {
       "adaptiveIcon": {
@@ -35,7 +46,9 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "CAMERA"
+        "CAMERA",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -49,7 +62,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Camera is used for AR indoor navigation to help you find your way inside buildings."
+          "cameraPermission": "MonMap uses the camera for AR indoor navigation so you can find your way inside buildings."
         }
       ],
       [
@@ -58,7 +71,14 @@
           "icon": "./assets/icon.png",
           "color": "#0053A3"
         }
-      ]
-    ]
+      ],
+      "./plugins/withAndroidLintConfig"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "23aa6235-b6b8-45f1-9e9d-ce5566b64684"
+      }
+    },
+    "owner": "anarborgil"
   }
 }

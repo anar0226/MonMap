@@ -204,27 +204,29 @@
   <div class="toast-container" id="toastContainer"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <!-- BUG-001 / BUG-002 fix: define onHcaptchaLoad BEFORE the hCaptcha script
+       tag so the callback is available even when the API loads from cache and
+       fires synchronously, before later inline <script> blocks are parsed.
+       Removing the `if (window.hcaptcha)` fallback also eliminates the 5x
+       "should not render before JS API is fully loaded" console warnings. -->
+  <script>
+    window._hcaptchaWidgetId = null;
+    window._hcaptchaForgotWidgetId = null;
+    window.onHcaptchaLoad = function () {
+      if (window._hcaptchaWidgetId === null) {
+        var c = document.getElementById('hcaptcha-widget');
+        if (c) window._hcaptchaWidgetId = hcaptcha.render(c, { sitekey: 'f3dc7bf4-efd6-4df2-b0f8-98e02c3c51ce' });
+      }
+      if (window._hcaptchaForgotWidgetId === null) {
+        var fc = document.getElementById('hcaptcha-forgot-widget');
+        if (fc) window._hcaptchaForgotWidgetId = hcaptcha.render(fc, { sitekey: 'f3dc7bf4-efd6-4df2-b0f8-98e02c3c51ce' });
+      }
+    };
+  </script>
   <script src="https://js.hcaptcha.com/1/api.js?onload=onHcaptchaLoad&render=explicit" async defer></script>
   <script src="js/supabase-client.js"></script>
   <script src="js/utils.js"></script>
   <script>
-    // Render hCaptcha widget once the API script loads. The onload= callback
-    // and the manual window.hcaptcha check can both fire; the guard prevents
-    // the "Only one captcha per container" duplicate-render error.
-    let _hcaptchaWidgetId = null;
-    let _hcaptchaForgotWidgetId = null;
-    window.onHcaptchaLoad = function () {
-      if (_hcaptchaWidgetId === null) {
-        const container = document.getElementById('hcaptcha-widget');
-        if (container) _hcaptchaWidgetId = hcaptcha.render(container, { sitekey: window._HCAPTCHA_SITE_KEY });
-      }
-      if (_hcaptchaForgotWidgetId === null) {
-        const forgotContainer = document.getElementById('hcaptcha-forgot-widget');
-        if (forgotContainer) _hcaptchaForgotWidgetId = hcaptcha.render(forgotContainer, { sitekey: window._HCAPTCHA_SITE_KEY });
-      }
-    };
-    if (window.hcaptcha) window.onHcaptchaLoad();
-
     // Redirect to dashboard if already logged in
     (async function () {
       const { data: { session } } = await _sb.auth.getSession();

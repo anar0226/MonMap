@@ -976,6 +976,16 @@
 
   <div class="toast-container" id="toastContainer"></div>
 
+  <!-- BUG-001 / BUG-002 fix: define onHcaptchaLoad BEFORE the hCaptcha script tag. -->
+  <script>
+    window._hcaptchaWidgetId = null;
+    window.onHcaptchaLoad = function () {
+      if (window._hcaptchaWidgetId !== null) return;
+      var c = document.getElementById('hcaptcha-widget');
+      if (!c) return;
+      window._hcaptchaWidgetId = hcaptcha.render(c, { sitekey: 'f3dc7bf4-efd6-4df2-b0f8-98e02c3c51ce' });
+    };
+  </script>
   <script src="https://js.hcaptcha.com/1/api.js?onload=onHcaptchaLoad&render=explicit" async defer></script>
   <script src="js/supabase.min.js"></script>
   <script src="js/supabase-client.js"></script>
@@ -1704,19 +1714,6 @@
 
     // Kick off draft restore (async, non-blocking)
     initDraftRestore().catch(() => {});
-
-    // Render hCaptcha widget on Step 1 after the API script loads. The
-    // onHcaptchaLoad callback can fire twice (api.js's onload= and the manual
-    // window.hcaptcha check below); a guard prevents the "Only one captcha is
-    // permitted per parent container" duplicate-render error.
-    let _hcaptchaWidgetId = null;
-    window.onHcaptchaLoad = function () {
-      if (_hcaptchaWidgetId !== null) return;
-      const container = document.getElementById('hcaptcha-widget');
-      if (!container) return;
-      _hcaptchaWidgetId = hcaptcha.render(container, { sitekey: window._HCAPTCHA_SITE_KEY });
-    };
-    if (window.hcaptcha) window.onHcaptchaLoad();
 
     // Start Step 2 in claim mode — show claim nav, hide create nav
     switchToClaimMode();
